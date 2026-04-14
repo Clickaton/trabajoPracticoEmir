@@ -7,17 +7,17 @@ const userController = require('./userController/userController');
 const cohorteController = require('./cohorteController/cohorteController');
 app.use(express.json());
 
-app.get('/users', userController.getUsers);
-app.get('/users/:id', userController.getUserById);
-app.post('/users', userController.createUser);
-app.put('/users/:id', userController.updateUser);
-app.delete('/users/:id', userController.deleteUser);
-app.get('/cohortes', cohorteController.getCohortes);
-app.get('/cohortes/:id', cohorteController.getCohorteById);
-app.post('/cohortes', cohorteController.createCohorte);
-app.put('/cohortes/:id', cohorteController.updateCohorte);
-app.delete('/cohortes/:id', cohorteController.deleteCohorte);
-app.post('/cohortes/:cohorteId/usuarios', cohorteController.addUserToCohorte);
+app.get('/getUsers', userController.getUsers);
+app.get('/getUserById/:id', userController.getUserById);
+app.post('/createUser', userController.createUser);
+app.put('/updateUser/:id', userController.updateUser);
+app.delete('/deleteUser/:id', userController.deleteUser);
+app.get('/getCohortes', cohorteController.getCohortes);
+app.get('/getCohorteById/:id', cohorteController.getCohorteById);
+app.post('/crearCohorte', cohorteController.createCohorte);
+app.put('/updateCohorte/:id', cohorteController.updateCohorte);
+app.delete('/deleteCohorte/:id', cohorteController.deleteCohorte);
+app.post('/cohorte/:cohorteId/addUser', cohorteController.addUserToCohorte);
 
 
 app.listen(port, () => {
