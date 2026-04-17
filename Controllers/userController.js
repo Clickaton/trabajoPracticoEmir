@@ -1,13 +1,14 @@
 const User = require('../models/User'); 
 
 let listaUsuario = [
-    { id: 1, name: "Juan Pérez", email: "juan.perez@example.com" },
-    { id: 2, name: "María García", email: "maria.garcia@example.com" },
-    { id: 3, name: "Carlos López", email: "carlos.lopez@example.com" }
+    { id: 1, name: "Juan Pérez", email: "juan.perez@example.com", password: "password123"},
+    { id: 2, name: "María García", email: "maria.garcia@example.com", password: "password456"},
+    { id: 3, name: "Carlos López", email: "carlos.lopez@example.com", password: "password789"}
 ];
 
 exports.getUsers = (req, res) => {
-    res.json({ message: 'Lista de usuarios', data: listaUsuario });
+    const usuariosSinPassword = listaUsuario.map(({ id, name, email }) => ({ id, name, email }));
+    res.json({ message: 'Lista de usuarios', data: usuariosSinPassword });
 };
 
 exports.getUserById = (req, res) => {
@@ -16,27 +17,30 @@ exports.getUserById = (req, res) => {
     if (!usuario) {
         return res.status(404).json({ error: "Usuario no encontrado" });
     }
-    res.json({ message: `Detalles del usuario con ID: ${id}`, user: usuario });
+    const { password, ...usuarioSinPassword } = usuario;
+    res.json({ message: `Detalles del usuario con ID: ${id}`, user: usuarioSinPassword });
 };
 
 exports.createUser = (req, res) => {
-    const { id, name, email } = req.body;
-    if (!id || !name || !email) {
+    const { id, name, email, password } = req.body;
+    if (!id || !name || !email || !password) {
         return res.status(400).json({ error: "Faltan datos obligatorios" });
     }
-    const nuevoUsuario = new User(id, name, email);
+    const nuevoUsuario = new User(id, name, email, password);
     listaUsuario.push(nuevoUsuario);
     res.json({ message: 'Usuario creado exitosamente', user: nuevoUsuario });
 };
 
 exports.updateUser = (req, res) => {
     const { id } = req.params;
-    const { name, email } = req.body;
+    const { name, email, password } = req.body;
     const usuario = listaUsuario.find(u => u.id === parseInt(id));
     if (!usuario) return res.status(404).json({ error: "Usuario no encontrado" });
 
     if (name) usuario.name = name;
     if (email) usuario.email = email;
+    if (password) usuario.password = password;
+
 
     res.json({ message: "Usuario actualizado", user: usuario });
 };
