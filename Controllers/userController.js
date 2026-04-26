@@ -6,9 +6,23 @@ let listaUsuario = [
     { id: 3, name: "Carlos López", email: "carlos.lopez@example.com", password: "password789"}
 ];
 
+// Renderiza el formulario de registro
+exports.getRegisterForm = (req, res) => {
+    res.render('userRegister');
+};
+
+// Renderiza el formulario de edición
+exports.getEditForm = (req, res) => {
+    const { id } = req.params;
+    const usuario = listaUsuario.find(u => u.id === parseInt(id));
+    if (!usuario) return res.status(404).send("Usuario no encontrado");
+    
+    res.render('userEdit', { user: usuario });
+};
+
 exports.getUsers = (req, res) => {
     const usuariosSinPassword = listaUsuario.map(({ id, name, email }) => ({ id, name, email }));
-    res.json({ message: 'Lista de usuarios', data: usuariosSinPassword });
+    res.render('userList', { users: usuariosSinPassword });
 };
 
 exports.getUserById = (req, res) => {
@@ -28,7 +42,7 @@ exports.createUser = (req, res) => {
     }
     const nuevoUsuario = new User(id, name, email, password);
     listaUsuario.push(nuevoUsuario);
-    res.json({ message: 'Usuario creado exitosamente', user: nuevoUsuario });
+    res.redirect('/getUsers'); // Redirige de vuelta a la lista tras guardar
 };
 
 exports.updateUser = (req, res) => {
@@ -42,7 +56,7 @@ exports.updateUser = (req, res) => {
     if (password) usuario.password = password;
 
 
-    res.json({ message: "Usuario actualizado", user: usuario });
+    res.redirect('/getUsers'); // Redirige a la lista tras actualizar
 };
 
 exports.deleteUser = (req, res) => {
@@ -51,5 +65,5 @@ exports.deleteUser = (req, res) => {
     if (index === -1) return res.status(404).json({ error: "Usuario no encontrado" });
 
     const eliminado = listaUsuario.splice(index, 1);
-    res.json({ message: "Usuario eliminado", user: eliminado });
+    res.redirect('/getUsers'); // Redirige a la tabla tras eliminar
 };

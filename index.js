@@ -10,14 +10,21 @@ const cohorteController = require('./Controllers/cohorteController');
 const materiaController = require('./Controllers/materiaController');
 const alumnoController = require('./Controllers/alumnoController');
 
+// Configuración del motor de plantillas Pug
+app.set('view engine', 'pug');
+app.set('views', './views'); // Le indicamos a express que la carpeta se llama 'view'
+
 app.use(express.json());
+app.use(express.urlencoded({ extended: true })); // Necesario para procesar los datos enviados por formularios HTML
 
 //Usuario
 app.get('/getUsers', userController.getUsers);
+app.get('/registerUser', userController.getRegisterForm); 
+app.get('/editUser/:id', userController.getEditForm); // Nueva ruta para ver el formulario
 app.get('/getUserById/:id', userController.getUserById);
 app.post('/createUser', userController.createUser);
-app.put('/updateUser/:id', userController.updateUser);
-app.delete('/deleteUser/:id', userController.deleteUser);
+app.post('/updateUser/:id', userController.updateUser); // Cambiado a POST para HTML
+app.post('/deleteUser/:id', userController.deleteUser);
 //Cohorte
 app.get('/getCohortes', cohorteController.getCohortes);
 app.get('/getCohorteById/:id', cohorteController.getCohorteById);
