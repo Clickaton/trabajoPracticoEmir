@@ -1,0 +1,22 @@
+[
+  {
+    "id": 1,
+    "nombre": "Matemática 1",
+    "anio": 1
+  },
+  {
+    "id": 2,
+    "nombre": "Programación 1",
+    "anio": 1
+  },
+  {
+    "id": 3,
+    "nombre": "Bases de Datos",
+    "anio": 2
+  },
+  {
+    "id": 4,
+    "nombre": "Diseño de Sistemas",
+    "anio": 3
+  }
+]

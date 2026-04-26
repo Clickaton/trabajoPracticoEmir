@@ -1,0 +1,29 @@
+[
+  {
+    "id": 101,
+    "name": "Ana Torres",
+    "email": "ana.torres@example.com",
+    "password": "pass101",
+    "legajo": "L101",
+    "activo": true,
+    "fecha_inscripcion": "2023-03-01T03:00:00.000Z"
+  },
+  {
+    "id": 102,
+    "name": "Luis Gomez",
+    "email": "luis.gomez@example.com",
+    "password": "pass102",
+    "legajo": "L102",
+    "activo": true,
+    "fecha_inscripcion": "2023-03-02T03:00:00.000Z"
+  },
+  {
+    "id": 103,
+    "name": "Sofia Diaz",
+    "email": "sofia.diaz@example.com",
+    "password": "pass103",
+    "legajo": "L103",
+    "activo": false,
+    "fecha_inscripcion": "2022-08-15T03:00:00.000Z"
+  }
+]

@@ -9,7 +9,7 @@ class Cohorte {
         this.materia = materia;
         this.userList = userList;
 
-        if (!Array.isArray(userList) && userList.every(user => user instanceof User)) {
+        if (!Array.isArray(userList)) {
             throw new Error('userList debe ser un array de objetos User');
         }
 

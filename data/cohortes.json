@@ -1,0 +1,61 @@
+[
+  {
+    "id": 1,
+    "name": "Cohorte 1",
+    "startDate": "2024-01-01",
+    "endDate": "2024-06-30",
+    "day": "Viernes",
+    "materia": "Matemáticas (Clase/Objeto)",
+    "userList": [
+      {
+        "id": 1,
+        "name": "Juan Pérez",
+        "email": "juan.perez@example.com"
+      },
+      {
+        "id": 2,
+        "name": "María García",
+        "email": "maria.garcia@example.com"
+      },
+      {
+        "id": 3,
+        "name": "Carlos López",
+        "email": "carlos.lopez@example.com"
+      }
+    ]
+  },
+  {
+    "id": 2,
+    "name": "Cohorte 2",
+    "startDate": "2024-02-01",
+    "endDate": "2024-07-31",
+    "day": "Miercoles",
+    "materia": "Física (Clase/Objeto)",
+    "userList": [
+      {
+        "id": 1,
+        "name": "Juan Pérez",
+        "email": "juan.perez@example.com"
+      },
+      {
+        "id": 2,
+        "name": "María García",
+        "email": "maria.garcia@example.com"
+      },
+      {
+        "id": 3,
+        "name": "Carlos López",
+        "email": "carlos.lopez@example.com"
+      }
+    ]
+  },
+  {
+    "id": 3,
+    "name": "Cohorte 3",
+    "startDate": "2024-03-01",
+    "endDate": "2024-08-31",
+    "day": "Lunes",
+    "materia": "Química (Clase/Objeto)",
+    "userList": []
+  }
+]
