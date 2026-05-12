@@ -1,4 +1,4 @@
-const User = require('./User');
+import User from './User.js';
 
 class Cohorte {
     constructor(id, name, startDate, endDate, materia, userList = []) {
@@ -18,4 +18,4 @@ class Cohorte {
     }
 }
 
-module.exports = Cohorte;
+export default Cohorte;

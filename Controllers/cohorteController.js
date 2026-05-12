@@ -1,53 +1,57 @@
-const Cohorte = require('../models/Cohorte');
-const fs = require('fs');
-const path = require('path');
+import Cohorte from '../models/Cohorte.js';
+import fs from 'fs/promises';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const cohortesFilePath = path.join(__dirname, '../data/cohortes.json');
 
-const readCohortes = () => {
-    const data = fs.readFileSync(cohortesFilePath, 'utf-8');
+const readCohortes = async () => {
+    const data = await fs.readFile(cohortesFilePath, 'utf-8');
     return JSON.parse(data);
 };
 
-const writeCohortes = (data) => {
-    fs.writeFileSync(cohortesFilePath, JSON.stringify(data, null, 2));
+const writeCohortes = async (data) => {
+    await fs.writeFile(cohortesFilePath, JSON.stringify(data, null, 2));
 };
 
-exports.getCohortes = (req, res) => {
-    const listaCohorte = readCohortes();
+export const getCohortes = async (req, res) => {
+    const listaCohorte = await readCohortes();
     res.json({ message: 'Lista de cohortes', data: listaCohorte });
 };
 
-exports.getCohorteById = (req, res) => {
+export const getCohorteById = async (req, res) => {
     const { id } = req.params;
-    const listaCohorte = readCohortes();
+    const listaCohorte = await readCohortes();
     const cohorte = listaCohorte.find(c => c.id === parseInt(id));
     if (!cohorte) return res.status(404).json({ error: "Cohorte no encontrado" });
     
     res.json({ message: 'Detalle del cohorte', data: cohorte });
 };
 
-exports.createCohorte = (req, res) => {
+export const createCohorte = async (req, res) => {
     const { id, name, startDate, endDate, materia, userList } = req.body;
     
     if (!id || !name || !startDate || !endDate || !materia) {
         return res.status(400).json({ error: "Faltan datos obligatorios (id, name, startDate, endDate, materia)" });
     }
 
-    const listaCohorte = readCohortes();
+    const listaCohorte = await readCohortes();
     const listaAlumnos = Array.isArray(userList) ? userList : [];
 
     const nuevoCohorte = new Cohorte(id, name, startDate, endDate, materia, userList);
     listaCohorte.push(nuevoCohorte);
-    writeCohortes(listaCohorte);
+    await writeCohortes(listaCohorte);
     
     res.status(201).json({ message: 'Cohorte creado exitosamente', cohorte: nuevoCohorte });
 };
 
-exports.updateCohorte = (req, res) => {
+export const updateCohorte = async (req, res) => {
     const { id } = req.params;
     const { name, startDate, endDate, materia, userList } = req.body;
-    let listaCohorte = readCohortes();
+    let listaCohorte = await readCohortes();
     const cohorte = listaCohorte.find(c => c.id === parseInt(id));
     
     if (!cohorte) return res.status(404).json({ error: "Cohorte no encontrado" });
@@ -58,26 +62,26 @@ exports.updateCohorte = (req, res) => {
     if (materia) cohorte.materia = materia;
     if (Array.isArray(userList)) cohorte.userList = userList;
     
-    writeCohortes(listaCohorte);
+    await writeCohortes(listaCohorte);
     res.json({ message: "Cohorte actualizado", cohorte: cohorte });
 };
 
-exports.deleteCohorte = (req, res) => {
+export const deleteCohorte = async (req, res) => {
     const { id } = req.params;
-    let listaCohorte = readCohortes();
+    let listaCohorte = await readCohortes();
     const index = listaCohorte.findIndex(c => c.id === parseInt(id));
     if (index === -1) return res.status(404).json({ error: "Cohorte no encontrado" });
     
     const eliminado = listaCohorte.splice(index, 1);
-    writeCohortes(listaCohorte);
+    await writeCohortes(listaCohorte);
     res.json({ message: "Cohorte eliminado", cohorte: eliminado[0] });
 };
 
 
-exports.addUserToCohorte = (req, res) => {
+export const addUserToCohorte = async (req, res) => {
     const { cohorteId } = req.params;
     const { user } = req.body; 
-    let listaCohorte = readCohortes();
+    let listaCohorte = await readCohortes();
     const cohorte = listaCohorte.find(c => c.id === parseInt(cohorteId));
     if (!cohorte) return res.status(404).json({ error: "Cohorte no encontrado" });
 
@@ -89,14 +93,14 @@ exports.addUserToCohorte = (req, res) => {
     if (yaExiste) return res.status(400).json({ error: "El usuario ya pertenece a este cohorte" });
 
     cohorte.userList.push(user);
-    writeCohortes(listaCohorte);
+    await writeCohortes(listaCohorte);
     res.json({ message: "Usuario agregado al cohorte", cohorte: cohorte });
 };
 
-exports.removeUserFromCohorte = (req, res) => {
+export const removeUserFromCohorte = async (req, res) => {
     const { cohorteId } = req.params;
     const { userId } = req.body; 
-    let listaCohorte = readCohortes();
+    let listaCohorte = await readCohortes();
     
     const cohorte = listaCohorte.find(c => c.id === parseInt(cohorteId));
     if (!cohorte) return res.status(404).json({ error: "Cohorte no encontrado" });
@@ -107,32 +111,32 @@ exports.removeUserFromCohorte = (req, res) => {
     }
     
     cohorte.userList.splice(userIndex, 1);
-    writeCohortes(listaCohorte);
+    await writeCohortes(listaCohorte);
     res.json({ message: "Usuario eliminado del cohorte", cohorte: cohorte });
 };
 
 
-exports.getUsersInCohorte = (req, res) => {
+export const getUsersInCohorte = async (req, res) => {
     const { cohorteId } = req.params;
-    const listaCohorte = readCohortes();
+    const listaCohorte = await readCohortes();
     const cohorte = listaCohorte.find(c => c.id === parseInt(cohorteId));
     if (!cohorte) return res.status(404).json({ error: "Cohorte no encontrado" });
 
     res.json({ message: "Lista de usuarios en el cohorte", users: cohorte.userList });
 };
 
-exports.getMateriaOfCohorte = (req, res) => {
+export const getMateriaOfCohorte = async (req, res) => {
     const { cohorteId } = req.params;
-    const listaCohorte = readCohortes();
+    const listaCohorte = await readCohortes();
     const cohorte = listaCohorte.find(c => c.id === parseInt(cohorteId));
     if (!cohorte) return res.status(404).json({ error: "Cohorte no encontrado" });
 
     res.json({ message: "Materia del cohorte", materia: cohorte.materia });
 };
 
-exports.getCohorteDuration = (req, res) => {
+export const getCohorteDuration = async (req, res) => {
     const { cohorteId } = req.params;
-    const listaCohorte = readCohortes();
+    const listaCohorte = await readCohortes();
     const cohorte = listaCohorte.find(c => c.id === parseInt(cohorteId));
     if (!cohorte) return res.status(404).json({ error: "Cohorte no encontrado" });
 
@@ -147,7 +151,7 @@ exports.getCohorteDuration = (req, res) => {
     res.json({ message: "Duración del cohorte en días", duration: duration });
 };
 
-exports.getAllCohortesWithUsers = (req, res) => {
-    const listaCohorte = readCohortes();
+export const getAllCohortesWithUsers = async (req, res) => {
+    const listaCohorte = await readCohortes();
     res.json({ message: "Lista de cohortes con usuarios", data: listaCohorte });
 };

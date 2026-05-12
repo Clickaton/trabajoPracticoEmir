@@ -1,6 +1,7 @@
-const express = require('express');
+import express from 'express';
+import * as alumnoController from '../controllers/alumnoController.js';
+
 const router = express.Router();
-const alumnoController = require('../controllers/alumnoController');
 
 // Rutas de API para Alumnos
 router.get('/getAlumnos', alumnoController.getAlumnos);
@@ -9,4 +10,4 @@ router.post('/createAlumno', alumnoController.createAlumno);
 router.put('/updateAlumno/:id', alumnoController.updateAlumno);
 router.delete('/deleteAlumno/:id', alumnoController.deleteAlumno);
 
-module.exports = router;
+export default router;

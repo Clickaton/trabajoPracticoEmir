@@ -1,26 +1,30 @@
-const Materia = require('../models/Materia.js'); 
-const fs = require('fs');
-const path = require('path');
+import Materia from '../models/Materia.js'; 
+import fs from 'fs/promises';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const materiasFilePath = path.join(__dirname, '../data/materias.json');
 
-const readMaterias = () => {
-    const data = fs.readFileSync(materiasFilePath, 'utf-8');
+const readMaterias = async () => {
+    const data = await fs.readFile(materiasFilePath, 'utf-8');
     return JSON.parse(data);
 };
 
-const writeMaterias = (data) => {
-    fs.writeFileSync(materiasFilePath, JSON.stringify(data, null, 2));
+const writeMaterias = async (data) => {
+    await fs.writeFile(materiasFilePath, JSON.stringify(data, null, 2));
 };
 
-exports.getMaterias = (req, res) => {
-    const listaMaterias = readMaterias();
+export const getMaterias = async (req, res) => {
+    const listaMaterias = await readMaterias();
     res.json({ message: 'Lista de materias', data: listaMaterias });
 };
 
-exports.getMateriaById = (req, res) => {
+export const getMateriaById = async (req, res) => {
     const { id } = req.params;
-    const listaMaterias = readMaterias();
+    const listaMaterias = await readMaterias();
     const materia = listaMaterias.find(m => m.id === parseInt(id));
     if (!materia) {
         return res.status(404).json({ error: "Materia no encontrada" });
@@ -28,24 +32,24 @@ exports.getMateriaById = (req, res) => {
     res.json({ message: `Detalles de la materia con ID: ${id}`, materia: materia });
 };
 
-exports.createMateria = (req, res) => {
+export const createMateria = async (req, res) => {
     // Validamos usando las propiedades del modelo de Materia
     const { id, nombre, anio } = req.body;
     if (!id || !nombre || !anio) {
         return res.status(400).json({ error: "Faltan datos obligatorios" });
     }
-    const listaMaterias = readMaterias();
+    const listaMaterias = await readMaterias();
     // Instanciamos usando el modelo importado
     const nuevaMateria = new Materia(id, nombre, anio);
     listaMaterias.push(nuevaMateria);
-    writeMaterias(listaMaterias);
+    await writeMaterias(listaMaterias);
     res.json({ message: 'Materia creada exitosamente', materia: nuevaMateria });
 };
 
-exports.updateMateria = (req, res) => {
+export const updateMateria = async (req, res) => {
     const { id } = req.params;
     const { nombre, anio } = req.body;
-    let listaMaterias = readMaterias();
+    let listaMaterias = await readMaterias();
     const materia = listaMaterias.find(m => m.id === parseInt(id));
     if (!materia) return res.status(404).json({ error: "Materia no encontrada" });
 
@@ -53,18 +57,18 @@ exports.updateMateria = (req, res) => {
     if (nombre) materia.nombre = nombre;
     if (anio) materia.anio = anio;
 
-    writeMaterias(listaMaterias);
+    await writeMaterias(listaMaterias);
     res.json({ message: "Materia actualizada", materia: materia });
 };
 
-exports.deleteMateria = (req, res) => {
+export const deleteMateria = async (req, res) => {
     const { id } = req.params;
-    let listaMaterias = readMaterias();
+    let listaMaterias = await readMaterias();
     const index = listaMaterias.findIndex(m => m.id === parseInt(id));
     
     if (index === -1) return res.status(404).json({ error: "Materia no encontrada" });
 
     const eliminada = listaMaterias.splice(index, 1);
-    writeMaterias(listaMaterias);
+    await writeMaterias(listaMaterias);
     res.json({ message: "Materia eliminada", materia: eliminada });
 };

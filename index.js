@@ -1,12 +1,12 @@
-const express = require('express');
+import express from 'express';
 const app = express();
 const port = 3000;
 
 // Importar enrutadores
-const userRoutes = require('./routes/userRoutes');
-const cohorteRoutes = require('./routes/cohorteRoutes');
-const materiaRoutes = require('./routes/materiaRoutes');
-const alumnoRoutes = require('./routes/alumnoRoutes');
+import userRoutes from './routes/userRoutes.js';
+import cohorteRoutes from './routes/cohorteRoutes.js';
+import materiaRoutes from './routes/materiaRoutes.js';
+import alumnoRoutes from './routes/alumnoRoutes.js';
 
 // Configuración del motor de plantillas Pug
 app.set('view engine', 'pug');

@@ -1,6 +1,7 @@
-const express = require('express');
+import express from 'express';
+import * as userController from '../Controllers/userController.js';
+
 const router = express.Router();
-const userController = require('../controllers/userController');
 
 // Rutas para renderizar vistas
 router.get('/getUsers', userController.getUsers);
@@ -13,4 +14,4 @@ router.post('/createUser', userController.createUser);
 router.post('/updateUser/:id', userController.updateUser);
 router.post('/deleteUser/:id', userController.deleteUser);
 
-module.exports = router;
+export default router;

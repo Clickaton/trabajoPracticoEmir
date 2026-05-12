@@ -6,4 +6,4 @@ class Materia {
     }
 }
 
-module.exports = Materia;
+export default Materia;

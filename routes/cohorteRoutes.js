@@ -1,6 +1,7 @@
-const express = require('express');
+import express from 'express';
+import * as cohorteController from '../controllers/cohorteController.js';
+
 const router = express.Router();
-const cohorteController = require('../controllers/cohorteController');
 
 // Rutas de API para Cohortes
 router.get('/getCohortes', cohorteController.getCohortes);
@@ -16,4 +17,4 @@ router.get('/cohorte/:cohorteId/duration', cohorteController.getCohorteDuration)
 router.get('/cohortesWithUsers', cohorteController.getAllCohortesWithUsers);
 
 
-module.exports = router;
+export default router;
