@@ -1,0 +1,26 @@
+[
+  {
+    "id": 201,
+    "name": "Marta Admin",
+    "email": "marta@example.com",
+    "password": "admin123",
+    "rol": "SuperAdmin",
+    "area": "Dirección"
+  },
+  {
+    "id": 202,
+    "name": "Jorge Bedelia",
+    "email": "jorge@example.com",
+    "password": "admin456",
+    "rol": "Staff",
+    "area": "Inscripciones"
+  },
+  {
+    "id": 255,
+    "name": "juanma",
+    "email": "juanam@gmail.com",
+    "password": "12334",
+    "rol": "admin",
+    "area": "direccion"
+  }
+]

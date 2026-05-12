@@ -1,0 +1,29 @@
+extends ../layout
+
+block contenido
+  .row.justify-content-center
+    .col-md-6
+      h2.mb-4 Registrar Administrativo
+      
+      form.card.p-4.shadow-sm(action="/api/administrativos" method="POST")
+        .mb-3
+          label.fw-bold ID:
+          input.form-control(type="number" name="id" required)
+        .mb-3
+          label.fw-bold Nombre:
+          input.form-control(type="text" name="name" required)
+        .mb-3
+          label.fw-bold Email:
+          input.form-control(type="email" name="email" required)
+        .mb-3
+          label.fw-bold Contraseña:
+          input.form-control(type="password" name="password" required)
+        .mb-3
+          label.fw-bold Rol:
+          input.form-control(type="text" name="rol" required)
+        .mb-3
+          label.fw-bold Área:
+          input.form-control(type="text" name="area" required)
+        
+        button.btn.btn-success(type="submit") Guardar
+        a.btn.btn-secondary.ms-2(href="/api/administrativos") Cancelar

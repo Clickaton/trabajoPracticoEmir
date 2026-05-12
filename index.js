@@ -7,6 +7,7 @@ import userRoutes from './routes/userRoutes.js';
 import cohorteRoutes from './routes/cohorteRoutes.js';
 import materiaRoutes from './routes/materiaRoutes.js';
 import alumnoRoutes from './routes/alumnoRoutes.js';
+import administrativoRoutes from './routes/administrativo.routes.js';
 
 // Configuración del motor de plantillas Pug
 app.set('view engine', 'pug');
@@ -20,6 +21,7 @@ app.use('/', userRoutes);
 app.use('/', cohorteRoutes);
 app.use('/', alumnoRoutes);
 app.use('/api', materiaRoutes);
+app.use('/api/administrativos', administrativoRoutes);
 
 app.listen(port, () => {
     console.log(`Servidor escuchando en http://localhost:${port}`);

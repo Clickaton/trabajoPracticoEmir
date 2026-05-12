@@ -1,0 +1,24 @@
+extends ../layout
+
+block contenido
+  h1.mb-4 Lista del Personal Administrativo
+  a.btn.btn-primary.mb-3(href="/api/administrativos/nuevo") Registrar Nuevo
+  
+  table.table.table-striped.border.shadow-sm
+    thead.table-light
+      tr
+        th ID
+        th Nombre
+        th Rol
+        th Acciones
+    tbody
+      each admin in administrativos
+        tr
+          td= admin.id
+          td= admin.name
+          td= admin.rol
+          td.d-flex.gap-2
+            a.btn.btn-warning.btn-sm(href=`/api/administrativos/editar/${admin.id}`) Modificar
+            
+            form(action=`/api/administrativos/eliminar/${admin.id}` method="POST" onsubmit="return confirm('¿Seguro que querés eliminarlo?');")
+              button.btn.btn-danger.btn-sm(type="submit") Eliminar
