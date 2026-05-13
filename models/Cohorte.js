@@ -1,20 +1,15 @@
-import User from './User.js';
-
 class Cohorte {
-    constructor(id, name, startDate, endDate, materia, userList = []) {
+    constructor(id, name, startDate, endDate, userList = []) {
         this.id = id;
         this.name = name;
         this.startDate = startDate;
         this.endDate = endDate;
-        this.materia = materia;
-        this.userList = userList;
 
         if (!Array.isArray(userList)) {
-            throw new Error('userList debe ser un array de objetos User');
+            throw new Error('userList debe ser un array de IDs');
         }
 
         this.userList = userList;
-
     }
 }
 
