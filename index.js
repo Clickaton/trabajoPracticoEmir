@@ -10,6 +10,8 @@ import alumnoRoutes from './routes/alumnoRoutes.js';
 import administrativoRoutes from './routes/administrativo.routes.js';
 import correlatividadRoutes from './routes/correlatividades.routes.js';
 import historialAcademicoRoutes from './routes/historialAcademico.routes.js';
+import estadoAcademicoRoutes from './routes/estadoAcademico.routes.js';
+import periodoInscripcionRoutes from './routes/periodoInscripcion.routes.js';
 
 // Configuración del motor de plantillas Pug
 app.set('view engine', 'pug');
@@ -26,6 +28,8 @@ app.use('/api', materiaRoutes);
 app.use('/api/administrativos', administrativoRoutes);
 app.use('/api/correlatividades', correlatividadRoutes);
 app.use('/api/historial', historialAcademicoRoutes);
+app.use('/api/estado-academico', estadoAcademicoRoutes);
+app.use('/api/periodos-inscripcion', periodoInscripcionRoutes);
 
 app.listen(port, () => {
     console.log(`Servidor escuchando en http://localhost:${port}`);

@@ -1,77 +1,113 @@
-const PeriodoInscripcion = require('../models/PeriodoInscripcion.js');
+import fs from 'fs/promises';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import PeriodoInscripcion from '../models/PeriodoInscripcion.js';
 
-// Base de datos temporal
-let listaPeriodos = [
-    new PeriodoInscripcion(1, 'Primer Cuatrimestre 2026', '2026-03-01', '2026-03-15', true),
-    new PeriodoInscripcion(2, 'Segundo Cuatrimestre 2026', '2026-08-01', '2026-08-15', false)
-];
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-// Obtener todos los períodos (Para el panel del Admin)
-exports.getPeriodos = (req, res) => {
-    res.json({ message: 'Lista histórica de períodos de inscripción', data: listaPeriodos });
+const periodosFilePath = path.join(__dirname, '../data/periodoInscripcion.json');
+
+const readPeriodos = async () => {
+    const data = await fs.readFile(periodosFilePath, 'utf-8');
+    return JSON.parse(data);
 };
 
-// Obtener SOLO los períodos activos (IDEAL para el módulo Estudiantes)
-exports.getPeriodosActivos = (req, res) => {
-    const periodosActivos = listaPeriodos.filter(p => p.activo === true);
+const writePeriodos = async (data) => {
+    await fs.writeFile(periodosFilePath, JSON.stringify(data, null, 2));
+};
+
+// Obtener todos los períodos (Para el panel del Admin)
+const getPeriodos = async (req, res) => {
+    const lista = await readPeriodos();
+    res.json({ message: 'Lista histórica de períodos de inscripción', data: lista });
+};
+
+// Obtener SOLO los períodos activos (Para el módulo Estudiantes)
+const getPeriodosActivos = async (req, res) => {
+    const lista = await readPeriodos();
+    const periodosActivos = lista.filter(p => p.activo === true);
+
+    if (periodosActivos.length === 0) {
+        return res.json({ message: 'Inscripciones cerradas', data: [] });
+    }
+
     res.json({ message: 'Períodos de inscripción abiertos actualmente', data: periodosActivos });
 };
 
 // Obtener un período por ID
-exports.getPeriodoById = (req, res) => {
+const getPeriodoById = async (req, res) => {
     const { id } = req.params;
-    const periodo = listaPeriodos.find(p => p.id === parseInt(id));
-    
-    if (!periodo) {
-        return res.status(404).json({ error: "Período de inscripción no encontrado" });
-    }
+    const lista = await readPeriodos();
+    const periodo = lista.find(p => p.id === parseInt(id));
+
+    if (!periodo) return res.status(404).json({ error: "Período de inscripción no encontrado" });
+
     res.json({ message: `Detalles del período ID: ${id}`, data: periodo });
 };
 
 // Crear un nuevo período
-exports.createPeriodo = (req, res) => {
-    const { id, nombre, fechaInicio, fechaFin, activo } = req.body;
+const createPeriodo = async (req, res) => {
+    const { id, nombre, fechaInicio, fechaFin, horaInicio, horaFin, activo } = req.body;
 
-    // Validación estricta para evitar datos basura
-    if (!id || !nombre || !fechaInicio || !fechaFin) {
-        return res.status(400).json({ error: "Faltan datos obligatorios (id, nombre, fechaInicio, fechaFin)" });
+    if (!id || !nombre || !fechaInicio || !fechaFin || !horaInicio || !horaFin) {
+        return res.status(400).json({ error: "Faltan datos obligatorios (id, nombre, fechaInicio, fechaFin, horaInicio, horaFin)" });
     }
 
-    // Si no mandan 'activo', por defecto es false (cerrado)
-    const estadoActivo = activo !== undefined ? activo : false;
-    
-    const nuevoPeriodo = new PeriodoInscripcion(id, nombre, fechaInicio, fechaFin, estadoActivo);
-    listaPeriodos.push(nuevoPeriodo);
+    const lista = await readPeriodos();
+    const nuevoPeriodo = new PeriodoInscripcion(
+        parseInt(id),
+        nombre,
+        fechaInicio,
+        fechaFin,
+        horaInicio,
+        horaFin,
+        activo !== undefined ? activo : false
+    );
+    lista.push(nuevoPeriodo);
+    await writePeriodos(lista);
 
     res.status(201).json({ message: 'Período creado exitosamente', data: nuevoPeriodo });
 };
 
-// Actualizar un período (Acá es donde el Admin "prende o apaga" las inscripciones)
-exports.updatePeriodo = (req, res) => {
+// Actualizar un período (acá el Admin prende o apaga las inscripciones)
+const updatePeriodo = async (req, res) => {
     const { id } = req.params;
-    const { nombre, fechaInicio, fechaFin, activo } = req.body;
+    const { nombre, fechaInicio, fechaFin, horaInicio, horaFin, activo } = req.body;
 
-    const periodo = listaPeriodos.find(p => p.id === parseInt(id));
-    if (!periodo) {
-        return res.status(404).json({ error: "Período no encontrado" });
-    }
+    const lista = await readPeriodos();
+    const periodo = lista.find(p => p.id === parseInt(id));
+    if (!periodo) return res.status(404).json({ error: "Período no encontrado" });
 
     if (nombre) periodo.nombre = nombre;
     if (fechaInicio) periodo.fechaInicio = fechaInicio;
     if (fechaFin) periodo.fechaFin = fechaFin;
-    // Chequeamos que no sea undefined para permitir enviar un false válido
+    if (horaInicio) periodo.horaInicio = horaInicio;
+    if (horaFin) periodo.horaFin = horaFin;
     if (activo !== undefined) periodo.activo = activo;
 
+    await writePeriodos(lista);
     res.json({ message: "Período actualizado", data: periodo });
 };
 
 // Eliminar un período
-exports.deletePeriodo = (req, res) => {
+const deletePeriodo = async (req, res) => {
     const { id } = req.params;
-    const index = listaPeriodos.findIndex(p => p.id === parseInt(id));
-    
+    const lista = await readPeriodos();
+    const index = lista.findIndex(p => p.id === parseInt(id));
+
     if (index === -1) return res.status(404).json({ error: "Período no encontrado" });
 
-    const [eliminado] = listaPeriodos.splice(index, 1);
+    const [eliminado] = lista.splice(index, 1);
+    await writePeriodos(lista);
     res.json({ message: "Período eliminado", data: eliminado });
+};
+
+export default {
+    getPeriodos,
+    getPeriodosActivos,
+    getPeriodoById,
+    createPeriodo,
+    updatePeriodo,
+    deletePeriodo
 };
