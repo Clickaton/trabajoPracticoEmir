@@ -1,0 +1,16 @@
+[
+    { "id": 1,  "materia_id": 8,  "requisito_id": 1,  "tipo_requisito": "Regular"  },
+    { "id": 2,  "materia_id": 9,  "requisito_id": 11, "tipo_requisito": "Regular"  },
+    { "id": 3,  "materia_id": 10, "requisito_id": 1,  "tipo_requisito": "Regular"  },
+    { "id": 4,  "materia_id": 11, "requisito_id": 5,  "tipo_requisito": "Regular"  },
+    { "id": 5,  "materia_id": 12, "requisito_id": 3,  "tipo_requisito": "Regular"  },
+    { "id": 6,  "materia_id": 13, "requisito_id": 1,  "tipo_requisito": "Aprobada" },
+    { "id": 7,  "materia_id": 14, "requisito_id": 11, "tipo_requisito": "Aprobada" },
+    { "id": 8,  "materia_id": 15, "requisito_id": 7,  "tipo_requisito": "Aprobada" },
+    { "id": 9,  "materia_id": 16, "requisito_id": 8,  "tipo_requisito": "Aprobada" },
+    { "id": 10, "materia_id": 17, "requisito_id": 14, "tipo_requisito": "Regular"  },
+    { "id": 11, "materia_id": 18, "requisito_id": 12, "tipo_requisito": "Aprobada" },
+    { "id": 12, "materia_id": 19, "requisito_id": 14, "tipo_requisito": "Aprobada" },
+    { "id": 13, "materia_id": 20, "requisito_id": 11, "tipo_requisito": "Aprobada" },
+    { "id": 14, "materia_id": 21, "requisito_id": 15, "tipo_requisito": "Aprobada" }
+]

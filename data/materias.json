@@ -1,22 +1,23 @@
 [
-  {
-    "id": 1,
-    "nombre": "Matemática 1",
-    "anio": 1
-  },
-  {
-    "id": 2,
-    "nombre": "Programación 1",
-    "anio": 1
-  },
-  {
-    "id": 3,
-    "nombre": "Bases de Datos",
-    "anio": 2
-  },
-  {
-    "id": 4,
-    "nombre": "Diseño de Sistemas",
-    "anio": 3
-  }
+    { "id": 1,  "nombre": "Análisis Matemático",                      "anio": 1 },
+    { "id": 2,  "nombre": "Administración y gestión de base de datos", "anio": 1 },
+    { "id": 3,  "nombre": "Introducción a las redes de datos",         "anio": 1 },
+    { "id": 4,  "nombre": "Sistemas Digitales",                        "anio": 1 },
+    { "id": 5,  "nombre": "Sistemas Operativos",                       "anio": 1 },
+    { "id": 6,  "nombre": "Laboratorio de Hardware",                   "anio": 1 },
+    { "id": 7,  "nombre": "Prácticas Profesionalizantes I",            "anio": 1 },
+    { "id": 8,  "nombre": "Inglés I",                                  "anio": 2 },
+    { "id": 9,  "nombre": "Desarrollo de aplicativos móviles",         "anio": 2 },
+    { "id": 10, "nombre": "Algebra y lógica",                          "anio": 2 },
+    { "id": 11, "nombre": "Programación",                              "anio": 2 },
+    { "id": 12, "nombre": "Diseño Web",                                "anio": 2 },
+    { "id": 13, "nombre": "Estadística y Probabilidades",              "anio": 2 },
+    { "id": 14, "nombre": "Desarrollo de sistemas Orientado a Objetos","anio": 2 },
+    { "id": 15, "nombre": "Prácticas Profesionalizantes II",           "anio": 2 },
+    { "id": 16, "nombre": "Inglés II",                                 "anio": 3 },
+    { "id": 17, "nombre": "Gestión de Proyectos",                      "anio": 3 },
+    { "id": 18, "nombre": "Desarrollo de sistemas Web",                "anio": 3 },
+    { "id": 19, "nombre": "Ingeniería en software",                    "anio": 3 },
+    { "id": 20, "nombre": "Metodología de prueba de sistemas",         "anio": 3 },
+    { "id": 21, "nombre": "Prácticas Profesionalizantes III",          "anio": 3 }
 ]
