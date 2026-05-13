@@ -5,7 +5,7 @@ class Inscripcion {
         this.cohorte_id = cohorte_id;   // Referencia a la cohorte del alumno
         this.materia_id = materia_id;
         this.periodo_id = periodo_id;   // Referencia al período activo
-        this.fecha = fecha;             // Fecha y hora exacta. Ej: "2026-03-05T14:30:00.000Z"
+        this.fecha = fecha;             // Fecha y hora exacta. Ej: "2026-03-05T14:30:00.0000Z"
     }
 }
 
