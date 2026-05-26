@@ -1,31 +1,16 @@
 import Cohorte from '../models/Cohorte.js';
-import fs from 'fs/promises';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import { getDB } from '../config/db.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const cohortesFilePath = path.join(__dirname, '../data/cohortes.json');
-
-const readCohortes = async () => {
-    const data = await fs.readFile(cohortesFilePath, 'utf-8');
-    return JSON.parse(data);
-};
-
-const writeCohortes = async (data) => {
-    await fs.writeFile(cohortesFilePath, JSON.stringify(data, null, 2));
-};
+const getCollection = () => getDB().collection('cohortes');
 
 export const getCohortes = async (req, res) => {
-    const listaCohorte = await readCohortes();
+    const listaCohorte = await getCollection().find().toArray();
     res.json({ message: 'Lista de cohortes', data: listaCohorte });
 };
 
 export const getCohorteById = async (req, res) => {
     const { id } = req.params;
-    const listaCohorte = await readCohortes();
-    const cohorte = listaCohorte.find(c => c.id === parseInt(id));
+    const cohorte = await getCollection().findOne({ id: parseInt(id) });
     if (!cohorte) return res.status(404).json({ error: "Cohorte no encontrado" });
     
     res.json({ message: 'Detalle del cohorte', data: cohorte });
@@ -38,12 +23,10 @@ export const createCohorte = async (req, res) => {
         return res.status(400).json({ error: "Faltan datos obligatorios (id, name, startDate, endDate, materia)" });
     }
 
-    const listaCohorte = await readCohortes();
     const listaAlumnos = Array.isArray(userList) ? userList : [];
 
     const nuevoCohorte = new Cohorte(id, name, startDate, endDate, materia, userList);
-    listaCohorte.push(nuevoCohorte);
-    await writeCohortes(listaCohorte);
+    await getCollection().insertOne(nuevoCohorte);
     
     res.status(201).json({ message: 'Cohorte creado exitosamente', cohorte: nuevoCohorte });
 };
@@ -51,38 +34,35 @@ export const createCohorte = async (req, res) => {
 export const updateCohorte = async (req, res) => {
     const { id } = req.params;
     const { name, startDate, endDate, materia, userList } = req.body;
-    let listaCohorte = await readCohortes();
-    const cohorte = listaCohorte.find(c => c.id === parseInt(id));
+
+    const updateData = {};
+    if (name) updateData.name = name;
+    if (startDate) updateData.startDate = startDate;
+    if (endDate) updateData.endDate = endDate;
+    if (materia) updateData.materia = materia;
+    if (Array.isArray(userList)) updateData.userList = userList;
     
-    if (!cohorte) return res.status(404).json({ error: "Cohorte no encontrado" });
+    const result = await getCollection().updateOne({ id: parseInt(id) }, { $set: updateData });
+    if (result.matchedCount === 0) return res.status(404).json({ error: "Cohorte no encontrado" });
     
-    if (name) cohorte.name = name;
-    if (startDate) cohorte.startDate = startDate;
-    if (endDate) cohorte.endDate = endDate;
-    if (materia) cohorte.materia = materia;
-    if (Array.isArray(userList)) cohorte.userList = userList;
-    
-    await writeCohortes(listaCohorte);
-    res.json({ message: "Cohorte actualizado", cohorte: cohorte });
+    const cohorteActualizado = await getCollection().findOne({ id: parseInt(id) });
+    res.json({ message: "Cohorte actualizado", cohorte: cohorteActualizado });
 };
 
 export const deleteCohorte = async (req, res) => {
     const { id } = req.params;
-    let listaCohorte = await readCohortes();
-    const index = listaCohorte.findIndex(c => c.id === parseInt(id));
-    if (index === -1) return res.status(404).json({ error: "Cohorte no encontrado" });
+    const eliminado = await getCollection().findOne({ id: parseInt(id) });
+    if (!eliminado) return res.status(404).json({ error: "Cohorte no encontrado" });
     
-    const eliminado = listaCohorte.splice(index, 1);
-    await writeCohortes(listaCohorte);
-    res.json({ message: "Cohorte eliminado", cohorte: eliminado[0] });
+    await getCollection().deleteOne({ id: parseInt(id) });
+    res.json({ message: "Cohorte eliminado", cohorte: eliminado });
 };
 
 
 export const addUserToCohorte = async (req, res) => {
     const { cohorteId } = req.params;
     const { user } = req.body; 
-    let listaCohorte = await readCohortes();
-    const cohorte = listaCohorte.find(c => c.id === parseInt(cohorteId));
+    const cohorte = await getCollection().findOne({ id: parseInt(cohorteId) });
     if (!cohorte) return res.status(404).json({ error: "Cohorte no encontrado" });
 
     if (!user || !user.id || !user.name) {
@@ -92,17 +72,19 @@ export const addUserToCohorte = async (req, res) => {
     const yaExiste = cohorte.userList.some(u => u.id === user.id);
     if (yaExiste) return res.status(400).json({ error: "El usuario ya pertenece a este cohorte" });
 
-    cohorte.userList.push(user);
-    await writeCohortes(listaCohorte);
-    res.json({ message: "Usuario agregado al cohorte", cohorte: cohorte });
+    await getCollection().updateOne(
+        { id: parseInt(cohorteId) },
+        { $push: { userList: user } }
+    );
+    const cohorteActualizado = await getCollection().findOne({ id: parseInt(cohorteId) });
+    res.json({ message: "Usuario agregado al cohorte", cohorte: cohorteActualizado });
 };
 
 export const removeUserFromCohorte = async (req, res) => {
     const { cohorteId } = req.params;
     const { userId } = req.body; 
-    let listaCohorte = await readCohortes();
     
-    const cohorte = listaCohorte.find(c => c.id === parseInt(cohorteId));
+    const cohorte = await getCollection().findOne({ id: parseInt(cohorteId) });
     if (!cohorte) return res.status(404).json({ error: "Cohorte no encontrado" });
 
     const userIndex = cohorte.userList.findIndex(u => u.id === parseInt(userId));
@@ -110,16 +92,18 @@ export const removeUserFromCohorte = async (req, res) => {
         return res.status(404).json({ error: "Usuario no encontrado en este cohorte" });
     }
     
-    cohorte.userList.splice(userIndex, 1);
-    await writeCohortes(listaCohorte);
-    res.json({ message: "Usuario eliminado del cohorte", cohorte: cohorte });
+    await getCollection().updateOne(
+        { id: parseInt(cohorteId) },
+        { $pull: { userList: { id: parseInt(userId) } } }
+    );
+    const cohorteActualizado = await getCollection().findOne({ id: parseInt(cohorteId) });
+    res.json({ message: "Usuario eliminado del cohorte", cohorte: cohorteActualizado });
 };
 
 
 export const getUsersInCohorte = async (req, res) => {
     const { cohorteId } = req.params;
-    const listaCohorte = await readCohortes();
-    const cohorte = listaCohorte.find(c => c.id === parseInt(cohorteId));
+    const cohorte = await getCollection().findOne({ id: parseInt(cohorteId) });
     if (!cohorte) return res.status(404).json({ error: "Cohorte no encontrado" });
 
     res.json({ message: "Lista de usuarios en el cohorte", users: cohorte.userList });
@@ -127,8 +111,7 @@ export const getUsersInCohorte = async (req, res) => {
 
 export const getMateriaOfCohorte = async (req, res) => {
     const { cohorteId } = req.params;
-    const listaCohorte = await readCohortes();
-    const cohorte = listaCohorte.find(c => c.id === parseInt(cohorteId));
+    const cohorte = await getCollection().findOne({ id: parseInt(cohorteId) });
     if (!cohorte) return res.status(404).json({ error: "Cohorte no encontrado" });
 
     res.json({ message: "Materia del cohorte", materia: cohorte.materia });
@@ -136,8 +119,7 @@ export const getMateriaOfCohorte = async (req, res) => {
 
 export const getCohorteDuration = async (req, res) => {
     const { cohorteId } = req.params;
-    const listaCohorte = await readCohortes();
-    const cohorte = listaCohorte.find(c => c.id === parseInt(cohorteId));
+    const cohorte = await getCollection().findOne({ id: parseInt(cohorteId) });
     if (!cohorte) return res.status(404).json({ error: "Cohorte no encontrado" });
 
     const start = new Date(cohorte.startDate);
@@ -152,6 +134,6 @@ export const getCohorteDuration = async (req, res) => {
 };
 
 export const getAllCohortesWithUsers = async (req, res) => {
-    const listaCohorte = await readCohortes();
+    const listaCohorte = await getCollection().find().toArray();
     res.json({ message: "Lista de cohortes con usuarios", data: listaCohorte });
 };

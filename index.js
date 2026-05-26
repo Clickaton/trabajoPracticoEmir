@@ -1,4 +1,5 @@
 import express from 'express';
+import { connectDB } from './config/db.js';
 const app = express();
 const port = 3000;
 
@@ -23,6 +24,8 @@ app.use('/', alumnoRoutes);
 app.use('/api', materiaRoutes);
 app.use('/api/administrativos', administrativoRoutes);
 
-app.listen(port, () => {
-    console.log(`Servidor escuchando en http://localhost:${port}`);
+connectDB().then(() => {
+    app.listen(port, () => {
+        console.log(`Servidor escuchando en http://localhost:${port}`);
+    });
 });
