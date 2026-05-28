@@ -1,77 +1,71 @@
-const PeriodoInscripcion = require('../models/PeriodoInscripcion.js');
+import PeriodoInscripcion from '../models/PeriodoInscripcion.js';
+import { getDB } from '../config/db.js';
 
-// Base de datos temporal
-let listaPeriodos = [
-    new PeriodoInscripcion(1, 'Primer Cuatrimestre 2026', '2026-03-01', '2026-03-15', true),
-    new PeriodoInscripcion(2, 'Segundo Cuatrimestre 2026', '2026-08-01', '2026-08-15', false)
-];
+const getCollection = () => getDB().collection('periodos_inscripcion');
 
 // Obtener todos los períodos (Para el panel del Admin)
-exports.getPeriodos = (req, res) => {
+export const getPeriodos = async (req, res) => {
+    const listaPeriodos = await getCollection().find().toArray();
     res.json({ message: 'Lista histórica de períodos de inscripción', data: listaPeriodos });
 };
 
 // Obtener SOLO los períodos activos (IDEAL para el módulo Estudiantes)
-exports.getPeriodosActivos = (req, res) => {
-    const periodosActivos = listaPeriodos.filter(p => p.activo === true);
+export const getPeriodosActivos = async (req, res) => {
+    const periodosActivos = await getCollection().find({ activo: true }).toArray();
     res.json({ message: 'Períodos de inscripción abiertos actualmente', data: periodosActivos });
 };
 
 // Obtener un período por ID
-exports.getPeriodoById = (req, res) => {
+export const getPeriodoById = async (req, res) => {
     const { id } = req.params;
-    const periodo = listaPeriodos.find(p => p.id === parseInt(id));
+    const periodo = await getCollection().findOne({ id: parseInt(id) });
     
-    if (!periodo) {
-        return res.status(404).json({ error: "Período de inscripción no encontrado" });
-    }
+    if (!periodo) return res.status(404).json({ error: "Período de inscripción no encontrado" });
+    
     res.json({ message: `Detalles del período ID: ${id}`, data: periodo });
 };
 
 // Crear un nuevo período
-exports.createPeriodo = (req, res) => {
+export const createPeriodo = async (req, res) => {
     const { id, nombre, fechaInicio, fechaFin, activo } = req.body;
 
-    // Validación estricta para evitar datos basura
     if (!id || !nombre || !fechaInicio || !fechaFin) {
         return res.status(400).json({ error: "Faltan datos obligatorios (id, nombre, fechaInicio, fechaFin)" });
     }
 
-    // Si no mandan 'activo', por defecto es false (cerrado)
     const estadoActivo = activo !== undefined ? activo : false;
+    const nuevoPeriodo = new PeriodoInscripcion(parseInt(id), nombre, fechaInicio, fechaFin, estadoActivo);
     
-    const nuevoPeriodo = new PeriodoInscripcion(id, nombre, fechaInicio, fechaFin, estadoActivo);
-    listaPeriodos.push(nuevoPeriodo);
+    await getCollection().insertOne(nuevoPeriodo);
 
     res.status(201).json({ message: 'Período creado exitosamente', data: nuevoPeriodo });
 };
 
 // Actualizar un período (Acá es donde el Admin "prende o apaga" las inscripciones)
-exports.updatePeriodo = (req, res) => {
+export const updatePeriodo = async (req, res) => {
     const { id } = req.params;
     const { nombre, fechaInicio, fechaFin, activo } = req.body;
 
-    const periodo = listaPeriodos.find(p => p.id === parseInt(id));
-    if (!periodo) {
-        return res.status(404).json({ error: "Período no encontrado" });
-    }
+    const updateData = {};
+    if (nombre) updateData.nombre = nombre;
+    if (fechaInicio) updateData.fechaInicio = fechaInicio;
+    if (fechaFin) updateData.fechaFin = fechaFin;
+    if (activo !== undefined) updateData.activo = activo;
 
-    if (nombre) periodo.nombre = nombre;
-    if (fechaInicio) periodo.fechaInicio = fechaInicio;
-    if (fechaFin) periodo.fechaFin = fechaFin;
-    // Chequeamos que no sea undefined para permitir enviar un false válido
-    if (activo !== undefined) periodo.activo = activo;
+    const result = await getCollection().updateOne({ id: parseInt(id) }, { $set: updateData });
+    if (result.matchedCount === 0) return res.status(404).json({ error: "Período no encontrado" });
 
-    res.json({ message: "Período actualizado", data: periodo });
+    const periodoActualizado = await getCollection().findOne({ id: parseInt(id) });
+    res.json({ message: "Período actualizado", data: periodoActualizado });
 };
 
 // Eliminar un período
-exports.deletePeriodo = (req, res) => {
+export const deletePeriodo = async (req, res) => {
     const { id } = req.params;
-    const index = listaPeriodos.findIndex(p => p.id === parseInt(id));
+    const eliminado = await getCollection().findOne({ id: parseInt(id) });
     
-    if (index === -1) return res.status(404).json({ error: "Período no encontrado" });
+    if (!eliminado) return res.status(404).json({ error: "Período no encontrado" });
 
-    const [eliminado] = listaPeriodos.splice(index, 1);
+    await getCollection().deleteOne({ id: parseInt(id) });
     res.json({ message: "Período eliminado", data: eliminado });
 };

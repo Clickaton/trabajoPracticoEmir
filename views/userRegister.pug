@@ -11,9 +11,6 @@ html(lang="es")
           h1.mb-4.text-center Registrar Nuevo Usuario
           form.card.p-4.shadow-sm(action="/createUser" method="POST")
             .mb-3
-              label.form-label.fw-bold(for="id") ID:
-              input.form-control(type="number" name="id" id="id" required)
-            .mb-3
               label.form-label.fw-bold(for="name") Nombre:
               input.form-control(type="text" name="name" id="name" required)
             .mb-3
@@ -22,7 +19,7 @@ html(lang="es")
             .mb-3
               label.form-label.fw-bold(for="password") Contraseña:
               input.form-control(type="password" name="password" id="password" required)
-            button.btn.btn-success.w-100(type="submit") Guardar Usuario
+            button.btn.btn-success.w-100(type="submit") Registrar Usuario
           
           .text-center.mt-3
             a.text-decoration-none(href="/getUsers") ← Volver a la lista

@@ -14,4 +14,10 @@ router.post('/createUser', userController.createUser);
 router.post('/updateUser/:id', userController.updateUser);
 router.post('/deleteUser/:id', userController.deleteUser);
 
+// Rutas de login:
+router.get('/login', userController.getLoginForm);
+router.post('/login', userController.loginUser);
+router.get('/register', userController.getRegisterForm);
+router.post('/register', userController.createUser);
+
 export default router;
