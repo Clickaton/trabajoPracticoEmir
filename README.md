@@ -2,6 +2,7 @@
 
 API REST desarrollada con **Node.js** y **Express**, utilizando **ES6 Modules** y **async/await**. Los datos se persisten en archivos **JSON** locales. El sistema cuenta con dos módulos principales: **Administrativo** y **Estudiantes**.
 
+
 ---
 
 ## Tecnologías utilizadas

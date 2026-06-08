@@ -1,22 +1,4 @@
-import User from '../models/User.js'; 
-import fs from 'fs/promises';
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-// En ES Modules __dirname no existe por defecto, debemos recrearlo
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const usersFilePath = path.join(__dirname, '../data/users.json');
-
-const readUsers = async () => {
-    const data = await fs.readFile(usersFilePath, 'utf-8');
-    return JSON.parse(data);
-};
-
-const writeUsers = async (data) => {
-    await fs.writeFile(usersFilePath, JSON.stringify(data, null, 2));
-};
+import User from '../models/User.js'; // Asegurate de que la ruta sea correcta (mayúsculas/minúsculas)
 
 // Renderiza el formulario de registro
 export const getRegisterForm = (req, res) => {
@@ -25,65 +7,108 @@ export const getRegisterForm = (req, res) => {
 
 // Renderiza el formulario de edición
 export const getEditForm = async (req, res) => {
-    const { id } = req.params;
-    const listaUsuario = await readUsers();
-    const usuario = listaUsuario.find(u => u.id === parseInt(id));
-    if (!usuario) return res.status(404).send("Usuario no encontrado");
-    
-    res.render('userEdit', { user: usuario });
+    try {
+        const { id } = req.params;
+        // Buscamos en MongoDB por nuestro campo 'id' numérico
+        const usuario = await User.findOne({ id: parseInt(id) }); 
+        
+        if (!usuario) return res.status(404).send("Usuario no encontrado");
+        
+        res.render('userEdit', { user: usuario });
+    } catch (error) {
+        res.status(500).send("Error interno del servidor");
+    }
 };
 
 export const getUsers = async (req, res) => {
-    const listaUsuario = await readUsers();
-    const usuariosSinPassword = listaUsuario.map(({ id, name, email }) => ({ id, name, email }));
-    res.render('userList', { users: usuariosSinPassword });
+    try {
+        // Buscamos todos los usuarios. El .select() excluye contraseñas y el _id propio de Mongo para replicar tu lógica exacta
+        const usuariosSinPassword = await User.find().select('id name email -_id');
+        res.render('userList', { users: usuariosSinPassword });
+    } catch (error) {
+        res.status(500).send("Error interno del servidor");
+    }
 };
 
 export const getUserById = async (req, res) => {
-    const { id } = req.params;
-    const listaUsuario = await readUsers();
-    const usuario = listaUsuario.find(u => u.id === parseInt(id));
-    if (!usuario) {
-        return res.status(404).json({ error: "Usuario no encontrado" });
+    try {
+        const { id } = req.params;
+        const usuario = await User.findOne({ id: parseInt(id) }).select('-_id -__v');
+        
+        if (!usuario) {
+            return res.status(404).json({ error: "Usuario no encontrado" });
+        }
+        
+        // Convertimos el documento de mongoose a un objeto JS puro para quitar la contraseña
+        const userObj = usuario.toObject();
+        const { password, ...usuarioSinPassword } = userObj;
+        
+        res.json({ message: `Detalles del usuario con ID: ${id}`, user: usuarioSinPassword });
+    } catch (error) {
+        res.status(500).json({ error: "Error interno del servidor" });
     }
-    const { password, ...usuarioSinPassword } = usuario;
-    res.json({ message: `Detalles del usuario con ID: ${id}`, user: usuarioSinPassword });
 };
 
 export const createUser = async (req, res) => {
-    const { id, name, email, password } = req.body;
-    if (!id || !name || !email || !password) {
-        return res.status(400).json({ error: "Faltan datos obligatorios" });
+    try {
+        const { id, name, email, password } = req.body;
+        if (!id || !name || !email || !password) {
+            return res.status(400).json({ error: "Faltan datos obligatorios" });
+        }
+        
+        // Mongoose se encarga de instanciar y guardar en Atlas
+        await User.create({
+            id: parseInt(id),
+            name,
+            email,
+            password
+        });
+        
+        res.redirect('/getUsers'); 
+    } catch (error) {
+        // Si el id está duplicado, Mongo tira error 11000
+        if (error.code === 11000) {
+            return res.status(400).json({ error: "El ID de usuario ya existe" });
+        }
+        res.status(500).json({ error: "Error interno del servidor" });
     }
-    const listaUsuario = await readUsers();
-    const nuevoUsuario = new User(parseInt(id), name, email, password);
-    listaUsuario.push(nuevoUsuario);
-    await writeUsers(listaUsuario);
-    res.redirect('/getUsers'); // Redirige de vuelta a la lista tras guardar
 };
 
 export const updateUser = async (req, res) => {
-    const { id } = req.params;
-    const { name, email, password } = req.body;
-    let listaUsuario = await readUsers();
-    const usuario = listaUsuario.find(u => u.id === parseInt(id));
-    if (!usuario) return res.status(404).json({ error: "Usuario no encontrado" });
+    try {
+        const { id } = req.params;
+        const { name, email, password } = req.body;
+        
+        // Armamos un objeto solo con los datos que nos llegan
+        const datosAActualizar = {};
+        if (name) datosAActualizar.name = name;
+        if (email) datosAActualizar.email = email;
+        if (password) datosAActualizar.password = password;
 
-    if (name) usuario.name = name;
-    if (email) usuario.email = email;
-    if (password) usuario.password = password;
+        const usuarioActualizado = await User.findOneAndUpdate(
+            { id: parseInt(id) }, 
+            datosAActualizar, 
+            { new: true } // Devuelve el documento actualizado
+        );
 
-    await writeUsers(listaUsuario);
-    res.redirect('/getUsers'); // Redirige a la lista tras actualizar
+        if (!usuarioActualizado) return res.status(404).json({ error: "Usuario no encontrado" });
+
+        res.redirect('/getUsers');
+    } catch (error) {
+        res.status(500).json({ error: "Error interno del servidor" });
+    }
 };
 
 export const deleteUser = async (req, res) => {
-    const { id } = req.params;
-    let listaUsuario = await readUsers();
-    const index = listaUsuario.findIndex(u => u.id === parseInt(id));
-    if (index === -1) return res.status(404).json({ error: "Usuario no encontrado" });
+    try {
+        const { id } = req.params;
 
-    listaUsuario.splice(index, 1);
-    await writeUsers(listaUsuario);
-    res.redirect('/getUsers'); // Redirige a la tabla tras eliminar
+        const usuarioEliminado = await User.findOneAndDelete({ id: parseInt(id) });
+
+        if (!usuarioEliminado) return res.status(404).json({ error: "Usuario no encontrado" });
+
+        res.redirect('/getUsers');
+    } catch (error) {
+        res.status(500).json({ error: "Error interno del servidor" });
+    }
 };
