@@ -30,6 +30,11 @@ const alumnoSchema = new mongoose.Schema({
     fecha_inscripcion: { 
         type: Date, 
         required: true 
+    },
+    // Guarda el ID numérico de la cohorte a la que pertenece
+    cohorte_id: {
+        type: Number,
+        default: null // Por defecto arranca en null porque un alumno nuevo puede no tener cohorte asignada aún
     }
 }, {
     timestamps: true

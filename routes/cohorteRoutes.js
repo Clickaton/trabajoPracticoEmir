@@ -11,6 +11,6 @@ router.delete('/deleteCohorte/:id', cohorteController.deleteCohorte);
 router.post('/cohorte/:cohorteId/addUser', cohorteController.addUserToCohorte);
 router.post('/cohorte/:cohorteId/removeUser', cohorteController.removeUserFromCohorte);
 router.get('/cohorte/:cohorteId/users', cohorteController.getUsersInCohorte);
-router.get('/cohorte/:cohorteId/duration', cohorteController.getCohorteDuration);
+//router.get('/cohorte/:cohorteId/duration', cohorteController.getCohorteDuration);
 
 export default router;
