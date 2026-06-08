@@ -1,65 +1,57 @@
-import fs from 'fs/promises';
-import path from 'path';
-import { fileURLToPath } from 'url';
+// Endpoint de solo lectura que unifica las materias y el historial académico para devolver una vista
+// completa del estado del alumno y su porcentaje de carrera.
+import Alumno from '../models/Alumno.js';
+import Materia from '../models/Materia.js';
+import HistorialAcademico from '../models/HistorialAcademico.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+export const getEstadoAcademico = async (req, res) => {
+    try {
+        const { alumnoId } = req.params;
 
-const historialFilePath = path.join(__dirname, '../data/historialAcademico.json');
-const alumnosFilePath   = path.join(__dirname, '../data/alumnos.json');
-const materiasFilePath  = path.join(__dirname, '../data/materias.json');
+        // 1. Verificamos que el alumno exista en MongoDB Atlas
+        const alumno = await Alumno.findOne({ id: parseInt(alumnoId) }).lean();
+        if (!alumno) {
+            return res.status(404).json({ error: "Alumno no encontrado" });
+        }
 
-const readHistorial = async () => {
-    const data = await fs.readFile(historialFilePath, 'utf-8');
-    return JSON.parse(data);
-};
+        // 2. Traemos todas las materias del plan de estudios
+        const materias = await Materia.find().lean();
 
-const readAlumnos = async () => {
-    const data = await fs.readFile(alumnosFilePath, 'utf-8');
-    return JSON.parse(data);
-};
+        // 3. Traemos todo el historial de este alumno en particular
+        const historialAlumno = await HistorialAcademico.find({ alumno_id: parseInt(alumnoId) }).lean();
 
-const readMaterias = async () => {
-    const data = await fs.readFile(materiasFilePath, 'utf-8');
-    return JSON.parse(data);
-};
+        // 4. Cruzamos TODAS las materias con el historial en tiempo real
+        const estadoMaterias = materias.map(materia => {
+            // Buscamos si hay un registro de esta materia en el historial del alumno
+            const registro = historialAlumno.find(h => h.materia_id === materia.id);
+            
+            return {
+                nombre: materia.nombre,
+                anio: materia.anio,
+                estado: registro ? registro.estado : "Pendiente", // Si no hay registro, está Pendiente
+                nota: registro ? registro.nota : null
+            };
+        }).sort((a, b) => a.anio - b.anio); // Ordenamos por año de carrera
 
-// Endpoint de union: cruza materias + historial del alumno
-const getEstadoAcademico = async (req, res) => {
-    const { alumnoId } = req.params;
+        // 5. Calculamos el porcentaje de avance de la carrera
+        const totalMaterias = materias.length;
+        const materiasAprobadas = estadoMaterias.filter(m => m.estado === "Aprobada").length;
+        
+        // Evitamos división por cero si la colección de materias estuviera vacía
+        const porcentaje_carrera = totalMaterias > 0 
+            ? Math.round((materiasAprobadas / totalMaterias) * 100) 
+            : 0;
 
-    const alumnos  = await readAlumnos();
-    const materias = await readMaterias();
-    const historial = await readHistorial();
+        // 6. Respondemos con el JSON consolidado listo para consumir
+        res.json({
+            alumno: alumno.name,
+            porcentaje_carrera: `${porcentaje_carrera}%`,
+            materias: estadoMaterias
+        });
 
-    // Verificamos que el alumno exista
-    const alumno = alumnos.find(a => a.id === parseInt(alumnoId));
-    if (!alumno) return res.status(404).json({ error: "Alumno no encontrado" });
-
-    // Filtramos el historial del alumno
-    const historialAlumno = historial.filter(h => h.alumno_id === parseInt(alumnoId));
-
-    // Cruzamos TODAS las materias con el historial
-    const estadoMaterias = materias.map(materia => {
-        const registro = historialAlumno.find(h => h.materia_id === materia.id);
-        return {
-            nombre: materia.nombre,
-            anio:   materia.anio,
-            estado: registro ? registro.estado : "Pendiente",
-            nota:   registro ? registro.nota   : null
-        };
-    }).sort((a, b) => a.anio - b.anio);
-
-    // Calculo de porcentaje solo con materiias Aprobadas
-    const totalMaterias    = materias.length;
-    const materiasAprobadas = estadoMaterias.filter(m => m.estado === "Aprobada").length;
-    const porcentaje_carrera = Math.round((materiasAprobadas / totalMaterias) * 100);
-
-    res.json({
-        alumno: alumno.name,
-        porcentaje_carrera: `${porcentaje_carrera}%`,
-        materias: estadoMaterias
-    });
+    } catch (error) {
+        res.status(500).json({ error: "Error interno del servidor al calcular el estado académico" });
+    }
 };
 
 export default { getEstadoAcademico };
