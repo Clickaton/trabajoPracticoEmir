@@ -23,6 +23,7 @@ script.
     });
     cargarCohortes();
     cargarMaterias(); 
+    cargarPeriodos();
   });
 
   document.getElementById('modalEditarActa').addEventListener('hidden.bs.modal', function () {
@@ -438,5 +439,111 @@ script.
     try {
       const response = await fetch(`/api/correlatividades/${idRegla}`, { method: 'DELETE' });
       if (response.ok) await dibujarTablaReglas(materiaId);
+    } catch (error) { console.error(error); }
+  }
+
+  // =======================================================
+  // --- LÓGICA DE PERÍODOS DE INSCRIPCIÓN ---
+  // =======================================================
+  let periodosActuales = [];
+
+  async function cargarPeriodos() {
+    const contenedor = document.getElementById('contenedorPeriodos');
+    if(!contenedor) return;
+    try {
+      const response = await fetch('/api/periodos-inscripcion');
+      if(!response.ok) throw new Error('Error al cargar');
+      const resultado = await response.json();
+      
+      if (resultado.data && resultado.data.length > 0) {
+        periodosActuales = resultado.data;
+        let html = `<div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead class="table-light"><tr><th class="ps-4">Nombre</th><th>Apertura</th><th>Cierre</th><th>Estado</th><th class="text-center">Acciones</th></tr></thead><tbody>`;
+        
+        periodosActuales.forEach(p => {
+          // Formateo visual de fechas
+          const fInicio = new Date(p.fechaInicio).toLocaleDateString('es-AR') + ' ' + p.horaInicio;
+          const fFin = new Date(p.fechaFin).toLocaleDateString('es-AR') + ' ' + p.horaFin;
+          
+          // Botón switch para activar/desactivar fácil
+          const botonEstado = p.activo 
+            ? `<button class="btn btn-sm btn-success" onclick="togglePeriodo(${p.id}, false)">ABIERTO</button>` 
+            : `<button class="btn btn-sm btn-secondary" onclick="togglePeriodo(${p.id}, true)">CERRADO</button>`;
+
+          html += `<tr>
+            <td class="ps-4 fw-medium">${p.nombre}</td>
+            <td><small>${fInicio}</small></td>
+            <td><small>${fFin}</small></td>
+            <td>${botonEstado}</td>
+            <td class="text-center">
+              <button class="btn btn-sm btn-outline-warning me-1" onclick="abrirModalEditarPeriodo(${p.id})"><i class="bi bi-pencil"></i></button>
+              <button class="btn btn-sm btn-outline-danger" onclick="eliminarPeriodo(${p.id})"><i class="bi bi-trash"></i></button>
+            </td>
+          </tr>`;
+        });
+        contenedor.innerHTML = html + '</tbody></table></div>';
+      } else {
+        periodosActuales = [];
+        contenedor.innerHTML = `<div class="p-5 text-center text-muted">Aún no hay períodos creados.</div>`;
+      }
+    } catch (error) {
+      contenedor.innerHTML = `<div class="p-5 text-center text-danger">Error de conexión.</div>`;
+    }
+  }
+
+  document.getElementById('formCrearPeriodo')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const data = Object.fromEntries(new FormData(e.target));
+    try {
+      const response = await fetch('/api/periodos-inscripcion', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+      if (response.ok) { 
+        e.target.reset(); 
+        bootstrap.Modal.getInstance(document.getElementById('modalCrearPeriodo')).hide(); 
+        await cargarPeriodos(); 
+      } else alert('Error: ' + (await response.json()).error);
+    } catch (error) { console.error(error); }
+  });
+
+  function abrirModalEditarPeriodo(id) {
+    const p = periodosActuales.find(x => x.id === id);
+    if (!p) return;
+    document.getElementById('editPeriodoId').value = p.id;
+    document.getElementById('editPeriodoNombre').value = p.nombre;
+    document.getElementById('editPeriodoFechaInicio').value = p.fechaInicio ? p.fechaInicio.split('T')[0] : '';
+    document.getElementById('editPeriodoHoraInicio').value = p.horaInicio;
+    document.getElementById('editPeriodoFechaFin').value = p.fechaFin ? p.fechaFin.split('T')[0] : '';
+    document.getElementById('editPeriodoHoraFin').value = p.horaFin;
+    new bootstrap.Modal(document.getElementById('modalEditarPeriodo')).show();
+  }
+
+  document.getElementById('formEditarPeriodo')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const id = document.getElementById('editPeriodoId').value;
+    const data = Object.fromEntries(new FormData(e.target));
+    try {
+      const response = await fetch(`/api/periodos-inscripcion/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+      if (response.ok) { 
+        bootstrap.Modal.getInstance(document.getElementById('modalEditarPeriodo')).hide(); 
+        await cargarPeriodos(); 
+      } else alert('Error al actualizar.');
+    } catch (error) { console.error(error); }
+  });
+
+  async function eliminarPeriodo(id) {
+    if (!confirm('¿Seguro que querés borrar este período?')) return;
+    try {
+      const response = await fetch(`/api/periodos-inscripcion/${id}`, { method: 'DELETE' });
+      if (response.ok) await cargarPeriodos();
+    } catch (error) { console.error(error); }
+  }
+
+  async function togglePeriodo(id, nuevoEstado) {
+    try {
+      const response = await fetch(`/api/periodos-inscripcion/${id}`, { 
+        method: 'PUT', 
+        headers: { 'Content-Type': 'application/json' }, 
+        body: JSON.stringify({ activo: nuevoEstado }) 
+      });
+      if (response.ok) await cargarPeriodos();
+      else alert('Error al cambiar el estado del período.');
     } catch (error) { console.error(error); }
   }

@@ -11,6 +11,9 @@ block contenido
           button.nav-link#cohortes-tab(data-bs-toggle="tab" data-bs-target="#cohortes-pane" type="button" role="tab" aria-controls="cohortes-pane" aria-selected="false") Cohortes y Alumnos
         li.nav-item(role="presentation")
           button.nav-link#academico-tab(data-bs-toggle="tab" data-bs-target="#academico-pane" type="button" role="tab" aria-controls="academico-pane" aria-selected="false") Materias y Correlatividades
+        // NUEVA PESTAÑA: PERÍODOS DE INSCRIPCIÓN
+        li.nav-item(role="presentation")
+          button.nav-link#periodos-tab(data-bs-toggle="tab" data-bs-target="#periodos-pane" type="button" role="tab" aria-controls="periodos-pane" aria-selected="false") Períodos de Inscripción
 
   .container-fluid.px-4
     // Contenedor de las pestañas
@@ -18,6 +21,7 @@ block contenido
       include tabs/admin.pug
       include tabs/cohortes.pug
       include tabs/materias.pug
+      include tabs/periodos.pug
 
   include tabs/modales.pug
 

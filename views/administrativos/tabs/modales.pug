@@ -313,3 +313,68 @@
         .modal-footer.bg-light
           button.btn.btn-secondary(type="button" data-bs-dismiss="modal") Cancelar
           button.btn.btn-success.text-white(type="submit") Confirmar Inscripción
+
+// ==========================================
+// MODALES DE PERÍODOS DE INSCRIPCIÓN
+// ==========================================
+.modal.fade#modalCrearPeriodo(tabindex="-1")
+  .modal-dialog
+    .modal-content
+      .modal-header.bg-primary.text-white
+        h5.modal-title Nuevo Período de Inscripción
+        button.btn-close.btn-close-white(type="button" data-bs-dismiss="modal")
+      form#formCrearPeriodo
+        .modal-body
+          .mb-3
+            label.form-label ID del Período
+            input.form-control(type="number" name="id" required placeholder="Ej: 1")
+          .mb-3
+            label.form-label Nombre del Llamado
+            input.form-control(type="text" name="nombre" required placeholder="Ej: Primer Cuatrimestre 2026")
+          .row
+            .col-6.mb-3
+              label.form-label Fecha Inicio
+              input.form-control(type="date" name="fechaInicio" required)
+            .col-6.mb-3
+              label.form-label Hora Inicio
+              input.form-control(type="time" name="horaInicio" required)
+          .row
+            .col-6.mb-3
+              label.form-label Fecha Fin
+              input.form-control(type="date" name="fechaFin" required)
+            .col-6.mb-3
+              label.form-label Hora Fin
+              input.form-control(type="time" name="horaFin" required)
+        .modal-footer.bg-light
+          button.btn.btn-secondary(type="button" data-bs-dismiss="modal") Cancelar
+          button.btn.btn-primary(type="submit") Guardar Período
+
+.modal.fade#modalEditarPeriodo(tabindex="-1")
+  .modal-dialog
+    .modal-content
+      .modal-header.bg-warning.text-dark
+        h5.modal-title Editar Período
+        button.btn-close(type="button" data-bs-dismiss="modal")
+      form#formEditarPeriodo
+        .modal-body
+          input(type="hidden" id="editPeriodoId" name="id")
+          .mb-3
+            label.form-label Nombre del Llamado
+            input.form-control#editPeriodoNombre(type="text" name="nombre" required)
+          .row
+            .col-6.mb-3
+              label.form-label Fecha Inicio
+              input.form-control#editPeriodoFechaInicio(type="date" name="fechaInicio" required)
+            .col-6.mb-3
+              label.form-label Hora Inicio
+              input.form-control#editPeriodoHoraInicio(type="time" name="horaInicio" required)
+          .row
+            .col-6.mb-3
+              label.form-label Fecha Fin
+              input.form-control#editPeriodoFechaFin(type="date" name="fechaFin" required)
+            .col-6.mb-3
+              label.form-label Hora Fin
+              input.form-control#editPeriodoHoraFin(type="time" name="horaFin" required)
+        .modal-footer.bg-light
+          button.btn.btn-secondary(type="button" data-bs-dismiss="modal") Cancelar
+          button.btn.btn-warning(type="submit") Guardar Cambios
