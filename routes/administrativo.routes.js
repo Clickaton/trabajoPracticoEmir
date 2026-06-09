@@ -5,8 +5,8 @@ const router = express.Router();
 
 // Rutas para renderizar vistas (Pantallas)
 router.get('/', administrativoController.getAdministrativos);           // URL final: /api/administrativos
-router.get('/nuevo', administrativoController.getRegisterForm);         // URL final: /api/administrativos/nuevo
-router.get('/editar/:id', administrativoController.getEditForm);        // URL final: /api/administrativos/editar/1
+//router.get('/nuevo', administrativoController.getRegisterForm);         // URL final: /api/administrativos/nuevo
+//router.get('/editar/:id', administrativoController.getEditForm);        // URL final: /api/administrativos/editar/1
 
 // Rutas de procesamiento (Acciones de los formularios)
 router.get('/:id', administrativoController.getAdministrativoById);     // URL final: /api/administrativos/1

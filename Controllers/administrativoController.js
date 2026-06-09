@@ -11,26 +11,13 @@ const omitPassword = (admin) => {
 // RENDERIZAR VISTAS
 const getAdministrativos = async (req, res) => {
     try {
-        const lista = await Administrativo.find();
-        // Mapeamos la lista pasándola por el helper para quitar passwords y datos internos de Mongo
-        res.render('administrativos/lista', { administrativos: lista.map(omitPassword) });
+        const administrativosBBDD = await Administrativo.find();
+        
+        // validación de seguridad (omitPassword).
+        // Lo mande abajo la clave "lista" porque así lo configura en el index.pug
+        res.render('administrativos/index', { lista: administrativosBBDD.map(omitPassword) });
     } catch (error) {
         res.status(500).send("Error obteniendo administrativos");
-    }
-};
-
-const getRegisterForm = (req, res) => {
-    res.render('administrativos/registrar');
-};
-
-const getEditForm = async (req, res) => {
-    try {
-        const admin = await Administrativo.findOne({ id: parseInt(req.params.id) });
-        if (!admin) return res.status(404).send("Administrativo no encontrado");
-
-        res.render('administrativos/editar', { admin });
-    } catch (error) {
-        res.status(500).send("Error interno del servidor");
     }
 };
 
@@ -61,6 +48,7 @@ const createAdministrativo = async (req, res) => {
 
         res.redirect('/api/administrativos');
     } catch (error) {
+        console.log("Error al crear:", error);
         if (error.code === 11000) {
             return res.status(400).send("El ID de administrativo ya existe");
         }
@@ -106,8 +94,6 @@ const deleteAdministrativo = async (req, res) => {
 
 export default {
     getAdministrativos,
-    getRegisterForm,
-    getEditForm,
     getAdministrativoById,
     createAdministrativo,
     updateAdministrativo,

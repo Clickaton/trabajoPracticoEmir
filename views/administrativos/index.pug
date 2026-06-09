@@ -1,0 +1,497 @@
+extends ../layout
+
+block contenido
+  // Sub-menú tipo pestañas FUNCIONALES (Bootstrap Tabs)
+  .nav-tabs-custom.shadow-sm.mb-4
+    .container-fluid.px-4
+      ul.nav.nav-tabs.pt-2#dashboardTabs(role="tablist" style="border-bottom: none;")
+        li.nav-item(role="presentation")
+          button.nav-link.active#admin-tab(data-bs-toggle="tab" data-bs-target="#admin-pane" type="button" role="tab" aria-controls="admin-pane" aria-selected="true") Personal Administrativo
+        li.nav-item(role="presentation")
+          button.nav-link#cohortes-tab(data-bs-toggle="tab" data-bs-target="#cohortes-pane" type="button" role="tab" aria-controls="cohortes-pane" aria-selected="false") Gestión de Cohortes y Alumnos
+
+  .container-fluid.px-4
+    // Contenedor de las pestañas
+    .tab-content#dashboardTabsContent
+      
+      // ==========================================
+      // PANEL 1: ADMINISTRATIVOS
+      // ==========================================
+      .tab-pane.fade.show.active#admin-pane(role="tabpanel" aria-labelledby="admin-tab")
+        .d-flex.justify-content-between.align-items-center.mb-3
+          h4.mb-0.text-secondary Gestión de Personal
+          button.btn.btn-info.text-white.shadow-sm(data-bs-toggle="modal" data-bs-target="#modalCrear")
+            i.bi.bi-plus-lg.me-1
+            | Nuevo Administrativo
+
+        .card.shadow-sm.border-0
+          .card-body.p-0
+            .table-responsive
+              table.table.table-hover.align-middle.mb-0
+                thead.table-light
+                  tr
+                    th.ps-4 Nombre y Apellido
+                    th Email
+                    th Área
+                    th Rol
+                    th.text-center Acciones
+                tbody
+                  if lista && lista.length > 0
+                    each admin in lista
+                      tr
+                        td.ps-4.fw-medium= admin.name
+                        td= admin.email
+                        td= admin.area
+                        td
+                          span.badge.bg-secondary= admin.rol
+                        td.text-center
+                          button.btn.btn-sm.btn-outline-primary.me-2(onclick=`abrirModalEditar(${JSON.stringify(admin)})`)
+                            i.bi.bi-pencil-square
+                            |  Editar
+                          form.d-inline(action=`/api/administrativos/eliminar/${admin.id}` method="POST")
+                            button.btn.btn-sm.btn-outline-danger(type="submit" onclick="return confirm('¿Seguro que querés eliminar este usuario?');")
+                              i.bi.bi-trash
+                  else
+                    tr
+                      td.text-center.py-4(colspan="5") No hay personal registrado.
+
+      // ==========================================
+      // PANEL 2: COHORTES Y ALUMNOS
+      // ==========================================
+      .tab-pane.fade#cohortes-pane(role="tabpanel" aria-labelledby="cohortes-tab")
+        .d-flex.justify-content-between.align-items-center.mb-3
+          h4.mb-0.text-secondary Gestión de Cohortes
+          button.btn.btn-primary.shadow-sm(data-bs-toggle="modal" data-bs-target="#modalCrearCohorte")
+            i.bi.bi-folder-plus.me-1
+            | Nueva Cohorte
+        
+        .card.shadow-sm.border-0.mb-4
+          // HEADER: Selector y Botón de Crear Alumno
+          .card-header.bg-dark.text-white.d-flex.align-items-center.justify-content-between
+            .d-flex.align-items-center.gap-3
+              span Seleccionar Cohorte:
+              select.form-select.form-select-sm.w-auto#selectorCohorte
+                option(selected disabled) Cargando cohortes...
+            
+            button.btn.btn-sm.btn-info.text-white#btnAbrirModalAlumno(data-bs-toggle="modal" data-bs-target="#modalCrearAlumno" disabled)
+              i.bi.bi-person-plus.me-1
+              | Dar de Alta Alumno
+
+          // BODY: Acá se dibujará la tabla de alumnos
+          .card-body.p-0#contenedorAlumnos
+            .p-5.text-center.text-muted
+              i.bi.bi-people.fs-1.mb-3.d-block
+              h5 Seleccioná una cohorte para ver sus alumnos
+
+  // ==========================================
+  // ZONA DE MODALES
+  // ==========================================
+
+  // MODAL: CREAR ADMINISTRATIVO
+  .modal.fade#modalCrear(tabindex="-1")
+    .modal-dialog
+      .modal-content
+        .modal-header.bg-info.text-white
+          h5.modal-title Nuevo Administrativo
+          button.btn-close.btn-close-white(type="button" data-bs-dismiss="modal")
+        form(action="/api/administrativos" method="POST")
+          .modal-body
+            .mb-3
+              label.form-label ID (Numérico)
+              input.form-control(type="number" name="id" required)
+            .mb-3
+              label.form-label Nombre
+              input.form-control(type="text" name="name" required)
+            .mb-3
+              label.form-label Email
+              input.form-control(type="email" name="email" required)
+            .mb-3
+              label.form-label Contraseña
+              input.form-control(type="password" name="password" required)
+            .row
+              .col-6.mb-3
+                label.form-label Área
+                select.form-select(name="area" required)
+                  option(value="Alumnos") Alumnos
+                  option(value="Sistemas") Sistemas
+              .col-6.mb-3
+                label.form-label Rol
+                select.form-select(name="rol" required)
+                  option(value="Admin") Admin
+                  option(value="Operador") Operador
+          .modal-footer.bg-light
+            button.btn.btn-secondary(type="button" data-bs-dismiss="modal") Cancelar
+            button.btn.btn-info.text-white(type="submit") Guardar
+
+  // MODAL: EDITAR ADMINISTRATIVO
+  .modal.fade#modalEditar(tabindex="-1")
+    .modal-dialog
+      .modal-content
+        .modal-header.bg-primary.text-white
+          h5.modal-title Editar Administrativo
+          button.btn-close.btn-close-white(type="button" data-bs-dismiss="modal")
+        form#formEditar(method="POST")
+          .modal-body
+            .mb-3
+              label.form-label Nombre
+              input.form-control#editName(type="text" name="name" required)
+            .mb-3
+              label.form-label Email
+              input.form-control#editEmail(type="email" name="email" required)
+            .row
+              .col-6.mb-3
+                label.form-label Área
+                select.form-select#editArea(name="area" required)
+                  option(value="Alumnos") Alumnos
+                  option(value="Sistemas") Sistemas
+              .col-6.mb-3
+                label.form-label Rol
+                select.form-select#editRol(name="rol" required)
+                  option(value="Admin") Admin
+                  option(value="Operador") Operador
+          .modal-footer.bg-light
+            button.btn.btn-secondary(type="button" data-bs-dismiss="modal") Cancelar
+            button.btn.btn-primary(type="submit") Actualizar Cambios
+
+  // MODAL: CREAR COHORTE
+  .modal.fade#modalCrearCohorte(tabindex="-1")
+    .modal-dialog
+      .modal-content
+        .modal-header.bg-primary.text-white
+          h5.modal-title Nueva Cohorte
+          button.btn-close.btn-close-white(type="button" data-bs-dismiss="modal")
+        form#formCrearCohorte
+          .modal-body
+            .mb-3
+              label.form-label ID de Cohorte (Numérico)
+              input.form-control(type="number" name="id" required placeholder="Ej: 1")
+            .mb-3
+              label.form-label Nombre / Año
+              input.form-control(type="text" name="name" required placeholder="Ej: 2026")
+            .mb-3
+              label.form-label Fecha de Inicio
+              input.form-control(type="date" name="startDate" required)
+          .modal-footer.bg-light
+            button.btn.btn-secondary(type="button" data-bs-dismiss="modal") Cancelar
+            button.btn.btn-primary(type="submit") Guardar Cohorte
+
+  // MODAL: CREAR ALUMNO
+  .modal.fade#modalCrearAlumno(tabindex="-1")
+    .modal-dialog.modal-lg
+      .modal-content
+        .modal-header.bg-info.text-white
+          h5.modal-title Dar de Alta Nuevo Alumno
+          button.btn-close.btn-close-white(type="button" data-bs-dismiss="modal")
+        form#formCrearAlumno
+          .modal-body
+            // CARTEL INFORMATIVO DINÁMICO
+            .alert.alert-info.py-2.mb-4(role="alert")
+              i.bi.bi-info-circle-fill.me-2
+              span#textoAvisoCohorte El alumno será inscripto en la cohorte seleccionada.
+            
+            .row
+              .col-6.mb-3
+                label.form-label ID (Numérico)
+                input.form-control(type="number" name="id" required)
+              .col-6.mb-3
+                label.form-label Legajo
+                input.form-control(type="text" name="legajo" required)
+            .mb-3
+              label.form-label Nombre Completo
+              input.form-control(type="text" name="name" required)
+            .row
+              .col-6.mb-3
+                label.form-label Email
+                input.form-control(type="email" name="email" required)
+              .col-6.mb-3
+                label.form-label Contraseña
+                input.form-control(type="password" name="password" required)
+            .row
+              .col-6.mb-3
+                label.form-label Estado
+                select.form-select(name="activo" required)
+                  option(value="true") Activo
+                  option(value="false") Inactivo
+              .col-6.mb-3
+                label.form-label Fecha de Inscripción
+                input.form-control(type="date" name="fecha_inscripcion" required)
+            // Input oculto para conectar con la cohorte elegida en el select
+            input(type="hidden" name="cohorte_id" id="hiddenCohorteId" value="")
+          .modal-footer.bg-light
+            button.btn.btn-secondary(type="button" data-bs-dismiss="modal") Cancelar
+            button.btn.btn-info.text-white(type="submit") Crear e Inscribir
+
+  // MODAL: EDITAR ALUMNO
+  .modal.fade#modalEditarAlumno(tabindex="-1")
+    .modal-dialog.modal-lg
+      .modal-content
+        .modal-header.bg-primary.text-white
+          h5.modal-title Editar Ficha del Alumno
+          button.btn-close.btn-close-white(type="button" data-bs-dismiss="modal")
+        form#formEditarAlumno
+          .modal-body
+            .row
+              .col-6.mb-3
+                label.form-label ID (Numérico)
+                input.form-control#editAlumnoId(type="number" name="id" readonly)
+              .col-6.mb-3
+                label.form-label Legajo
+                input.form-control#editAlumnoLegajo(type="text" name="legajo" required)
+            .mb-3
+              label.form-label Nombre Completo
+              input.form-control#editAlumnoName(type="text" name="name" required)
+            .row
+              .col-6.mb-3
+                label.form-label Email
+                input.form-control#editAlumnoEmail(type="email" name="email" required)
+              .col-6.mb-3
+                label.form-label Contraseña (Dejar en blanco para no cambiar)
+                input.form-control#editAlumnoPassword(type="password" name="password")
+            .row
+              .col-6.mb-3
+                label.form-label Estado
+                select.form-select#editAlumnoActivo(name="activo" required)
+                  option(value="true") Activo
+                  option(value="false") Inactivo
+              .col-6.mb-3
+                label.form-label Fecha de Inscripción
+                input.form-control#editAlumnoFecha(type="date" name="fecha_inscripcion" required)
+          .modal-footer.bg-light
+            button.btn.btn-secondary(type="button" data-bs-dismiss="modal") Cancelar
+            button.btn.btn-primary(type="submit") Guardar Cambios
+
+//- Bloque de Scripts
+block scripts
+  script.
+    // Variable global para mantener los alumnos en memoria y poder editarlos fácil
+    let alumnosActuales = [];
+
+    // --- 1. Administrativos ---
+    function abrirModalEditar(admin) {
+      document.getElementById('editName').value = admin.name;
+      document.getElementById('editEmail').value = admin.email;
+      document.getElementById('editArea').value = admin.area;
+      document.getElementById('editRol').value = admin.rol;
+      document.getElementById('formEditar').action = `/api/administrativos/editar/${admin.id}`;
+      new bootstrap.Modal(document.getElementById('modalEditar')).show();
+    }
+    
+    // --- 2. Carga inicial de datos ---
+    document.addEventListener("DOMContentLoaded", function() {
+      // Control de Pestañas
+      let activeTab = localStorage.getItem('activeTab');
+      if (activeTab) {
+        let tabElement = document.querySelector(`button[data-bs-target="${activeTab}"]`);
+        if (tabElement) new bootstrap.Tab(tabElement).show();
+      }
+      document.querySelectorAll('button[data-bs-toggle="tab"]').forEach(button => {
+        button.addEventListener('shown.bs.tab', e => localStorage.setItem('activeTab', e.target.getAttribute('data-bs-target')));
+      });
+
+      cargarCohortes();
+    });
+
+    // --- 3. Lógica de Cohortes ---
+    async function cargarCohortes() {
+      try {
+        const response = await fetch('/getCohortes'); 
+        const resultado = await response.json();
+        const select = document.getElementById('selectorCohorte');
+        
+        select.innerHTML = '<option selected disabled>Elegir cohorte...</option>';
+        if (resultado.data && resultado.data.length > 0) {
+          resultado.data.forEach(cohorte => {
+            select.innerHTML += `<option value="${cohorte.id}">${cohorte.name}</option>`;
+          });
+        } else {
+          select.innerHTML = '<option disabled>No hay cohortes creadas</option>';
+        }
+      } catch (error) { console.error("Error:", error); }
+    }
+
+    // Interceptar form de Crear Cohorte
+    document.getElementById('formCrearCohorte')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const data = Object.fromEntries(new FormData(e.target));
+      try {
+        const response = await fetch('/crearCohorte', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        if (response.ok) window.location.reload();
+        else alert('Error: ' + (await response.json()).error);
+      } catch (error) { console.error(error); }
+    });
+
+    // --- 4. Lógica de Alumnos Dinámicos ---
+    // Evento al elegir una cohorte en el select
+    document.getElementById('selectorCohorte').addEventListener('change', async function(e) {
+      const cohorteId = e.target.value;
+      const cohorteNombre = e.target.options[e.target.selectedIndex].text;
+      
+      // Habilitamos el botón de crear y guardamos el ID en el form oculto
+      document.getElementById('btnAbrirModalAlumno').disabled = false;
+      document.getElementById('hiddenCohorteId').value = cohorteId;
+      
+      // Actualizamos el cartel del modal dinámicamente con el nombre de la cohorte
+      document.getElementById('textoAvisoCohorte').innerHTML = `El alumno será inscripto automáticamente en la cohorte: <b>${cohorteNombre}</b>`;
+
+      await dibujarTablaAlumnos(cohorteId);
+    });
+
+    // Dibujar la tabla dinámicamente
+    async function dibujarTablaAlumnos(cohorteId) {
+      const contenedor = document.getElementById('contenedorAlumnos');
+      contenedor.innerHTML = '<div class="p-5 text-center"><div class="spinner-border text-primary" role="status"></div></div>';
+      
+      try {
+        const response = await fetch(`/cohorte/${cohorteId}/users`);
+        const resultado = await response.json();
+        
+        if (resultado.users && resultado.users.length > 0) {
+          alumnosActuales = resultado.users; // Guardamos en memoria para el modal de edición
+          let html = `
+            <div class="table-responsive">
+              <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th class="ps-4">Legajo</th>
+                    <th>Nombre y Apellido</th>
+                    <th>Email</th>
+                    <th>Estado</th>
+                    <th class="text-center">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+          `;
+          resultado.users.forEach(alumno => {
+            const estadoBadge = alumno.activo ? '<span class="badge bg-success">Activo</span>' : '<span class="badge bg-danger">Inactivo</span>';
+            html += `
+              <tr>
+                <td class="ps-4 fw-medium">${alumno.legajo}</td>
+                <td>${alumno.name}</td>
+                <td>${alumno.email}</td>
+                <td>${estadoBadge}</td>
+                <td class="text-center">
+                  <button class="btn btn-sm btn-outline-primary me-1" onclick="abrirModalEditarAlumno(${alumno.id})">
+                    <i class="bi bi-pencil-square"></i> Editar
+                  </button>
+                  <button class="btn btn-sm btn-outline-danger" onclick="eliminarAlumnoPorCompleto(${alumno.id}, ${cohorteId})">
+                    <i class="bi bi-trash"></i> Eliminar
+                  </button>
+                </td>
+              </tr>
+            `;
+          });
+          html += '</tbody></table></div>';
+          contenedor.innerHTML = html;
+        } else {
+          alumnosActuales = [];
+          contenedor.innerHTML = `
+            <div class="p-5 text-center text-muted">
+              <i class="bi bi-person-x fs-1 mb-3 d-block"></i>
+              <h5>Esta cohorte no tiene alumnos</h5>
+              <p class="mb-0">Usá el botón superior para dar de alta al primer alumno.</p>
+            </div>
+          `;
+        }
+      } catch (error) { console.error("Error cargando alumnos:", error); }
+    }
+
+    // Interceptar form de CREAR Alumno
+    document.getElementById('formCrearAlumno')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const data = Object.fromEntries(new FormData(e.target));
+      data.activo = data.activo === 'true'; 
+      
+      try {
+        const response = await fetch('/createAlumno', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        
+        if (response.ok) {
+          const cohorteId = document.getElementById('hiddenCohorteId').value;
+          e.target.reset();
+          bootstrap.Modal.getInstance(document.getElementById('modalCrearAlumno')).hide();
+          await dibujarTablaAlumnos(cohorteId);
+        } else {
+          const errorData = await response.json();
+          alert('Error: ' + errorData.error);
+        }
+      } catch (error) { 
+        console.error(error); 
+      }
+    });
+
+    // --- 5. Edición y Eliminación de Alumnos ---
+
+    // Abrir Modal de Edición
+    function abrirModalEditarAlumno(alumnoId) {
+      const alumno = alumnosActuales.find(a => a.id === alumnoId);
+      if (!alumno) return;
+
+      document.getElementById('editAlumnoId').value = alumno.id;
+      document.getElementById('editAlumnoLegajo').value = alumno.legajo;
+      document.getElementById('editAlumnoName').value = alumno.name;
+      document.getElementById('editAlumnoEmail').value = alumno.email;
+      document.getElementById('editAlumnoPassword').value = ''; // Vacío por seguridad
+      document.getElementById('editAlumnoActivo').value = alumno.activo ? 'true' : 'false';
+
+      // Ajustamos la fecha para que el input type="date" la lea bien (YYYY-MM-DD)
+      if (alumno.fecha_inscripcion) {
+        document.getElementById('editAlumnoFecha').value = alumno.fecha_inscripcion.split('T')[0];
+      }
+
+      // Guardamos el ID en el form para saber a quién actualizar
+      document.getElementById('formEditarAlumno').dataset.id = alumno.id;
+      
+      new bootstrap.Modal(document.getElementById('modalEditarAlumno')).show();
+    }
+
+    // Interceptar form de EDITAR Alumno
+    document.getElementById('formEditarAlumno')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const alumnoId = e.target.dataset.id;
+      const data = Object.fromEntries(new FormData(e.target));
+      data.activo = data.activo === 'true';
+
+      // Si no escribió contraseña nueva, la borramos del objeto para no pisarla con texto vacío
+      if (!data.password) delete data.password;
+
+      try {
+        const response = await fetch(`/updateAlumno/${alumnoId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+
+        if (response.ok) {
+          const cohorteId = document.getElementById('hiddenCohorteId').value;
+          bootstrap.Modal.getInstance(document.getElementById('modalEditarAlumno')).hide();
+          await dibujarTablaAlumnos(cohorteId); // Redibuja la tabla con los datos nuevos
+        } else {
+          alert('Error al actualizar el alumno.');
+        }
+      } catch (error) { console.error(error); }
+    });
+
+    // Eliminar alumno definitivamente del sistema
+    async function eliminarAlumnoPorCompleto(alumnoId, cohorteId) {
+      if (!confirm('¿Seguro que querés ELIMINAR por completo a este alumno del instituto? Esta acción no se puede deshacer.')) return;
+      
+      try {
+        const response = await fetch(`/deleteAlumno/${alumnoId}`, {
+          method: 'DELETE'
+        });
+        
+        if (response.ok) {
+          await dibujarTablaAlumnos(cohorteId); 
+        } else {
+          alert('Error al intentar eliminar el registro.');
+        }
+      } catch (error) { console.error(error); }
+    }
