@@ -61,6 +61,7 @@ export const getInscripcionesByAlumno = async (req, res) => {
             const materia = materias.find(m => m.id === i.materia_id);
             const periodo = periodos.find(p => p.id === i.periodo_id);
             return {
+                id: i.id,
                 materia: materia ? materia.nombre : "Materia Desconocida",
                 anio: materia ? materia.anio : null,
                 periodo: periodo ? periodo.nombre : "Período Desconocido",
