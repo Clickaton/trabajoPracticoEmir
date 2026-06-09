@@ -88,20 +88,16 @@ block contenido
       // ==========================================
       .tab-pane.fade#academico-pane(role="tabpanel" aria-labelledby="academico-tab")
         .row
-          // COLUMNA IZQUIERDA: MATERIAS
           .col-lg-7.mb-4
             .d-flex.justify-content-between.align-items-center.mb-3
               h4.mb-0.text-secondary Plan de Estudios
               button.btn.btn-primary.shadow-sm(data-bs-toggle="modal" data-bs-target="#modalCrearMateria")
                 i.bi.bi-journal-plus.me-1
                 | Nueva Materia
-            
             .card.shadow-sm.border-0
               .card-body.p-0#contenedorMaterias
                 .p-5.text-center
                   .spinner-border.text-primary(role="status")
-          
-          // COLUMNA DERECHA: CORRELATIVIDADES
           .col-lg-5.mb-4
             h4.mb-3.text-secondary Reglas de Cursada
             .card.shadow-sm.border-0
@@ -109,12 +105,10 @@ block contenido
                 label.form-label.mb-1.small Seleccionar Materia para ver requisitos:
                 select.form-select.form-select-sm#selectorMateriaReglas
                   option(selected disabled) Cargando materias...
-              
               .card-body.p-0#contenedorReglas
                 .p-5.text-center.text-muted
                   i.bi.bi-diagram-3.fs-1.mb-3.d-block
                   h6 Elegí una materia del menú superior
-              
               .card-footer.bg-light.text-end
                 button.btn.btn-sm.btn-info.text-white#btnAbrirModalRegla(data-bs-toggle="modal" data-bs-target="#modalCrearRegla" disabled)
                   i.bi.bi-plus-circle.me-1
@@ -289,9 +283,6 @@ block contenido
             button.btn.btn-secondary(type="button" data-bs-dismiss="modal") Cancelar
             button.btn.btn-primary(type="submit") Guardar Cambios
 
-  // ==========================================
-  // MODALES: MATERIAS Y REGLAS
-  // ==========================================
   .modal.fade#modalCrearMateria(tabindex="-1")
     .modal-dialog
       .modal-content
@@ -363,9 +354,6 @@ block contenido
             button.btn.btn-secondary(type="button" data-bs-dismiss="modal") Cancelar
             button.btn.btn-info.text-white(type="submit") Guardar Regla
 
-  // ==========================================
-  // MODAL: FICHA ACADÉMICA (EXPEDIENTE)
-  // ==========================================
   .modal.fade#modalFichaAlumno(tabindex="-1")
     .modal-dialog.modal-xl.modal-dialog-scrollable
       .modal-content
@@ -373,31 +361,23 @@ block contenido
           h5.modal-title#tituloFichaAlumno Ficha Académica
           button.btn-close.btn-close-white(type="button" data-bs-dismiss="modal")
         .modal-body.bg-light
-          // BARRA DE PROGRESO GLOBAL
           .card.shadow-sm.border-0.mb-4
             .card-body
               h6.text-secondary.mb-3 <i class="bi bi-graph-up me-2"></i>Progreso de la Carrera
               .progress(style="height: 25px;")
                 .progress-bar.bg-success.fw-bold#barraProgresoCarrera(role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100") 0%
-          
           .row
-            // COLUMNA IZQUIERDA: Tablas Funcionales
             .col-lg-8
-              // 1. Inscripciones Actuales
               .card.shadow-sm.border-0.mb-4
                 .card-header.bg-white.d-flex.justify-content-between.align-items-center
                   h6.mb-0.text-primary <i class="bi bi-calendar-check me-2"></i>Cursadas Actuales (Inscripciones)
                 .card-body.p-0#contenedorFichaInscripciones
                   .p-4.text-center.text-muted Cargando inscripciones...
-              
-              // 2. Historial Académico
               .card.shadow-sm.border-0.mb-4
                 .card-header.bg-white
                   h6.mb-0.text-secondary <i class="bi bi-archive me-2"></i>Historial Académico (Actas y Notas)
                 .card-body.p-0#contenedorFichaHistorial
                   .p-4.text-center.text-muted Cargando historial...
-
-            // COLUMNA DERECHA: Semáforo del Plan de Estudios
             .col-lg-4
               .card.shadow-sm.border-0.mb-4
                 .card-header.bg-white
@@ -408,9 +388,6 @@ block contenido
         .modal-footer
           button.btn.btn-secondary(type="button" data-bs-dismiss="modal") Cerrar Expediente
 
-  // ==========================================
-  // MINI-MODAL PARA CARGAR NOTA EN EL HISTORIAL
-  // ==========================================
   .modal.fade#modalEditarActa(tabindex="-1" data-bs-backdrop="static")
     .modal-dialog.modal-sm.modal-dialog-centered
       .modal-content
@@ -419,10 +396,8 @@ block contenido
           button.btn-close.btn-close-white(type="button" data-bs-dismiss="modal")
         form#formEditarActa
           .modal-body
-            // Inputs ocultos para saber a quién estamos editando
             input(type="hidden" id="editActaRegistroId")
             input(type="hidden" id="editActaAlumnoId")
-            
             .mb-3
               label.form-label.small.fw-bold Estado
               select.form-select.form-select-sm#editActaEstado(name="estado" required)
@@ -436,14 +411,37 @@ block contenido
             button.btn.btn-sm.btn-secondary(type="button" data-bs-dismiss="modal") Cancelar
             button.btn.btn-sm.btn-success(type="submit") Guardar
 
+  // ==========================================
+  // NUEVO MODAL: INSCRIPCIÓN MANUAL
+  // ==========================================
+  .modal.fade#modalInscribirManual(tabindex="-1")
+    .modal-dialog
+      .modal-content
+        .modal-header.bg-success.text-white
+          h5.modal-title Inscribir Alumno a Materia
+          button.btn-close.btn-close-white(type="button" data-bs-dismiss="modal")
+        form#formInscribirManual
+          .modal-body
+            input(type="hidden" name="alumno_id" id="hiddenAlumnoIdInscripcion")
+            input(type="hidden" name="cohorte_id" id="hiddenCohorteIdInscripcion")
+            .mb-3
+              label.form-label Materia
+              select.form-select(name="materia_id" id="selectMateriasInscripcion" required)
+                option(selected disabled) Seleccione una materia...
+            .mb-3
+              label.form-label Período Activo
+              select.form-select(name="periodo_id" id="selectPeriodosInscripcion" required)
+                option(selected disabled) Cargando períodos...
+          .modal-footer.bg-light
+            button.btn.btn-secondary(type="button" data-bs-dismiss="modal") Cancelar
+            button.btn.btn-success.text-white(type="submit") Confirmar Inscripción
+
 //- Bloque de Scripts
 block scripts
   script.
-    // Variables globales
     let alumnosActuales = [];
     let materiasActuales = [];
 
-    // --- 1. Administrativos ---
     function abrirModalEditar(admin) {
       document.getElementById('editName').value = admin.name;
       document.getElementById('editEmail').value = admin.email;
@@ -453,7 +451,6 @@ block scripts
       new bootstrap.Modal(document.getElementById('modalEditar')).show();
     }
     
-    // --- 2. Inicialización ---
     document.addEventListener("DOMContentLoaded", function() {
       let activeTab = localStorage.getItem('activeTab');
       if (activeTab) {
@@ -463,19 +460,16 @@ block scripts
       document.querySelectorAll('button[data-bs-toggle="tab"]').forEach(button => {
         button.addEventListener('shown.bs.tab', e => localStorage.setItem('activeTab', e.target.getAttribute('data-bs-target')));
       });
-
       cargarCohortes();
       cargarMaterias(); 
     });
 
-    // Parche anti-bloqueo de scroll de Bootstrap al cerrar un modal sobre otro modal
     document.getElementById('modalEditarActa').addEventListener('hidden.bs.modal', function () {
       if (document.getElementById('modalFichaAlumno').classList.contains('show')) {
         document.body.classList.add('modal-open');
       }
     });
 
-    // --- 3. Lógica de Cohortes y Alumnos ---
     async function cargarCohortes() {
       try {
         const response = await fetch('/getCohortes'); 
@@ -522,7 +516,8 @@ block scripts
               <td>${a.email}</td>
               <td>${badge}</td>
               <td class="text-center">
-                <button class="btn btn-sm btn-outline-info me-1" title="Abrir Ficha Académica" onclick="abrirFichaAlumno(${a.id}, '${a.name}')"><i class="bi bi-card-list"></i> Ficha</button>
+                <button class="btn btn-sm btn-outline-info me-1" title="Ficha" onclick="abrirFichaAlumno(${a.id}, '${a.name}')"><i class="bi bi-card-list"></i></button>
+                <button class="btn btn-sm btn-outline-success me-1" title="Inscribir" onclick="abrirModalInscripcion(${a.id}, ${cohorteId})"><i class="bi bi-plus-circle"></i></button>
                 <button class="btn btn-sm btn-outline-primary me-1" onclick="abrirModalEditarAlumno(${a.id})"><i class="bi bi-pencil-square"></i></button>
                 <button class="btn btn-sm btn-outline-danger" onclick="eliminarAlumnoPorCompleto(${a.id}, ${cohorteId})"><i class="bi bi-trash"></i></button>
               </td>
@@ -579,15 +574,39 @@ block scripts
       } catch (error) { console.error(error); }
     }
 
+    // --- LÓGICA DE INSCRIPCIÓN MANUAL ---
+    async function abrirModalInscripcion(alumnoId, cohorteId) {
+      document.getElementById('hiddenAlumnoIdInscripcion').value = alumnoId;
+      document.getElementById('hiddenCohorteIdInscripcion').value = cohorteId;
+      const [resMat, resPer] = await Promise.all([fetch('/api/materias'), fetch('/api/periodos-inscripcion/activos')]);
+      const materias = await resMat.json();
+      const periodos = await resPer.json();
+      const selM = document.getElementById('selectMateriasInscripcion');
+      const selP = document.getElementById('selectPeriodosInscripcion');
+      selM.innerHTML = materias.data.map(m => `<option value="${m.id}">${m.nombre}</option>`).join('');
+      selP.innerHTML = periodos.data && periodos.data.length > 0 ? periodos.data.map(p => `<option value="${p.id}">${p.nombre}</option>`).join('') : '<option disabled>Sin períodos activos</option>';
+      new bootstrap.Modal(document.getElementById('modalInscribirManual')).show();
+    }
 
-    // =======================================================
-    // --- LÓGICA DE LA FICHA ACADÉMICA DEL ALUMNO ---
-    // =======================================================
+    document.getElementById('formInscribirManual').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const data = Object.fromEntries(new FormData(e.target));
+      try {
+        const res = await fetch('/api/inscripciones', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+        if(res.ok) {
+            bootstrap.Modal.getInstance(document.getElementById('modalInscribirManual')).hide();
+            alert("Inscripción exitosa");
+        } else {
+            const err = await res.json();
+            alert("Error: " + err.error);
+        }
+      } catch(e) { console.error(e); }
+    });
 
+    // --- LÓGICA DE LA FICHA ACADÉMICA ---
     function abrirFichaAlumno(alumnoId, nombreAlumno) {
       document.getElementById('tituloFichaAlumno').innerText = `Expediente Académico: ${nombreAlumno} (ID: ${alumnoId})`;
       new bootstrap.Modal(document.getElementById('modalFichaAlumno')).show();
-
       cargarEstadoAcademico(alumnoId);
       cargarInscripcionesAlumno(alumnoId);
       cargarHistorialAlumno(alumnoId);
@@ -600,30 +619,16 @@ block scripts
         const res = await fetch(`/api/estado-academico/${alumnoId}`);
         if (!res.ok) throw new Error('Sin datos');
         const json = await res.json();
-        
         barra.style.width = json.porcentaje_carrera;
         barra.innerText = json.porcentaje_carrera;
-
         let html = '';
         json.materias.forEach(m => {
-          let badge = '';
-          if(m.estado === 'Aprobada') badge = '<span class="badge bg-success rounded-pill">Aprobada</span>';
-          else if(m.estado === 'Regular') badge = '<span class="badge bg-primary rounded-pill">Regular</span>';
-          else if(m.estado === 'Cursando') badge = '<span class="badge bg-warning text-dark rounded-pill">Cursando</span>';
-          else badge = '<span class="badge bg-secondary rounded-pill">Pendiente</span>';
-
+          let badge = m.estado === 'Aprobada' ? '<span class="badge bg-success rounded-pill">Aprobada</span>' : (m.estado === 'Regular' ? '<span class="badge bg-primary rounded-pill">Regular</span>' : (m.estado === 'Cursando' ? '<span class="badge bg-warning text-dark rounded-pill">Cursando</span>' : '<span class="badge bg-secondary rounded-pill">Pendiente</span>'));
           let notaVisual = m.nota ? `<br><small class="text-success fw-bold">Nota Final: ${m.nota}</small>` : '';
-          
-          html += `
-            <div class="list-group-item d-flex justify-content-between align-items-center">
-              <div><small class="fw-bold">${m.nombre}</small><br><small class="text-muted">${m.anio}° Año</small>${notaVisual}</div>
-              ${badge}
-            </div>`;
+          html += `<div class="list-group-item d-flex justify-content-between align-items-center"><div><small class="fw-bold">${m.nombre}</small><br><small class="text-muted">${m.anio}° Año</small>${notaVisual}</div>${badge}</div>`;
         });
         contenedor.innerHTML = html;
-      } catch (e) {
-        contenedor.innerHTML = `<div class="p-4 text-center text-muted">Error al cargar el estado.</div>`;
-      }
+      } catch (e) { contenedor.innerHTML = `<div class="p-4 text-center text-muted">Error al cargar el estado.</div>`; }
     }
 
     async function cargarInscripcionesAlumno(alumnoId) {
@@ -631,126 +636,57 @@ block scripts
       try {
         const res = await fetch(`/api/inscripciones/alumno/${alumnoId}`);
         const json = await res.json();
-
         if (json.data && json.data.length > 0) {
           let html = `<div class="table-responsive"><table class="table table-sm table-borderless table-hover mb-0"><thead class="table-light"><tr><th class="ps-3">Materia</th><th>Período</th><th class="text-end pe-3">Acción</th></tr></thead><tbody>`;
           json.data.forEach(ins => {
-            html += `<tr>
-              <td class="ps-3 pt-2 fw-medium text-primary">${ins.materia}</td>
-              <td class="pt-2"><small>${ins.periodo}</small></td>
-              <td class="text-end pe-3">
-                <button class="btn btn-sm btn-outline-danger p-1" title="Anular Inscripción" onclick="anularInscripcion(${ins.id}, ${alumnoId})"><i class="bi bi-x-circle"></i> Baja</button>
-              </td>
-            </tr>`;
+            html += `<tr><td class="ps-3 pt-2 fw-medium text-primary">${ins.materia}</td><td class="pt-2"><small>${ins.periodo}</small></td><td class="text-end pe-3"><button class="btn btn-sm btn-outline-danger p-1" onclick="anularInscripcion(${ins.id}, ${alumnoId})"><i class="bi bi-x-circle"></i> Baja</button></td></tr>`;
           });
           contenedor.innerHTML = html + `</tbody></table></div>`;
-        } else {
-          contenedor.innerHTML = `<div class="p-4 text-center text-muted small"><i class="bi bi-calendar-x fs-3 d-block mb-2"></i>El alumno no tiene cursadas activas.</div>`;
-        }
+        } else { contenedor.innerHTML = `<div class="p-4 text-center text-muted small"><i class="bi bi-calendar-x fs-3 d-block mb-2"></i>El alumno no tiene cursadas activas.</div>`; }
       } catch(e) { console.error(e); }
     }
 
     async function anularInscripcion(inscripcionId, alumnoId) {
-      if(!inscripcionId) return alert("Falta el ID. Revisa el backend como te indiqué.");
-      if(!confirm('¿Seguro que querés dar de baja esta inscripción? (Esto borrará el estado "Cursando" del historial)')) return;
+      if(!confirm('¿Dar de baja esta inscripción?')) return;
       try {
         const res = await fetch(`/api/inscripciones/${inscripcionId}`, { method: 'DELETE' });
-        if(res.ok) {
-          cargarInscripcionesAlumno(alumnoId);
-          cargarHistorialAlumno(alumnoId);
-          cargarEstadoAcademico(alumnoId);
-        } else {
-          const err = await res.json();
-          alert('Error: ' + err.error);
-        }
+        if(res.ok) { cargarInscripcionesAlumno(alumnoId); cargarHistorialAlumno(alumnoId); cargarEstadoAcademico(alumnoId); }
       } catch(e) { console.error(e); }
     }
 
-    // Panel 3: Historial Académico CON BOTÓN DE EDITAR
     async function cargarHistorialAlumno(alumnoId) {
       const contenedor = document.getElementById('contenedorFichaHistorial');
       try {
         const res = await fetch(`/api/historial/alumno/${alumnoId}`);
-        if (!res.ok) {
-          contenedor.innerHTML = `<div class="p-4 text-center text-muted small"><i class="bi bi-inbox fs-3 d-block mb-2"></i>No hay registros en el archivo histórico.</div>`;
-          return;
-        }
         const json = await res.json();
         let html = `<div class="table-responsive"><table class="table table-sm table-striped mb-0 align-middle"><thead class="table-light"><tr><th class="ps-3">Materia</th><th>Estado</th><th>Nota</th><th class="text-center pe-3">Acción</th></tr></thead><tbody>`;
-        
         json.data.forEach(h => {
           let badgeColor = h.estado === 'Aprobada' ? 'bg-success' : (h.estado === 'Regular' ? 'bg-primary' : 'bg-secondary');
-          let notaNum = h.nota || ''; // Pasamos la nota o vacío a la función JS
-          
-          html += `<tr>
-            <td class="ps-3"><small>${h.materia}</small></td>
-            <td><span class="badge ${badgeColor}">${h.estado}</span></td>
-            <td class="fw-bold">${h.nota || '-'}</td>
-            <td class="text-center pe-3">
-              <button class="btn btn-sm btn-outline-primary py-0 px-2" title="Cargar Acta / Nota Final" onclick="abrirModalEditarActa(${h.id_registro}, ${alumnoId}, '${h.estado}', '${notaNum}')">
-                <i class="bi bi-pencil"></i>
-              </button>
-            </td>
-          </tr>`;
+          let notaNum = h.nota || ''; 
+          html += `<tr><td class="ps-3"><small>${h.materia}</small></td><td><span class="badge ${badgeColor}">${h.estado}</span></td><td class="fw-bold">${h.nota || '-'}</td><td class="text-center pe-3"><button class="btn btn-sm btn-outline-primary py-0 px-2" onclick="abrirModalEditarActa(${h.id_registro}, ${alumnoId}, '${h.estado}', '${notaNum}')"><i class="bi bi-pencil"></i></button></td></tr>`;
         });
         contenedor.innerHTML = html + `</tbody></table></div>`;
       } catch(e) { console.error(e); }
     }
 
-    // FUNCIONALIDAD: Cargar Nota en el Mini-Modal
     function abrirModalEditarActa(registroId, alumnoId, estadoActual, notaActual) {
       document.getElementById('editActaRegistroId').value = registroId;
       document.getElementById('editActaAlumnoId').value = alumnoId;
       document.getElementById('editActaEstado').value = estadoActual;
       document.getElementById('editActaNota').value = notaActual;
-      
       new bootstrap.Modal(document.getElementById('modalEditarActa')).show();
     }
 
     document.getElementById('formEditarActa')?.addEventListener('submit', async (e) => {
       e.preventDefault();
-      
       const registroId = document.getElementById('editActaRegistroId').value;
       const alumnoId = document.getElementById('editActaAlumnoId').value;
-      const estado = document.getElementById('editActaEstado').value;
-      const notaValor = document.getElementById('editActaNota').value;
-
-      // Armamos el body que pide tu controlador
-      const payload = { estado: estado };
-      
-      // Si pone nota, la mandamos como número. Si la deja vacía, mandamos null
-      if (notaValor) {
-        payload.nota = Number(notaValor);
-      } else {
-        payload.nota = null; 
-      }
-
+      const payload = { estado: document.getElementById('editActaEstado').value, nota: document.getElementById('editActaNota').value ? Number(document.getElementById('editActaNota').value) : null };
       try {
-        const response = await fetch(`/api/historial/${registroId}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-
-        if (response.ok) {
-          // Cerramos el mini modal
-          bootstrap.Modal.getInstance(document.getElementById('modalEditarActa')).hide();
-          
-          // Refrescamos la Ficha para que se vea la nota y el progreso sin recargar la página entera
-          cargarHistorialAlumno(alumnoId);
-          cargarEstadoAcademico(alumnoId);
-        } else {
-          const err = await response.json();
-          alert('Error al guardar nota: ' + err.error);
-        }
-      } catch (error) { 
-        console.error(error); 
-      }
+        const response = await fetch(`/api/historial/${registroId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        if (response.ok) { bootstrap.Modal.getInstance(document.getElementById('modalEditarActa')).hide(); cargarHistorialAlumno(alumnoId); cargarEstadoAcademico(alumnoId); }
+      } catch (error) { console.error(error); }
     });
-
-    // =======================================================
-    // --- LÓGICA DE MATERIAS Y CORRELATIVIDADES ---
-    // =======================================================
 
     async function cargarMaterias() {
       try {
@@ -759,27 +695,19 @@ block scripts
         const contenedor = document.getElementById('contenedorMaterias');
         const selectVistaReglas = document.getElementById('selectorMateriaReglas');
         const selectModalRequisito = document.getElementById('selectMateriaRequisito');
-
         if (resultado.data && resultado.data.length > 0) {
           materiasActuales = resultado.data;
-          
           let html = `<div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead class="table-light"><tr><th class="ps-4">ID</th><th>Nombre</th><th>Año</th><th class="text-center">Acciones</th></tr></thead><tbody>`;
           materiasActuales.forEach(m => {
             html += `<tr><td class="ps-4 text-muted">#${m.id}</td><td class="fw-medium">${m.nombre}</td><td>${m.anio}° Año</td><td class="text-center"><button class="btn btn-sm btn-outline-warning me-1" onclick="abrirModalEditarMateria(${m.id})"><i class="bi bi-pencil"></i></button><button class="btn btn-sm btn-outline-danger" onclick="eliminarMateria(${m.id})"><i class="bi bi-trash"></i></button></td></tr>`;
           });
           contenedor.innerHTML = html + '</tbody></table></div>';
-
           let options = '<option selected disabled>Elegir materia...</option>';
           materiasActuales.forEach(m => { options += `<option value="${m.id}">${m.nombre}</option>`; });
           selectVistaReglas.innerHTML = options;
           selectModalRequisito.innerHTML = options;
-
-        } else {
-          materiasActuales = [];
-          contenedor.innerHTML = `<div class="p-5 text-center text-muted">Aún no hay materias registradas.</div>`;
-          selectVistaReglas.innerHTML = '<option disabled>Sin materias</option>';
         }
-      } catch (error) { console.error("Error al cargar materias:", error); }
+      } catch (error) { console.error(error); }
     }
 
     document.getElementById('formCrearMateria')?.addEventListener('submit', async (e) => {
@@ -787,19 +715,14 @@ block scripts
       const data = Object.fromEntries(new FormData(e.target));
       try {
         const response = await fetch('/api/materias', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
-        if (response.ok) {
-          e.target.reset(); bootstrap.Modal.getInstance(document.getElementById('modalCrearMateria')).hide();
-          await cargarMaterias();
-        } else alert('Error: ' + (await response.json()).error);
+        if (response.ok) { e.target.reset(); bootstrap.Modal.getInstance(document.getElementById('modalCrearMateria')).hide(); await cargarMaterias(); }
       } catch (error) { console.error(error); }
     });
 
     function abrirModalEditarMateria(materiaId) {
       const m = materiasActuales.find(x => x.id === materiaId);
       if (!m) return;
-      document.getElementById('editMateriaId').value = m.id;
-      document.getElementById('editMateriaNombre').value = m.nombre;
-      document.getElementById('editMateriaAnio').value = m.anio;
+      document.getElementById('editMateriaId').value = m.id; document.getElementById('editMateriaNombre').value = m.nombre; document.getElementById('editMateriaAnio').value = m.anio;
       new bootstrap.Modal(document.getElementById('modalEditarMateria')).show();
     }
 
@@ -809,50 +732,39 @@ block scripts
       const data = Object.fromEntries(new FormData(e.target));
       try {
         const response = await fetch(`/api/materias/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
-        if (response.ok) {
-          bootstrap.Modal.getInstance(document.getElementById('modalEditarMateria')).hide();
-          await cargarMaterias();
-        } else alert('Error al actualizar.');
+        if (response.ok) { bootstrap.Modal.getInstance(document.getElementById('modalEditarMateria')).hide(); await cargarMaterias(); }
       } catch (error) { console.error(error); }
     });
 
     async function eliminarMateria(id) {
-      if (!confirm('¿Seguro que querés borrar esta materia del plan de estudios?')) return;
+      if (!confirm('¿Borrar materia?')) return;
       try {
         const response = await fetch(`/api/materias/${id}`, { method: 'DELETE' });
-        if (response.ok) await cargarMaterias(); else alert('Error al eliminar materia.');
+        if (response.ok) await cargarMaterias();
       } catch (error) { console.error(error); }
     }
     
     document.getElementById('selectorMateriaReglas').addEventListener('change', async function(e) {
-      const materiaId = e.target.value;
-      const materiaNombre = e.target.options[e.target.selectedIndex].text;
-      
+      const id = e.target.value;
       document.getElementById('btnAbrirModalRegla').disabled = false;
-      document.getElementById('hiddenMateriaParaRegla').value = materiaId;
-      document.getElementById('textoAvisoMateriaRegla').innerHTML = `Agregando requisito para: <b>${materiaNombre}</b>`;
-
-      await dibujarTablaReglas(materiaId);
+      document.getElementById('hiddenMateriaParaRegla').value = id;
+      document.getElementById('textoAvisoMateriaRegla').innerHTML = `Agregando requisito para: <b>${e.target.options[e.target.selectedIndex].text}</b>`;
+      await dibujarTablaReglas(id);
     });
 
     async function dibujarTablaReglas(materiaId) {
       const contenedor = document.getElementById('contenedorReglas');
-      contenedor.innerHTML = '<div class="p-4 text-center"><div class="spinner-border text-info spinner-border-sm"></div></div>';
       try {
         const response = await fetch(`/api/correlatividades/materia/${materiaId}`);
         const resultado = await response.json();
-        
         if (resultado.data && resultado.data.length > 0) {
           let html = `<table class="table table-sm table-borderless mb-0"><thead class="table-light"><tr><th class="ps-3">Debe tener...</th><th>Condición</th><th class="text-end pe-3">Quitar</th></tr></thead><tbody>`;
           resultado.data.forEach(regla => {
-            const badgeColor = regla.condicion === 'Aprobada' ? 'bg-success' : 'bg-primary';
-            html += `<tr><td class="ps-3 pt-2">${regla.requisito}</td><td class="pt-2"><span class="badge ${badgeColor}">${regla.condicion}</span></td><td class="text-end pe-3"><button class="btn btn-sm text-danger p-0" onclick="eliminarRegla(${regla.id_regla}, ${materiaId})"><i class="bi bi-x-circle-fill fs-5"></i></button></td></tr>`;
+            html += `<tr><td class="ps-3 pt-2">${regla.requisito}</td><td class="pt-2"><span class="badge ${regla.condicion === 'Aprobada' ? 'bg-success' : 'bg-primary'}">${regla.condicion}</span></td><td class="text-end pe-3"><button class="btn btn-sm text-danger p-0" onclick="eliminarRegla(${regla.id_regla}, ${materiaId})"><i class="bi bi-x-circle-fill fs-5"></i></button></td></tr>`;
           });
           contenedor.innerHTML = html + '</tbody></table>';
-        } else {
-          contenedor.innerHTML = `<div class="p-4 text-center text-muted small"><i class="bi bi-check2-circle fs-3 d-block mb-2 text-success"></i>Esta materia no tiene correlatividades previas. Puede cursarse libremente.</div>`;
-        }
-      } catch (error) { console.error("Error al cargar reglas:", error); }
+        } else { contenedor.innerHTML = `<div class="p-4 text-center text-muted small"><i class="bi bi-check2-circle fs-3 d-block mb-2 text-success"></i>Sin requisitos.</div>`; }
+      } catch (error) { console.error(error); }
     }
 
     document.getElementById('formCrearRegla')?.addEventListener('submit', async (e) => {
@@ -860,17 +772,14 @@ block scripts
       const data = Object.fromEntries(new FormData(e.target));
       try {
         const response = await fetch('/api/correlatividades', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
-        if (response.ok) {
-          e.target.reset(); bootstrap.Modal.getInstance(document.getElementById('modalCrearRegla')).hide();
-          await dibujarTablaReglas(data.materia_id);
-        } else alert('Error: ' + (await response.json()).error);
+        if (response.ok) { e.target.reset(); bootstrap.Modal.getInstance(document.getElementById('modalCrearRegla')).hide(); await dibujarTablaReglas(data.materia_id); }
       } catch (error) { console.error(error); }
     });
 
     async function eliminarRegla(idRegla, materiaId) {
-      if (!confirm('¿Seguro que querés quitar este requisito?')) return;
+      if (!confirm('¿Quitar requisito?')) return;
       try {
         const response = await fetch(`/api/correlatividades/${idRegla}`, { method: 'DELETE' });
-        if (response.ok) await dibujarTablaReglas(materiaId); else alert('Error al quitar regla.');
+        if (response.ok) await dibujarTablaReglas(materiaId);
       } catch (error) { console.error(error); }
     }
