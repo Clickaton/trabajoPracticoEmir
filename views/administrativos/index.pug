@@ -88,6 +88,7 @@ block contenido
       // ==========================================
       .tab-pane.fade#academico-pane(role="tabpanel" aria-labelledby="academico-tab")
         .row
+          // COLUMNA IZQUIERDA: MATERIAS
           .col-lg-7.mb-4
             .d-flex.justify-content-between.align-items-center.mb-3
               h4.mb-0.text-secondary Plan de Estudios
@@ -98,6 +99,8 @@ block contenido
               .card-body.p-0#contenedorMaterias
                 .p-5.text-center
                   .spinner-border.text-primary(role="status")
+          
+          // COLUMNA DERECHA: CORRELATIVIDADES
           .col-lg-5.mb-4
             h4.mb-3.text-secondary Reglas de Cursada
             .card.shadow-sm.border-0
@@ -398,6 +401,7 @@ block contenido
           .modal-body
             input(type="hidden" id="editActaRegistroId")
             input(type="hidden" id="editActaAlumnoId")
+            input(type="hidden" id="editActaMateriaId")
             .mb-3
               label.form-label.small.fw-bold Estado
               select.form-select.form-select-sm#editActaEstado(name="estado" required)
@@ -411,9 +415,6 @@ block contenido
             button.btn.btn-sm.btn-secondary(type="button" data-bs-dismiss="modal") Cancelar
             button.btn.btn-sm.btn-success(type="submit") Guardar
 
-  // ==========================================
-  // NUEVO MODAL: INSCRIPCIÓN MANUAL
-  // ==========================================
   .modal.fade#modalInscribirManual(tabindex="-1")
     .modal-dialog
       .modal-content
@@ -441,6 +442,7 @@ block scripts
   script.
     let alumnosActuales = [];
     let materiasActuales = [];
+    let inscripcionesActualesGlobal = []; // Array global para tener acceso rápido a las cursadas del alumno en pantalla
 
     function abrirModalEditar(admin) {
       document.getElementById('editName').value = admin.name;
@@ -471,15 +473,19 @@ block scripts
     });
 
     async function cargarCohortes() {
+      const select = document.getElementById('selectorCohorte');
       try {
         const response = await fetch('/getCohortes'); 
+        if(!response.ok) throw new Error('Error en el fetch de cohortes');
         const resultado = await response.json();
-        const select = document.getElementById('selectorCohorte');
         select.innerHTML = '<option selected disabled>Elegir cohorte...</option>';
         if (resultado.data && resultado.data.length > 0) {
           resultado.data.forEach(cohorte => { select.innerHTML += `<option value="${cohorte.id}">${cohorte.name}</option>`; });
         } else { select.innerHTML = '<option disabled>No hay cohortes creadas</option>'; }
-      } catch (error) { console.error(error); }
+      } catch (error) { 
+        if(select) select.innerHTML = '<option disabled>Error de conexión</option>';
+        console.error("Timeout de MongoDB en Cohortes:", error); 
+      }
     }
 
     document.getElementById('formCrearCohorte')?.addEventListener('submit', async (e) => {
@@ -504,6 +510,7 @@ block scripts
       contenedor.innerHTML = '<div class="p-5 text-center"><div class="spinner-border text-primary"></div></div>';
       try {
         const response = await fetch(`/cohorte/${cohorteId}/users`);
+        if(!response.ok) throw new Error('Falló el servidor');
         const resultado = await response.json();
         if (resultado.users && resultado.users.length > 0) {
           alumnosActuales = resultado.users; 
@@ -528,7 +535,10 @@ block scripts
           alumnosActuales = [];
           contenedor.innerHTML = `<div class="p-5 text-center text-muted"><i class="bi bi-person-x fs-1 mb-3 d-block"></i><h5>Esta cohorte no tiene alumnos</h5></div>`;
         }
-      } catch (error) { console.error(error); }
+      } catch (error) { 
+        contenedor.innerHTML = `<div class="p-5 text-center text-danger"><i class="bi bi-exclamation-triangle fs-3 d-block mb-2"></i>Error de conexión con la base de datos.</div>`;
+        console.error(error); 
+      }
     }
 
     document.getElementById('formCrearAlumno')?.addEventListener('submit', async (e) => {
@@ -583,7 +593,7 @@ block scripts
       const periodos = await resPer.json();
       const selM = document.getElementById('selectMateriasInscripcion');
       const selP = document.getElementById('selectPeriodosInscripcion');
-      selM.innerHTML = materias.data.map(m => `<option value="${m.id}">${m.nombre}</option>`).join('');
+      selM.innerHTML = materias.data ? materias.data.map(m => `<option value="${m.id}">${m.nombre}</option>`).join('') : '<option disabled>Sin materias</option>';
       selP.innerHTML = periodos.data && periodos.data.length > 0 ? periodos.data.map(p => `<option value="${p.id}">${p.nombre}</option>`).join('') : '<option disabled>Sin períodos activos</option>';
       new bootstrap.Modal(document.getElementById('modalInscribirManual')).show();
     }
@@ -606,6 +616,14 @@ block scripts
     // --- LÓGICA DE LA FICHA ACADÉMICA ---
     function abrirFichaAlumno(alumnoId, nombreAlumno) {
       document.getElementById('tituloFichaAlumno').innerText = `Expediente Académico: ${nombreAlumno} (ID: ${alumnoId})`;
+      
+      // RESET COMPLETO DE CONTENEDORES PARA EVITAR PERSISTENCIA DE DATOS DE OTROS ALUMNOS
+      document.getElementById('contenedorFichaEstado').innerHTML = '<div class="p-4 text-center text-muted small"><div class="spinner-border spinner-border-sm text-info me-2"></div>Cargando estado...</div>';
+      document.getElementById('contenedorFichaInscripciones').innerHTML = '<div class="p-4 text-center text-muted small"><div class="spinner-border spinner-border-sm text-primary me-2"></div>Cargando inscripciones...</div>';
+      document.getElementById('contenedorFichaHistorial').innerHTML = '<div class="p-4 text-center text-muted small"><div class="spinner-border spinner-border-sm text-secondary me-2"></div>Cargando historial...</div>';
+      document.getElementById('barraProgresoCarrera').style.width = '0%';
+      document.getElementById('barraProgresoCarrera').innerText = '0%';
+
       new bootstrap.Modal(document.getElementById('modalFichaAlumno')).show();
       cargarEstadoAcademico(alumnoId);
       cargarInscripcionesAlumno(alumnoId);
@@ -617,33 +635,40 @@ block scripts
       const barra = document.getElementById('barraProgresoCarrera');
       try {
         const res = await fetch(`/api/estado-academico/${alumnoId}`);
-        if (!res.ok) throw new Error('Sin datos');
+        if (!res.ok) throw new Error('Error al obtener estado');
         const json = await res.json();
         barra.style.width = json.porcentaje_carrera;
         barra.innerText = json.porcentaje_carrera;
         let html = '';
-        json.materias.forEach(m => {
-          let badge = m.estado === 'Aprobada' ? '<span class="badge bg-success rounded-pill">Aprobada</span>' : (m.estado === 'Regular' ? '<span class="badge bg-primary rounded-pill">Regular</span>' : (m.estado === 'Cursando' ? '<span class="badge bg-warning text-dark rounded-pill">Cursando</span>' : '<span class="badge bg-secondary rounded-pill">Pendiente</span>'));
-          let notaVisual = m.nota ? `<br><small class="text-success fw-bold">Nota Final: ${m.nota}</small>` : '';
-          html += `<div class="list-group-item d-flex justify-content-between align-items-center"><div><small class="fw-bold">${m.nombre}</small><br><small class="text-muted">${m.anio}° Año</small>${notaVisual}</div>${badge}</div>`;
-        });
+        if(json.materias && json.materias.length > 0){
+          json.materias.forEach(m => {
+            let badge = m.estado === 'Aprobada' ? '<span class="badge bg-success rounded-pill">Aprobada</span>' : (m.estado === 'Regular' ? '<span class="badge bg-primary rounded-pill">Regular</span>' : (m.estado === 'Cursando' ? '<span class="badge bg-warning text-dark rounded-pill">Cursando</span>' : '<span class="badge bg-secondary rounded-pill">Pendiente</span>'));
+            let notaVisual = m.nota ? `<br><small class="text-success fw-bold">Nota Final: ${m.nota}</small>` : '';
+            html += `<div class="list-group-item d-flex justify-content-between align-items-center"><div><small class="fw-bold">${m.nombre}</small><br><small class="text-muted">${m.anio}° Año</small>${notaVisual}</div>${badge}</div>`;
+          });
+        }
         contenedor.innerHTML = html;
-      } catch (e) { contenedor.innerHTML = `<div class="p-4 text-center text-muted">Error al cargar el estado.</div>`; }
+      } catch (e) { contenedor.innerHTML = `<div class="p-4 text-center text-danger small">Error de conexión.</div>`; }
     }
 
     async function cargarInscripcionesAlumno(alumnoId) {
       const contenedor = document.getElementById('contenedorFichaInscripciones');
       try {
         const res = await fetch(`/api/inscripciones/alumno/${alumnoId}`);
+        if (!res.ok) throw new Error('Error al obtener inscripciones');
         const json = await res.json();
         if (json.data && json.data.length > 0) {
+          inscripcionesActualesGlobal = json.data; // Guardamos en la variable global
           let html = `<div class="table-responsive"><table class="table table-sm table-borderless table-hover mb-0"><thead class="table-light"><tr><th class="ps-3">Materia</th><th>Período</th><th class="text-end pe-3">Acción</th></tr></thead><tbody>`;
           json.data.forEach(ins => {
             html += `<tr><td class="ps-3 pt-2 fw-medium text-primary">${ins.materia}</td><td class="pt-2"><small>${ins.periodo}</small></td><td class="text-end pe-3"><button class="btn btn-sm btn-outline-danger p-1" onclick="anularInscripcion(${ins.id}, ${alumnoId})"><i class="bi bi-x-circle"></i> Baja</button></td></tr>`;
           });
           contenedor.innerHTML = html + `</tbody></table></div>`;
-        } else { contenedor.innerHTML = `<div class="p-4 text-center text-muted small"><i class="bi bi-calendar-x fs-3 d-block mb-2"></i>El alumno no tiene cursadas activas.</div>`; }
-      } catch(e) { console.error(e); }
+        } else { 
+          inscripcionesActualesGlobal = [];
+          contenedor.innerHTML = `<div class="p-4 text-center text-muted small"><i class="bi bi-calendar-x fs-3 d-block mb-2"></i>El alumno no tiene cursadas activas.</div>`; 
+        }
+      } catch(e) { contenedor.innerHTML = `<div class="p-4 text-center text-danger small">Error de conexión.</div>`; }
     }
 
     async function anularInscripcion(inscripcionId, alumnoId) {
@@ -654,24 +679,67 @@ block scripts
       } catch(e) { console.error(e); }
     }
 
+    async function eliminarHistorial(registroId, alumnoId) {
+      if(!confirm('¿Seguro que querés borrar este registro del historial? Esta acción no se puede deshacer.')) return;
+      
+      // Simulamos la ruta DELETE /api/historial/:id 
+      // (Asegurate de crear este endpoint en tu historialAcademicoController si no existe)
+      try {
+        const res = await fetch(`/api/historial/${registroId}`, { method: 'DELETE' });
+        if(res.ok) { 
+          cargarHistorialAlumno(alumnoId); 
+          cargarEstadoAcademico(alumnoId); 
+        } else {
+          const error = await res.json();
+          alert('Error: ' + error.error);
+        }
+      } catch(e) { console.error(e); }
+    }
+
     async function cargarHistorialAlumno(alumnoId) {
       const contenedor = document.getElementById('contenedorFichaHistorial');
       try {
         const res = await fetch(`/api/historial/alumno/${alumnoId}`);
+        
+        if (!res.ok) {
+          contenedor.innerHTML = `<div class="p-4 text-center text-muted small"><i class="bi bi-inbox fs-3 d-block mb-2"></i>El alumno no registra antecedentes en el historial.</div>`;
+          return;
+        }
+        
         const json = await res.json();
-        let html = `<div class="table-responsive"><table class="table table-sm table-striped mb-0 align-middle"><thead class="table-light"><tr><th class="ps-3">Materia</th><th>Estado</th><th>Nota</th><th class="text-center pe-3">Acción</th></tr></thead><tbody>`;
+        if(!json.data || json.data.length === 0){
+          contenedor.innerHTML = `<div class="p-4 text-center text-muted small"><i class="bi bi-inbox fs-3 d-block mb-2"></i>El alumno no registra antecedentes en el historial.</div>`;
+          return;
+        }
+        
+        let html = `<div class="table-responsive"><table class="table table-sm table-striped mb-0 align-middle"><thead class="table-light"><tr><th class="ps-3">Materia</th><th>Estado</th><th>Nota</th><th class="text-center pe-3">Acciones</th></tr></thead><tbody>`;
         json.data.forEach(h => {
           let badgeColor = h.estado === 'Aprobada' ? 'bg-success' : (h.estado === 'Regular' ? 'bg-primary' : 'bg-secondary');
           let notaNum = h.nota || ''; 
-          html += `<tr><td class="ps-3"><small>${h.materia}</small></td><td><span class="badge ${badgeColor}">${h.estado}</span></td><td class="fw-bold">${h.nota || '-'}</td><td class="text-center pe-3"><button class="btn btn-sm btn-outline-primary py-0 px-2" onclick="abrirModalEditarActa(${h.id_registro}, ${alumnoId}, '${h.estado}', '${notaNum}')"><i class="bi bi-pencil"></i></button></td></tr>`;
+          html += `<tr>
+            <td class="ps-3"><small>${h.materia}</small></td>
+            <td><span class="badge ${badgeColor}">${h.estado}</span></td>
+            <td class="fw-bold">${h.nota || '-'}</td>
+            <td class="text-center pe-3">
+              <button class="btn btn-sm btn-outline-primary py-0 px-2 me-1" title="Cargar Acta / Nota" onclick="abrirModalEditarActa(${h.id_registro}, ${alumnoId}, '${h.materia}', '${h.estado}', '${notaNum}')"><i class="bi bi-pencil"></i></button>
+              <button class="btn btn-sm btn-outline-danger py-0 px-2" title="Eliminar Registro" onclick="eliminarHistorial(${h.id_registro}, ${alumnoId})"><i class="bi bi-trash"></i></button>
+            </td>
+          </tr>`;
         });
         contenedor.innerHTML = html + `</tbody></table></div>`;
-      } catch(e) { console.error(e); }
+      } catch(e) { 
+        console.error(e); 
+        contenedor.innerHTML = `<div class="p-4 text-center text-muted small"><i class="bi bi-inbox fs-3 d-block mb-2"></i>El alumno no registra antecedentes en el historial.</div>`;
+      }
     }
 
-    function abrirModalEditarActa(registroId, alumnoId, estadoActual, notaActual) {
+    function abrirModalEditarActa(registroId, alumnoId, nombreMateria, estadoActual, notaActual) {
       document.getElementById('editActaRegistroId').value = registroId;
       document.getElementById('editActaAlumnoId').value = alumnoId;
+      
+      // Guardamos el nombre de la materia temporalmente en un atributo para poder cruzarlo
+      document.getElementById('editActaMateriaId').dataset.materiaNombre = nombreMateria;
+      
       document.getElementById('editActaEstado').value = estadoActual;
       document.getElementById('editActaNota').value = notaActual;
       new bootstrap.Modal(document.getElementById('modalEditarActa')).show();
@@ -681,18 +749,39 @@ block scripts
       e.preventDefault();
       const registroId = document.getElementById('editActaRegistroId').value;
       const alumnoId = document.getElementById('editActaAlumnoId').value;
-      const payload = { estado: document.getElementById('editActaEstado').value, nota: document.getElementById('editActaNota').value ? Number(document.getElementById('editActaNota').value) : null };
+      const estadoNuevo = document.getElementById('editActaEstado').value;
+      const notaValor = document.getElementById('editActaNota').value;
+      const nombreMateria = document.getElementById('editActaMateriaId').dataset.materiaNombre;
+
+      const payload = { estado: estadoNuevo, nota: notaValor ? Number(notaValor) : null };
+      
       try {
         const response = await fetch(`/api/historial/${registroId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-        if (response.ok) { bootstrap.Modal.getInstance(document.getElementById('modalEditarActa')).hide(); cargarHistorialAlumno(alumnoId); cargarEstadoAcademico(alumnoId); }
+        if (response.ok) { 
+          // Si el admin cambió el estado a Regular o Aprobada, buscamos si el alumno tiene esa materia en Inscripciones para borrarla
+          if (estadoNuevo === 'Regular' || estadoNuevo === 'Aprobada') {
+             // Buscamos si existe una inscripción activa para esta misma materia
+             const cursadaActiva = inscripcionesActualesGlobal.find(ins => ins.materia === nombreMateria);
+             if (cursadaActiva) {
+                 // Si la encuentra, manda el DELETE silencioso al endpoint de inscripciones
+                 await fetch(`/api/inscripciones/${cursadaActiva.id}`, { method: 'DELETE' });
+             }
+          }
+
+          bootstrap.Modal.getInstance(document.getElementById('modalEditarActa')).hide(); 
+          cargarHistorialAlumno(alumnoId); 
+          cargarEstadoAcademico(alumnoId); 
+          cargarInscripcionesAlumno(alumnoId); // Refrescamos inscripciones para que desaparezca la tabla de Cursadas
+        }
       } catch (error) { console.error(error); }
     });
 
     async function cargarMaterias() {
+      const contenedor = document.getElementById('contenedorMaterias');
       try {
         const response = await fetch('/api/materias');
+        if(!response.ok) throw new Error('Fallo al conectar');
         const resultado = await response.json();
-        const contenedor = document.getElementById('contenedorMaterias');
         const selectVistaReglas = document.getElementById('selectorMateriaReglas');
         const selectModalRequisito = document.getElementById('selectMateriaRequisito');
         if (resultado.data && resultado.data.length > 0) {
@@ -701,13 +790,18 @@ block scripts
           materiasActuales.forEach(m => {
             html += `<tr><td class="ps-4 text-muted">#${m.id}</td><td class="fw-medium">${m.nombre}</td><td>${m.anio}° Año</td><td class="text-center"><button class="btn btn-sm btn-outline-warning me-1" onclick="abrirModalEditarMateria(${m.id})"><i class="bi bi-pencil"></i></button><button class="btn btn-sm btn-outline-danger" onclick="eliminarMateria(${m.id})"><i class="bi bi-trash"></i></button></td></tr>`;
           });
-          contenedor.innerHTML = html + '</tbody></table></div>';
+          if(contenedor) contenedor.innerHTML = html + '</tbody></table></div>';
           let options = '<option selected disabled>Elegir materia...</option>';
           materiasActuales.forEach(m => { options += `<option value="${m.id}">${m.nombre}</option>`; });
-          selectVistaReglas.innerHTML = options;
-          selectModalRequisito.innerHTML = options;
+          if(selectVistaReglas) selectVistaReglas.innerHTML = options;
+          if(selectModalRequisito) selectModalRequisito.innerHTML = options;
+        } else {
+          if(contenedor) contenedor.innerHTML = `<div class="p-5 text-center text-muted">Aún no hay materias registradas.</div>`;
         }
-      } catch (error) { console.error(error); }
+      } catch (error) { 
+        if(contenedor) contenedor.innerHTML = `<div class="p-5 text-center text-danger"><i class="bi bi-exclamation-triangle fs-3 d-block mb-2"></i>Error de conexión.</div>`;
+        console.error("Timeout MongoDB en Materias:", error); 
+      }
     }
 
     document.getElementById('formCrearMateria')?.addEventListener('submit', async (e) => {
@@ -744,7 +838,7 @@ block scripts
       } catch (error) { console.error(error); }
     }
     
-    document.getElementById('selectorMateriaReglas').addEventListener('change', async function(e) {
+    document.getElementById('selectorMateriaReglas')?.addEventListener('change', async function(e) {
       const id = e.target.value;
       document.getElementById('btnAbrirModalRegla').disabled = false;
       document.getElementById('hiddenMateriaParaRegla').value = id;
@@ -756,6 +850,7 @@ block scripts
       const contenedor = document.getElementById('contenedorReglas');
       try {
         const response = await fetch(`/api/correlatividades/materia/${materiaId}`);
+        if(!response.ok) throw new Error('Error al cargar reglas');
         const resultado = await response.json();
         if (resultado.data && resultado.data.length > 0) {
           let html = `<table class="table table-sm table-borderless mb-0"><thead class="table-light"><tr><th class="ps-3">Debe tener...</th><th>Condición</th><th class="text-end pe-3">Quitar</th></tr></thead><tbody>`;
@@ -764,7 +859,10 @@ block scripts
           });
           contenedor.innerHTML = html + '</tbody></table>';
         } else { contenedor.innerHTML = `<div class="p-4 text-center text-muted small"><i class="bi bi-check2-circle fs-3 d-block mb-2 text-success"></i>Sin requisitos.</div>`; }
-      } catch (error) { console.error(error); }
+      } catch (error) { 
+        contenedor.innerHTML = `<div class="p-4 text-center text-danger">Error de conexión.</div>`;
+        console.error(error); 
+      }
     }
 
     document.getElementById('formCrearRegla')?.addEventListener('submit', async (e) => {

@@ -155,9 +155,25 @@ export const updateRegistro = async (req, res) => {
     }
 };
 
+export const deleteRegistro = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const eliminado = await HistorialAcademico.findOneAndDelete({ id: parseInt(id) });
+        
+        if (!eliminado) {
+            return res.status(404).json({ error: "Registro no encontrado" });
+        }
+        
+        res.json({ message: "Registro eliminado del historial", data: eliminado });
+    } catch (error) {
+        res.status(500).json({ error: "Error al eliminar el registro" });
+    }
+};
+
 export default { 
     getHistorial,
     getHistorialByAlumno,
     createRegistro,
-    updateRegistro
+    updateRegistro,
+    deleteRegistro
 };
