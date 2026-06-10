@@ -6,29 +6,42 @@ html(lang="es")
     title ISFT 225 - Sistema Académico
     // Bootstrap 5 CSS
     link(href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet")
-    // Bootstrap Icons (Vitales para una UX profesional)
+    // Bootstrap Icons
     link(rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css")
     style.
-      /* Pequeños retoques visuales basados en tu diseño */
       .navbar-custom { background-color: #1a365d; }
       .nav-tabs-custom { background-color: #2b4c7e; }
-      .nav-tabs-custom .nav-link { color: #a0aec0; border: none; }
-      .nav-tabs-custom .nav-link.active { color: white; background-color: transparent; border-bottom: 3px solid #63b3ed; font-weight: bold; }
-  
+      .nav-tabs-custom .nav-link { color: #a0aec0; border: none; padding: 1rem 2rem; }
+      .nav-tabs-custom .nav-link.active { color: white; background-color: transparent; border-bottom: 4px solid #63b3ed; font-weight: bold; }
+      
+      /* Estilos para los botones de años (1er año, 2do año) de la vista alumno */
+      .year-pills .nav-link { color: #4a5568; background-color: #e2e8f0; margin: 0 0.5rem; border-radius: 8px; font-weight: 500; }
+      .year-pills .nav-link.active { background-color: #cbd5e1; color: #1a202c; box-shadow: inset 0 2px 4px rgba(0,0,0,0.1); }
+      
+      /* Estilos para la tabla del plan de estudios */
+      .table-plan-estudios thead th { background-color: #e0f2fe; color: #0369a1; border-bottom: 2px solid #bae6fd; font-weight: 600; }
+      .table-plan-estudios tbody tr:nth-of-type(even) { background-color: #f0f9ff; }
+      
   body.bg-light
-    // Navbar Principal
+    // Navbar Principal Dinámico
     nav.navbar.navbar-expand-lg.navbar-dark.navbar-custom
       .container-fluid.px-4
         a.navbar-brand.d-flex.align-items-center(href="/")
           i.bi.bi-journal-bookmark-fill.me-2
           | ISFT 225
-        .d-flex.align-items-center.text-white
-          i.bi.bi-person-circle.me-2
-          span ADMIN
+        .d-flex.align-items-center.text-white.dropdown
+          a.nav-link.dropdown-toggle.d-flex.align-items-center(href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false")
+            i.bi.bi-person-circle.fs-4.me-2
+            //- Acá está la magia: si le mandamos 'usuario' muestra el nombre, sino dice 'Invitado'
+            span.fw-bold.text-uppercase= usuario ? usuario.name : 'INVITADO'
+          ul.dropdown-menu.dropdown-menu-end
+            li: a.dropdown-item(href="#") Mi Perfil
+            li: hr.dropdown-divider
+            li: a.dropdown-item.text-danger(href="/logout") Cerrar Sesión
     
-    // Acá se inyectan las demás vistas
+    // Contenedor principal de vistas
     block contenido
 
-    // Scripts de Bootstrap y bloque para scripts propios
+    // Scripts de Bootstrap
     script(src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js")
     block scripts

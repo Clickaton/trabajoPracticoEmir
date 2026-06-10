@@ -7,9 +7,6 @@
       form(action="/api/administrativos" method="POST")
         .modal-body
           .mb-3
-            label.form-label ID (Numérico)
-            input.form-control(type="number" name="id" required)
-          .mb-3
             label.form-label Nombre
             input.form-control(type="text" name="name" required)
           .mb-3
@@ -27,8 +24,10 @@
             .col-6.mb-3
               label.form-label Rol
               select.form-select(name="rol" required)
-                option(value="Admin") Admin
-                option(value="Operador") Operador
+                option(value="" selected disabled) Seleccione un rol...
+                if roles
+                  each rol in roles
+                    option(value=rol)= rol
         .modal-footer.bg-light
           button.btn.btn-secondary(type="button" data-bs-dismiss="modal") Cancelar
           button.btn.btn-info.text-white(type="submit") Guardar
@@ -56,8 +55,10 @@
             .col-6.mb-3
               label.form-label Rol
               select.form-select#editRol(name="rol" required)
-                option(value="Admin") Admin
-                option(value="Operador") Operador
+                option(value="" disabled) Seleccione un rol...
+                if roles
+                  each rol in roles
+                    option(value=rol)= rol
         .modal-footer.bg-light
           button.btn.btn-secondary(type="button" data-bs-dismiss="modal") Cancelar
           button.btn.btn-primary(type="submit") Actualizar Cambios
@@ -94,13 +95,9 @@
           .alert.alert-info.py-2.mb-4(role="alert")
             i.bi.bi-info-circle-fill.me-2
             span#textoAvisoCohorte El alumno será inscripto en la cohorte seleccionada.
-          .row
-            .col-6.mb-3
-              label.form-label ID (Numérico)
-              input.form-control(type="number" name="id" required)
-            .col-6.mb-3
-              label.form-label Legajo
-              input.form-control(type="text" name="legajo" required)
+          .mb-3
+            label.form-label Legajo
+            input.form-control(type="text" name="legajo" required)
           .mb-3
             label.form-label Nombre Completo
             input.form-control(type="text" name="name" required)

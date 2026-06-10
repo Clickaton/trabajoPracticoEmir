@@ -46,7 +46,8 @@ export const getEstadoAcademico = async (req, res) => {
         res.json({
             alumno: alumno.name,
             porcentaje_carrera: `${porcentaje_carrera}%`,
-            materias: estadoMaterias
+            materias: estadoMaterias,
+            usuario: { name: alumno.name }
         });
 
     } catch (error) {

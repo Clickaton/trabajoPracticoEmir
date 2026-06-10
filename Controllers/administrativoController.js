@@ -13,9 +13,14 @@ const getAdministrativos = async (req, res) => {
     try {
         const administrativosBBDD = await Administrativo.find();
         
+        // Le pedimos a Mongoose que nos lea el array del 'enum' de models administrativo
+        const rolesPermitidos = Administrativo.schema.path('rol').enumValues;
+
         // validación de seguridad (omitPassword).
         // Lo mande abajo la clave "lista" porque así lo configura en el index.pug
-        res.render('administrativos/index', { lista: administrativosBBDD.map(omitPassword) });
+        res.render('administrativos/index', { 
+            lista: administrativosBBDD.map(omitPassword),
+            roles: rolesPermitidos });
     } catch (error) {
         res.status(500).send("Error obteniendo administrativos");
     }
@@ -35,10 +40,9 @@ const getAdministrativoById = async (req, res) => {
 
 const createAdministrativo = async (req, res) => {
     try {
-        const { id, name, email, password, rol, area } = req.body;
+        const { name, email, password, rol, area } = req.body;
         
         await Administrativo.create({
-            id: parseInt(id),
             name,
             email,
             password,

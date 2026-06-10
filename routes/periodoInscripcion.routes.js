@@ -1,5 +1,5 @@
 import express from 'express';
-import periodoInscripcionController from '../Controllers/periodoInscripcionController.js';
+import periodoInscripcionController from '../Controllers/periodoinscripcionController.js';
 
 const router = express.Router();
 

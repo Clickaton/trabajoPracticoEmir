@@ -37,9 +37,9 @@ export const getAlumnoById = async (req, res) => {
 export const createAlumno = async (req, res) => {
     try {
         // Agregamos cohorte_id a los datos que recibimos
-        const { id, name, email, password, legajo, activo, fecha_inscripcion, cohorte_id } = req.body;
+        const { name, email, password, legajo, activo, fecha_inscripcion, cohorte_id } = req.body;
 
-        if (!id || !name || !email || !password || !legajo || activo === undefined || !fecha_inscripcion) {
+        if (!name || !email || !password || !legajo || activo === undefined || !fecha_inscripcion) {
             return res.status(400).json({ error: "Faltan datos obligatorios" });
         }
 
@@ -54,7 +54,6 @@ export const createAlumno = async (req, res) => {
 
         // 2. Creamos al alumno
         const nuevoAlumno = await Alumno.create({
-            id: parseInt(id),
             name,
             email,
             password,
@@ -73,7 +72,7 @@ export const createAlumno = async (req, res) => {
         res.status(201).json({ message: 'Alumno creado exitosamente', data: omitPassword(nuevoAlumno) });
     } catch (error) {
         if (error.code === 11000) {
-            return res.status(400).json({ error: "El ID o el Legajo ya existen en la base de datos" });
+            return res.status(400).json({ error: "El Legajo ya existen en la base de datos" });
         }
         res.status(500).json({ error: "Error interno del servidor" });
     }
