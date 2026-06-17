@@ -5,6 +5,28 @@ export const getRegisterForm = (req, res) => {
     res.render('userRegister');
 };
 
+// Logeo del usuario
+
+export const userLogin = async (req, res) => {
+    try {
+        const { email, password } = req.body;
+        const usuario = await User.findOne({ email, password });
+        
+        if (!usuario) {
+            return res.status(401).json({ error: "Credenciales inválidas" });
+        }
+
+        // IMPORTANTE: Guarda una versión limpia del usuario en la sesión, no el objeto de Mongoose.
+        req.session.user = usuario.toObject();
+        
+        // Redirigimos al usuario a una página protegida tras el login exitoso.
+        res.redirect('/getUsers');
+    } catch (error) {
+        res.status(500).send("Error interno del servidor");
+    }
+};
+    
+
 // Renderiza el formulario de edición
 export const getEditForm = async (req, res) => {
     try {

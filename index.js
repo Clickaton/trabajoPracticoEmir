@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 
 import path from 'path';
 import { fileURLToPath } from 'url';
+import session from 'express-session'; 
 
 dotenv.config(); // Inicializar variables de entorno
 
@@ -33,16 +34,27 @@ mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log('Conectado exitosamente a MongoDB Atlas'))
   .catch((error) => console.error('Error conectando a MongoDB:', error));
 
-// Configuración del motor de plantillas Pug
-//app.set('view engine', 'pug');
-//app.set('views', './views');
-
 // Configuración del motor de plantillas Pug usando la ruta absoluta
 app.set('view engine', 'pug');
 app.set('views', path.join(__dirname, 'views'));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+app.use(session({
+    secret: process.env.SESSION_SECRET || 'una_clave_secreta_para_desarrollo', // Usá una variable de entorno o un texto fijo si estás en local
+    resave: false,             // Evita que la sesión se vuelva a guardar si no hubo cambios
+    saveUninitialized: false,  // No crea una sesión vacía a visitas que no se loguearon
+    cookie: { 
+        secure: false,         // 'false' para desarrollo local (http). En producción con https debería ser 'true'
+        maxAge: 1000 * 60 * 60 * 2 // La sesión va a durar 2 horas activa
+    }
+}));
+
+app.use((req, res, next) => {
+    res.locals.usuario = req.session.usuario || null; 
+    next();
+});
 
 // Usar enrutadores
 app.use('/', userRoutes);
