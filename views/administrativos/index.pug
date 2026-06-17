@@ -1,0 +1,29 @@
+extends ../layout
+
+block contenido
+  // Sub-menú tipo pestañas FUNCIONALES (Bootstrap Tabs)
+  .nav-tabs-custom.shadow-sm.mb-4
+    .container-fluid.px-4
+      ul.nav.nav-tabs.pt-2#dashboardTabs(role="tablist" style="border-bottom: none;")
+        li.nav-item(role="presentation")
+          button.nav-link.active#admin-tab(data-bs-toggle="tab" data-bs-target="#admin-pane" type="button" role="tab" aria-controls="admin-pane" aria-selected="true") Personal Administrativo
+        li.nav-item(role="presentation")
+          button.nav-link#cohortes-tab(data-bs-toggle="tab" data-bs-target="#cohortes-pane" type="button" role="tab" aria-controls="cohortes-pane" aria-selected="false") Cohortes y Alumnos
+        li.nav-item(role="presentation")
+          button.nav-link#academico-tab(data-bs-toggle="tab" data-bs-target="#academico-pane" type="button" role="tab" aria-controls="academico-pane" aria-selected="false") Materias y Correlatividades
+        // NUEVA PESTAÑA: PERÍODOS DE INSCRIPCIÓN
+        li.nav-item(role="presentation")
+          button.nav-link#periodos-tab(data-bs-toggle="tab" data-bs-target="#periodos-pane" type="button" role="tab" aria-controls="periodos-pane" aria-selected="false") Períodos de Inscripción
+
+  .container-fluid.px-4
+    // Contenedor de las pestañas
+    .tab-content#dashboardTabsContent
+      include tabs/admin.pug
+      include tabs/cohortes.pug
+      include tabs/materias.pug
+      include tabs/periodos.pug
+
+  include tabs/modales.pug
+
+block scripts
+  include tabs/scripts.pug

@@ -1,10 +1,32 @@
-class HistorialAcademico {
-    constructor(id, alumno_id, materia_id, estado) {
-        this.id = id;
-        this.alumno_id = alumno_id;
-        this.materia_id = materia_id;
-        this.estado = estado; // Solo aceptaremos: 'Cursando', 'Regular', o 'Aprobada'
-    }
-}
+import mongoose from 'mongoose';
 
-module.exports = HistorialAcademico;
+const historialAcademicoSchema = new mongoose.Schema({
+    id: { 
+        type: Number, 
+        required: true, 
+        unique: true 
+    },
+    alumno_id: { 
+        type: Number, 
+        required: true 
+    },
+    materia_id: { 
+        type: Number, 
+        required: true 
+    },
+    estado: { 
+        type: String, 
+        required: true,
+        enum: ['Cursando', 'Regular', 'Aprobada'] // Validación estricta en la BD
+    },
+    nota: { 
+        type: Number, 
+        default: null 
+    }
+}, {
+    timestamps: true
+});
+
+const HistorialAcademico = mongoose.model('HistorialAcademico', historialAcademicoSchema);
+
+export default HistorialAcademico;

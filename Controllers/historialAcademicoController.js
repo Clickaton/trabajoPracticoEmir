@@ -1,78 +1,179 @@
 import HistorialAcademico from '../models/HistorialAcademico.js';
-import { getDB } from '../config/db.js';
+import Alumno from '../models/Alumno.js';
+import Materia from '../models/Materia.js';
+import Cohorte from '../models/Cohorte.js';
 
-const getCollection = () => getDB().collection('historial_academico');
-
-// FUNCIÓN HELPER: Cruza los IDs con los nombres reales
-const poblarHistorialArray = async (registros) => {
-    const db = getDB();
-    const todosLosAlumnos = await db.collection('alumnos').find().toArray();
-    const todasLasMaterias = await db.collection('materias').find().toArray();
+// HELPER MongoDB: Cruza los IDs con los nombres reales
+const poblarHistorial = async (registros) => {
+    const alumnos = await Alumno.find().lean();
+    const materias = await Materia.find().lean();
+    const cohortes = await Cohorte.find().lean();
 
     return registros.map(registro => {
-        const alumno = todosLosAlumnos.find(a => a.id === registro.alumno_id);
-        const materia = todasLasMaterias.find(m => m.id === registro.materia_id);
+        const alumno = alumnos.find(a => a.id === registro.alumno_id);
+        const materia = materias.find(m => m.id === registro.materia_id);
+
+        // Buscamos la cohorte usando el cohorte_id que tiene guardado el alumno
+        const cohorte = (alumno && alumno.cohorte_id) 
+            ? cohortes.find(c => c.id === alumno.cohorte_id) 
+            : null;
 
         return {
             id_registro: registro.id,
             alumno: alumno ? alumno.name : "Alumno Desconocido",
+            cohorte: cohorte ? cohorte.name : "Sin Cohorte Asignada",
             materia: materia ? materia.nombre : "Materia Desconocida",
-            estado: registro.estado
+            anio: materia ? materia.anio : null,
+            estado: registro.estado,
+            nota: registro.nota
         };
     });
 };
 
-// 1. Obtener TODO el historial (Para el Admin)
 export const getHistorial = async (req, res) => {
-    const historial = await getCollection().find().toArray();
-    const historialCompleto = await poblarHistorialArray(historial);
-    res.json({ message: 'Historial Académico Global', data: historialCompleto });
+    try {
+        const lista = await HistorialAcademico.find().lean();
+        const alumnos = await Alumno.find().lean();
+        const materias = await Materia.find().lean();
+        const cohortes = await Cohorte.find().lean();
+
+        const historialAgrupado = alumnos.map(alumno => {
+            // Buscamos la cohorte del alumno actual
+            const cohorte = alumno.cohorte_id 
+                ? cohortes.find(c => c.id === alumno.cohorte_id) 
+                : null;
+
+            const registrosAlumno = lista
+                .filter(r => r.alumno_id === alumno.id)
+                .map(r => {
+                    const materia = materias.find(m => m.id === r.materia_id);
+                    return {
+                        materia: materia ? materia.nombre : "Materia Desconocida",
+                        anio: materia ? materia.anio : null,
+                        estado: r.estado,
+                        nota: r.nota
+                    };
+                })
+                .sort((a, b) => a.anio - b.anio);
+
+            return {
+                alumno: alumno.name,
+                cohorte: cohorte ? cohorte.name : "Sin Cohorte Asignada",
+                registros: registrosAlumno
+            };
+        });
+
+        // Filtramos para mostrar solo a los alumnos que tienen al menos un registro
+        const historialFiltrado = historialAgrupado.filter(h => h.registros.length > 0);
+
+        res.json({ message: 'Historial Académico Global', data: historialFiltrado });
+    } catch (error) {
+        res.status(500).json({ error: "Error obteniendo el historial global" });
+    }
 };
 
-// 2. Obtener el historial de un SOLO alumno (Para el Dashboard del estudiante)
 export const getHistorialByAlumno = async (req, res) => {
-    const { alumnoId } = req.params;
-    const historialAlumno = await getCollection().find({ alumno_id: parseInt(alumnoId) }).toArray();
-    const historialCompleto = await poblarHistorialArray(historialAlumno);
-    
-    res.json({ message: `Historial del alumno ID: ${alumnoId}`, data: historialCompleto });
+    try {
+        const { alumnoId } = req.params;
+        const historialAlumno = await HistorialAcademico.find({ alumno_id: parseInt(alumnoId) }).lean();
+
+        if (historialAlumno.length === 0) {
+            return res.status(404).json({ error: `No se encontró historial para el alumno ID: ${alumnoId}` });
+        }
+
+        const historialCompleto = await poblarHistorial(historialAlumno);
+        res.json({ message: `Historial del alumno ID: ${alumnoId}`, data: historialCompleto });
+    } catch (error) {
+        res.status(500).json({ error: "Error obteniendo el historial del alumno" });
+    }
 };
 
-// 3. Crear un nuevo registro (El profesor carga una nota)
 export const createRegistro = async (req, res) => {
-    const { id, alumno_id, materia_id, estado } = req.body;
-
-    if (!id || !alumno_id || !materia_id || !estado) {
-        return res.status(400).json({ error: "Faltan datos obligatorios" });
-    }
-    const estadosValidos = ['Cursando', 'Regular', 'Aprobada'];
-    if (!estadosValidos.includes(estado)) {
-        return res.status(400).json({ error: "El estado solo puede ser 'Cursando', 'Regular' o 'Aprobada'" });
-    }
-
-    const nuevoRegistro = new HistorialAcademico(parseInt(id), parseInt(alumno_id), parseInt(materia_id), estado);
-    await getCollection().insertOne(nuevoRegistro);
-
-    res.status(201).json({ message: 'Registro creado exitosamente', data: nuevoRegistro });
-};
-
-// 4. Actualizar un registro (Ej: El alumno rindió el final y pasó de Regular a Aprobada)
-export const updateRegistro = async (req, res) => {
-    const { id } = req.params;
-    const { estado } = req.body; 
-
-    if (estado) {
+    try {
+        const datos = req.body;
         const estadosValidos = ['Cursando', 'Regular', 'Aprobada'];
+
+        // Carga masiva (Insert Many)
+        if (Array.isArray(datos)) {
+            const registroInvalido = datos.find(d => !estadosValidos.includes(d.estado));
+            if (registroInvalido) {
+                return res.status(400).json({ error: `El estado '${registroInvalido.estado}' no es válido. Solo se acepta Cursando, Regular o Aprobada.` });
+            }
+            
+            const nuevosRegistros = await HistorialAcademico.insertMany(datos);
+            return res.status(201).json({ message: 'Registros creados masivamente', data: nuevosRegistros });
+        }
+
+        // Carga individual
+        const { id, alumno_id, materia_id, estado, nota = null } = datos;
+
+        if (!id || !alumno_id || !materia_id || !estado) {
+            return res.status(400).json({ error: "Faltan datos obligatorios" });
+        }
+
         if (!estadosValidos.includes(estado)) {
             return res.status(400).json({ error: "El estado solo puede ser 'Cursando', 'Regular' o 'Aprobada'" });
         }
-        const result = await getCollection().updateOne({ id: parseInt(id) }, { $set: { estado } });
-        if (result.matchedCount === 0) return res.status(404).json({ error: "Registro no encontrado" });
-    } else {
-        const registroExistente = await getCollection().findOne({ id: parseInt(id) });
-        if (!registroExistente) return res.status(404).json({ error: "Registro no encontrado" });
-    }
 
-    const registroActualizado = await getCollection().findOne({ id: parseInt(id) });
-    res.json({ message: "Registro actualizado", data: registroActualizado });
+        const nuevoRegistro = await HistorialAcademico.create({ id: parseInt(id), alumno_id, materia_id, estado, nota });
+        res.status(201).json({ message: 'Registro creado exitosamente', data: nuevoRegistro });
+
+    } catch (error) {
+        if (error.code === 11000) return res.status(400).json({ error: "El ID del registro ya existe" });
+        res.status(500).json({ error: "Error al crear el registro" });
+    }
+};
+
+export const updateRegistro = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { estado, nota } = req.body;
+
+        const datosAActualizar = {};
+
+        if (estado) {
+            const estadosValidos = ['Cursando', 'Regular', 'Aprobada'];
+            if (!estadosValidos.includes(estado)) {
+                return res.status(400).json({ error: "El estado solo puede ser 'Cursando', 'Regular' o 'Aprobada'" });
+            }
+            datosAActualizar.estado = estado;
+        }
+
+        if (nota !== undefined) datosAActualizar.nota = nota;
+
+        const registroActualizado = await HistorialAcademico.findOneAndUpdate(
+            { id: parseInt(id) },
+            datosAActualizar,
+            { new: true }
+        );
+
+        if (!registroActualizado) return res.status(404).json({ error: "Registro no encontrado" });
+        res.json({ message: "Registro actualizado", data: registroActualizado });
+
+    } catch (error) {
+        res.status(500).json({ error: "Error al actualizar el registro" });
+    }
+};
+
+export const deleteRegistro = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const eliminado = await HistorialAcademico.findOneAndDelete({ id: parseInt(id) });
+        
+        if (!eliminado) {
+            return res.status(404).json({ error: "Registro no encontrado" });
+        }
+        
+        res.json({ message: "Registro eliminado del historial", data: eliminado });
+    } catch (error) {
+        res.status(500).json({ error: "Error al eliminar el registro" });
+    }
+};
+
+export default { 
+    getHistorial,
+    getHistorialByAlumno,
+    createRegistro,
+    updateRegistro,
+    deleteRegistro
 };

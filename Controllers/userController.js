@@ -1,31 +1,4 @@
-import User from '../models/User.js'; 
-import { getDB } from '../config/db.js';
-
-const getCollection = () => getDB().collection('users');
-
-// Renderiza el formulario de login
-export const getLoginForm = (req, res) => {
-    // Le pasamos null al error inicial para que no muestre alertas la primera vez
-    res.render('userLogin', { error: null });
-};
-
-// Procesa los datos del login
-export const loginUser = async (req, res) => {
-    const { email, password } = req.body;
-    
-    if (!email || !password) {
-        return res.render('userLogin', { error: "Por favor, complete todos los campos" });
-    }
-
-    // Buscamos al usuario en la base de datos por email y contraseña
-    const usuario = await getCollection().findOne({ email, password });
-    if (!usuario) {
-        return res.render('userLogin', { error: "Credenciales inválidas. Verifique su email o contraseña." });
-    }
-
-    // Si la validación es correcta, lo redirigimos a la tabla de usuarios
-    res.redirect('/getUsers'); 
-};
+import User from '../models/User.js'; // Asegurate de que la ruta sea correcta (mayúsculas/minúsculas)
 
 // Renderiza el formulario de registro
 export const getRegisterForm = (req, res) => {
@@ -34,64 +7,108 @@ export const getRegisterForm = (req, res) => {
 
 // Renderiza el formulario de edición
 export const getEditForm = async (req, res) => {
-    const { id } = req.params;
-    const usuario = await getCollection().findOne({ id: parseInt(id) });
-    if (!usuario) return res.status(404).send("Usuario no encontrado");
-    
-    res.render('userEdit', { user: usuario });
+    try {
+        const { id } = req.params;
+        // Buscamos en MongoDB por nuestro campo 'id' numérico
+        const usuario = await User.findOne({ id: parseInt(id) }); 
+        
+        if (!usuario) return res.status(404).send("Usuario no encontrado");
+        
+        res.render('userEdit', { user: usuario });
+    } catch (error) {
+        res.status(500).send("Error interno del servidor");
+    }
 };
 
 export const getUsers = async (req, res) => {
-    const listaUsuario = await getCollection().find().toArray();
-    const usuariosSinPassword = listaUsuario.map(({ id, name, email }) => ({ id, name, email }));
-    res.render('userList', { users: usuariosSinPassword });
+    try {
+        // Buscamos todos los usuarios. El .select() excluye contraseñas y el _id propio de Mongo para replicar tu lógica exacta
+        const usuariosSinPassword = await User.find().select('id name email -_id');
+        res.render('userList', { users: usuariosSinPassword });
+    } catch (error) {
+        res.status(500).send("Error interno del servidor");
+    }
 };
 
 export const getUserById = async (req, res) => {
-    const { id } = req.params;
-    const usuario = await getCollection().findOne({ id: parseInt(id) });
-    if (!usuario) {
-        return res.status(404).json({ error: "Usuario no encontrado" });
+    try {
+        const { id } = req.params;
+        const usuario = await User.findOne({ id: parseInt(id) }).select('-_id -__v');
+        
+        if (!usuario) {
+            return res.status(404).json({ error: "Usuario no encontrado" });
+        }
+        
+        // Convertimos el documento de mongoose a un objeto JS puro para quitar la contraseña
+        const userObj = usuario.toObject();
+        const { password, ...usuarioSinPassword } = userObj;
+        
+        res.json({ message: `Detalles del usuario con ID: ${id}`, user: usuarioSinPassword });
+    } catch (error) {
+        res.status(500).json({ error: "Error interno del servidor" });
     }
-    const { password, ...usuarioSinPassword } = usuario;
-    res.json({ message: `Detalles del usuario con ID: ${id}`, user: usuarioSinPassword });
 };
 
 export const createUser = async (req, res) => {
-    // El 'id' ya no viene del formulario, lo generamos automáticamente.
-    const { name, email, password } = req.body;
-    if (!name || !email || !password) {
-        return res.status(400).json({ error: "Faltan datos obligatorios" });
+    try {
+        const { id, name, email, password } = req.body;
+        if (!id || !name || !email || !password) {
+            return res.status(400).json({ error: "Faltan datos obligatorios" });
+        }
+        
+        // Mongoose se encarga de instanciar y guardar en Atlas
+        await User.create({
+            id: parseInt(id),
+            name,
+            email,
+            password
+        });
+        
+        res.redirect('/getUsers'); 
+    } catch (error) {
+        // Si el id está duplicado, Mongo tira error 11000
+        if (error.code === 11000) {
+            return res.status(400).json({ error: "El ID de usuario ya existe" });
+        }
+        res.status(500).json({ error: "Error interno del servidor" });
     }
-
-    // 1. Buscar el último usuario para obtener el ID más alto.
-    const lastUser = await getCollection().find().sort({ id: -1 }).limit(1).toArray();
-    
-    // 2. Calcular el nuevo ID. Si no hay usuarios, empieza en 1.
-    const newId = lastUser.length > 0 ? lastUser[0].id + 1 : 1;
-
-    // 3. Crear la instancia del nuevo usuario con el ID generado.
-    const nuevoUsuario = new User(newId, name, email, password);
-    await getCollection().insertOne(nuevoUsuario);
-    
-    res.redirect('/getUsers'); // Redirige de vuelta a la lista tras guardar
 };
 
 export const updateUser = async (req, res) => {
-    const { id } = req.params;
-    const { name, email, password } = req.body;
+    try {
+        const { id } = req.params;
+        const { name, email, password } = req.body;
+        
+        // Armamos un objeto solo con los datos que nos llegan
+        const datosAActualizar = {};
+        if (name) datosAActualizar.name = name;
+        if (email) datosAActualizar.email = email;
+        if (password) datosAActualizar.password = password;
 
-    const updateData = {};
-    if (name) updateData.name = name;
-    if (email) updateData.email = email;
-    if (password) updateData.password = password;
-    
-    await getCollection().updateOne({ id: parseInt(id) }, { $set: updateData });
-    res.redirect('/getUsers'); // Redirige a la lista tras actualizar
+        const usuarioActualizado = await User.findOneAndUpdate(
+            { id: parseInt(id) }, 
+            datosAActualizar, 
+            { new: true } // Devuelve el documento actualizado
+        );
+
+        if (!usuarioActualizado) return res.status(404).json({ error: "Usuario no encontrado" });
+
+        res.redirect('/getUsers');
+    } catch (error) {
+        res.status(500).json({ error: "Error interno del servidor" });
+    }
 };
 
 export const deleteUser = async (req, res) => {
-    const { id } = req.params;
-    await getCollection().deleteOne({ id: parseInt(id) });
-    res.redirect('/getUsers'); // Redirige a la tabla tras eliminar
+    try {
+        const { id } = req.params;
+
+        const usuarioEliminado = await User.findOneAndDelete({ id: parseInt(id) });
+
+        if (!usuarioEliminado) return res.status(404).json({ error: "Usuario no encontrado" });
+
+        res.redirect('/getUsers');
+    } catch (error) {
+        res.status(500).json({ error: "Error interno del servidor" });
+    }
 };

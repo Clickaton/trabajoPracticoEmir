@@ -1,11 +1,10 @@
 import Correlatividad from '../models/Correlatividad.js';
-import { getDB } from '../config/db.js';
+import Materia from '../models/Materia.js'; // Importamos Materia para buscar los nombres
 
-const getCollection = () => getDB().collection('correlatividades');
-
-// FUNCION HELPER: Convierte arreglos de reglas en objetos con nombres resueltos
-const poblarCorrelatividades = async (reglas) => {
-    const todasLasMaterias = await getDB().collection('materias').find().toArray();
+// HELPER MongoDB: Trae los nombres reales cruzando IDs
+const poblarReglas = async (reglas) => {
+    // Buscamos todas las materias una sola vez para no saturar la base de datos
+    const todasLasMaterias = await Materia.find().lean();
 
     return reglas.map(regla => {
         const materiaDestino = todasLasMaterias.find(m => m.id === regla.materia_id);
@@ -20,88 +19,128 @@ const poblarCorrelatividades = async (reglas) => {
     });
 };
 
-// Obtener todas las reglas
 export const getCorrelatividades = async (req, res) => {
-    const listaCorrelatividades = await getCollection().find().toArray();
-    const reglasCompletas = await poblarCorrelatividades(listaCorrelatividades);
-    res.json({ message: 'Lista de reglas de correlatividades', data: reglasCompletas });
+    try {
+        const lista = await Correlatividad.find().lean();
+        const reglasCompletas = await poblarReglas(lista);
+        res.json({ message: 'Lista de reglas de correlatividades', data: reglasCompletas });
+    } catch (error) {
+        res.status(500).json({ error: "Error obteniendo correlatividades" });
+    }
 };
 
-// Obtener los requisitos específicos de UNA materia
 export const getRequisitosByMateria = async (req, res) => {
-    const { materiaId } = req.params;
-    const requisitos = await getCollection().find({ materia_id: parseInt(materiaId) }).toArray();
-    
-    const requisitosCompletos = await poblarCorrelatividades(requisitos);
-    res.json({ message: `Requisitos para la materia ID: ${materiaId}`, data: requisitosCompletos });
+    try {
+        const { materiaId } = req.params;
+        const requisitos = await Correlatividad.find({ materia_id: parseInt(materiaId) }).lean();
+
+        if (requisitos.length === 0) {
+            return res.json({ message: `La materia ID: ${materiaId} no tiene correlatividades`, data: [] });
+        }
+
+        const requisitosCompletos = await poblarReglas(requisitos);
+        res.json({ message: `Requisitos para la materia ID: ${materiaId}`, data: requisitosCompletos });
+    } catch (error) {
+        res.status(500).json({ error: "Error obteniendo requisitos" });
+    }
 };
 
-// Obtener una regla por su ID
 export const getCorrelatividadById = async (req, res) => {
-    const { id } = req.params;
-    const regla = await getCollection().findOne({ id: parseInt(id) });
-    
-    if (!regla) return res.status(404).json({ error: "Regla no encontrada" });
-    
-    const reglaCompleta = await poblarCorrelatividades([regla]);
-    res.json({ message: `Detalle de la regla ID: ${id}`, data: reglaCompleta[0] });
+    try {
+        const { id } = req.params;
+        const regla = await Correlatividad.findOne({ id: parseInt(id) }).lean();
+
+        if (!regla) return res.status(404).json({ error: "Regla no encontrada" });
+
+        const reglaPoblada = await poblarReglas([regla]);
+        res.json({ message: `Detalle de la regla ID: ${id}`, data: reglaPoblada[0] });
+    } catch (error) {
+        res.status(500).json({ error: "Error obteniendo la regla" });
+    }
 };
 
-// Crear una nueva regla
 export const createCorrelatividad = async (req, res) => {
-    const { id, materia_id, requisito_id, tipo_requisito } = req.body;
+    try {
+        const datos = req.body;
 
-    if (!id || !materia_id || !requisito_id || !tipo_requisito) {
-        return res.status(400).json({ error: "Faltan datos obligatorios" });
-    }
-    if (tipo_requisito !== 'Regular' && tipo_requisito !== 'Aprobada') {
-        return res.status(400).json({ error: "El tipo_requisito solo puede ser 'Regular' o 'Aprobada'" });
-    }
-    if (parseInt(materia_id) === parseInt(requisito_id)) {
-        return res.status(400).json({ error: "Una materia no puede ser requisito de sí misma" });
-    }
+        // Soporte para carga masiva (Insert Many)
+        if (Array.isArray(datos)) {
+            // Validamos que ninguna tenga materia_id igual a requisito_id
+            const reglaInvalida = datos.find(d => d.materia_id === d.requisito_id);
+            if (reglaInvalida) {
+                return res.status(400).json({ error: "Una materia no puede ser requisito de sí misma" });
+            }
+            
+            const nuevasReglas = await Correlatividad.insertMany(datos);
+            return res.status(201).json({ message: 'Reglas creadas masivamente', data: nuevasReglas });
+        }
 
-    const nuevaRegla = new Correlatividad(parseInt(id), parseInt(materia_id), parseInt(requisito_id), tipo_requisito);
-    await getCollection().insertOne(nuevaRegla);
+        // Carga individual
+        const { id, materia_id, requisito_id, tipo_requisito } = datos;
 
-    res.status(201).json({ message: 'Regla creada exitosamente', data: nuevaRegla });
+        if (!id || !materia_id || !requisito_id || !tipo_requisito) {
+            return res.status(400).json({ error: "Faltan datos obligatorios" });
+        }
+        if (materia_id === requisito_id) {
+            return res.status(400).json({ error: "Una materia no puede ser requisito de sí misma" });
+        }
+
+        const nuevaRegla = await Correlatividad.create({ id: parseInt(id), materia_id, requisito_id, tipo_requisito });
+        res.status(201).json({ message: 'Regla creada exitosamente', data: nuevaRegla });
+
+    } catch (error) {
+        if (error.code === 11000) return res.status(400).json({ error: "El ID de la regla ya existe" });
+        res.status(500).json({ error: "Error al crear regla(s)" });
+    }
 };
 
-// Actualizar una regla
 export const updateCorrelatividad = async (req, res) => {
-    const { id } = req.params;
-    const { materia_id, requisito_id, tipo_requisito } = req.body;
+    try {
+        const { id } = req.params;
+        const { materia_id, requisito_id, tipo_requisito } = req.body;
 
-    const reglaActual = await getCollection().findOne({ id: parseInt(id) });
-    if (!reglaActual) return res.status(404).json({ error: "Regla no encontrada" });
+        // Validación para evitar que la materia sea requisito de sí misma
+        if (materia_id && requisito_id && materia_id === requisito_id) {
+            return res.status(400).json({ error: "Actualización inválida: Una materia no puede ser requisito de sí misma" });
+        }
 
-    if (tipo_requisito && tipo_requisito !== 'Regular' && tipo_requisito !== 'Aprobada') {
-        return res.status(400).json({ error: "El tipo_requisito solo puede ser 'Regular' o 'Aprobada'" });
+        const datosAActualizar = {};
+        if (materia_id) datosAActualizar.materia_id = materia_id;
+        if (requisito_id) datosAActualizar.requisito_id = requisito_id;
+        if (tipo_requisito) datosAActualizar.tipo_requisito = tipo_requisito;
+
+        const reglaActualizada = await Correlatividad.findOneAndUpdate(
+            { id: parseInt(id) },
+            datosAActualizar,
+            { new: true }
+        );
+
+        if (!reglaActualizada) return res.status(404).json({ error: "Regla no encontrada" });
+        res.json({ message: "Regla actualizada", data: reglaActualizada });
+
+    } catch (error) {
+        res.status(500).json({ error: "Error al actualizar la regla" });
     }
-
-    const updateData = {};
-    if (materia_id) updateData.materia_id = parseInt(materia_id);
-    if (requisito_id) updateData.requisito_id = parseInt(requisito_id);
-    if (tipo_requisito) updateData.tipo_requisito = tipo_requisito;
-
-    const nuevoMateriaId = updateData.materia_id || reglaActual.materia_id;
-    const nuevoRequisitoId = updateData.requisito_id || reglaActual.requisito_id;
-    if (nuevoMateriaId === nuevoRequisitoId) {
-        return res.status(400).json({ error: "Actualización inválida: Una materia no puede ser requisito de sí misma" });
-    }
-
-    await getCollection().updateOne({ id: parseInt(id) }, { $set: updateData });
-    const reglaActualizada = await getCollection().findOne({ id: parseInt(id) });
-
-    res.json({ message: "Regla actualizada", data: reglaActualizada });
 };
 
-// Eliminar una regla
 export const deleteCorrelatividad = async (req, res) => {
-    const { id } = req.params;
-    const eliminada = await getCollection().findOne({ id: parseInt(id) });
-    if (!eliminada) return res.status(404).json({ error: "Regla no encontrada" });
+    try {
+        const { id } = req.params;
+        const eliminada = await Correlatividad.findOneAndDelete({ id: parseInt(id) });
 
-    await getCollection().deleteOne({ id: parseInt(id) });
-    res.json({ message: "Regla eliminada", data: eliminada });
+        if (!eliminada) return res.status(404).json({ error: "Regla no encontrada" });
+        res.json({ message: "Regla eliminada", data: eliminada });
+        
+    } catch (error) {
+        res.status(500).json({ error: "Error al eliminar la regla" });
+    }
+};
+
+export default {
+    getCorrelatividades,
+    getRequisitosByMateria,
+    getCorrelatividadById,
+    createCorrelatividad,
+    updateCorrelatividad,
+    deleteCorrelatividad
 };

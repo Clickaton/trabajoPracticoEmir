@@ -1,139 +1,184 @@
 import Cohorte from '../models/Cohorte.js';
-import { getDB } from '../config/db.js';
+import Alumno from '../models/Alumno.js'; // Importamos Alumno para poder cruzar los datos
 
-const getCollection = () => getDB().collection('cohortes');
+// Helper para limpiar la contraseña al devolver los datos del alumno
+const omitPassword = (alumnoObj) => {
+    const { password, ...resto } = alumnoObj;
+    return resto;
+};
 
 export const getCohortes = async (req, res) => {
-    const listaCohorte = await getCollection().find().toArray();
-    res.json({ message: 'Lista de cohortes', data: listaCohorte });
+    try {
+        const cohortes = await Cohorte.find();
+        
+        // Mapeamos las cohortes para "poblar" el userList con datos reales
+        const cohortesPobladas = await Promise.all(cohortes.map(async (c) => {
+            // Buscamos a todos los alumnos que tengan su ID dentro de esta lista
+            const alumnos = await Alumno.find({ id: { $in: c.userList } }).lean();
+            
+            return {
+                ...c.toObject(),
+                userList: alumnos.map(omitPassword)
+            };
+        }));
+
+        res.json({ message: 'Lista de cohortes', data: cohortesPobladas });
+    } catch (error) {
+        res.status(500).json({ error: "Error obteniendo cohortes" });
+    }
 };
 
 export const getCohorteById = async (req, res) => {
-    const { id } = req.params;
-    const cohorte = await getCollection().findOne({ id: parseInt(id) });
-    if (!cohorte) return res.status(404).json({ error: "Cohorte no encontrado" });
-    
-    res.json({ message: 'Detalle del cohorte', data: cohorte });
+    try {
+        const { id } = req.params;
+        const cohorte = await Cohorte.findOne({ id: parseInt(id) }).lean();
+        
+        if (!cohorte) return res.status(404).json({ error: "Cohorte no encontrado" });
+
+        const alumnos = await Alumno.find({ id: { $in: cohorte.userList } }).lean();
+        cohorte.userList = alumnos.map(omitPassword);
+
+        res.json({ message: 'Detalle del cohorte', data: cohorte });
+    } catch (error) {
+        res.status(500).json({ error: "Error obteniendo el cohorte" });
+    }
 };
 
 export const createCohorte = async (req, res) => {
-    const { id, name, startDate, endDate, materia, userList } = req.body;
-    
-    if (!id || !name || !startDate || !endDate || !materia) {
-        return res.status(400).json({ error: "Faltan datos obligatorios (id, name, startDate, endDate, materia)" });
+    try {
+        const { id, name, startDate, userList = [] } = req.body; 
+
+        if (!id || !name || !startDate) { 
+            return res.status(400).json({ error: "Faltan datos obligatorios" });
+        }
+
+        const nuevoCohorte = await Cohorte.create({
+            id: parseInt(id),
+            name,
+            startDate,
+            userList
+        });
+
+        res.status(201).json({ message: 'Cohorte creado exitosamente', cohorte: nuevoCohorte });
+    } catch (error) {
+        if (error.code === 11000) return res.status(400).json({ error: "El ID de la cohorte ya existe" });
+        res.status(500).json({ error: "Error al crear la cohorte" });
     }
-
-    const listaAlumnos = Array.isArray(userList) ? userList : [];
-
-    const nuevoCohorte = new Cohorte(id, name, startDate, endDate, materia, userList);
-    await getCollection().insertOne(nuevoCohorte);
-    
-    res.status(201).json({ message: 'Cohorte creado exitosamente', cohorte: nuevoCohorte });
 };
 
 export const updateCohorte = async (req, res) => {
-    const { id } = req.params;
-    const { name, startDate, endDate, materia, userList } = req.body;
+    try {
+        const { id } = req.params;
+        const { name, startDate } = req.body;
 
-    const updateData = {};
-    if (name) updateData.name = name;
-    if (startDate) updateData.startDate = startDate;
-    if (endDate) updateData.endDate = endDate;
-    if (materia) updateData.materia = materia;
-    if (Array.isArray(userList)) updateData.userList = userList;
-    
-    const result = await getCollection().updateOne({ id: parseInt(id) }, { $set: updateData });
-    if (result.matchedCount === 0) return res.status(404).json({ error: "Cohorte no encontrado" });
-    
-    const cohorteActualizado = await getCollection().findOne({ id: parseInt(id) });
-    res.json({ message: "Cohorte actualizado", cohorte: cohorteActualizado });
+        const datosAActualizar = {};
+        if (name) datosAActualizar.name = name;
+        if (startDate) datosAActualizar.startDate = startDate;
+
+        const cohorteActualizado = await Cohorte.findOneAndUpdate(
+            { id: parseInt(id) },
+            datosAActualizar,
+            { new: true }
+        );
+
+        if (!cohorteActualizado) return res.status(404).json({ error: "Cohorte no encontrado" });
+        res.json({ message: "Cohorte actualizado", cohorte: cohorteActualizado });
+    } catch (error) {
+        res.status(500).json({ error: "Error al actualizar cohorte" });
+    }
 };
 
 export const deleteCohorte = async (req, res) => {
-    const { id } = req.params;
-    const eliminado = await getCollection().findOne({ id: parseInt(id) });
-    if (!eliminado) return res.status(404).json({ error: "Cohorte no encontrado" });
-    
-    await getCollection().deleteOne({ id: parseInt(id) });
-    res.json({ message: "Cohorte eliminado", cohorte: eliminado });
+    try {
+        const { id } = req.params;
+        const eliminado = await Cohorte.findOneAndDelete({ id: parseInt(id) });
+        
+        if (!eliminado) return res.status(404).json({ error: "Cohorte no encontrado" });
+
+        // Opcional: Al borrar la cohorte, le quitamos el cohorte_id a los alumnos que estaban en ella
+        await Alumno.updateMany({ id: { $in: eliminado.userList } }, { cohorte_id: null });
+
+        res.json({ message: "Cohorte eliminada", cohorte: eliminado });
+    } catch (error) {
+        res.status(500).json({ error: "Error al eliminar cohorte" });
+    }
 };
 
-
 export const addUserToCohorte = async (req, res) => {
-    const { cohorteId } = req.params;
-    const { user } = req.body; 
-    const cohorte = await getCollection().findOne({ id: parseInt(cohorteId) });
-    if (!cohorte) return res.status(404).json({ error: "Cohorte no encontrado" });
+    try {
+        const { cohorteId } = req.params;
+        const { alumnoId } = req.body;
 
-    if (!user || !user.id || !user.name) {
-        return res.status(400).json({ error: "Datos de usuario inválidos (se requiere id y name)" });
+        const cohorte = await Cohorte.findOne({ id: parseInt(cohorteId) });
+        if (!cohorte) return res.status(404).json({ error: "Cohorte no encontrado" });
+
+        const alumno = await Alumno.findOne({ id: parseInt(alumnoId) });
+        if (!alumno) return res.status(404).json({ error: "Alumno no encontrado" });
+
+        if (cohorte.userList.includes(parseInt(alumnoId))) {
+            return res.status(400).json({ error: "El alumno ya pertenece a este cohorte" });
+        }
+
+        // 1. Agregamos el alumno a la cohorte
+        cohorte.userList.push(parseInt(alumnoId));
+        await cohorte.save();
+
+        // 2. Le asignamos la cohorte al alumno (La doble relación)
+        alumno.cohorte_id = cohorte.id;
+        await alumno.save();
+
+        res.json({ message: "Alumno agregado al cohorte exitosamente" });
+    } catch (error) {
+        res.status(500).json({ error: "Error interno al agregar alumno" });
     }
-
-    const yaExiste = cohorte.userList.some(u => u.id === user.id);
-    if (yaExiste) return res.status(400).json({ error: "El usuario ya pertenece a este cohorte" });
-
-    await getCollection().updateOne(
-        { id: parseInt(cohorteId) },
-        { $push: { userList: user } }
-    );
-    const cohorteActualizado = await getCollection().findOne({ id: parseInt(cohorteId) });
-    res.json({ message: "Usuario agregado al cohorte", cohorte: cohorteActualizado });
 };
 
 export const removeUserFromCohorte = async (req, res) => {
-    const { cohorteId } = req.params;
-    const { userId } = req.body; 
-    
-    const cohorte = await getCollection().findOne({ id: parseInt(cohorteId) });
-    if (!cohorte) return res.status(404).json({ error: "Cohorte no encontrado" });
+    try {
+        const { cohorteId } = req.params;
+        const { alumnoId } = req.body;
 
-    const userIndex = cohorte.userList.findIndex(u => u.id === parseInt(userId));
-    if (userIndex === -1) {
-        return res.status(404).json({ error: "Usuario no encontrado en este cohorte" });
+        const cohorte = await Cohorte.findOne({ id: parseInt(cohorteId) });
+        if (!cohorte) return res.status(404).json({ error: "Cohorte no encontrado" });
+
+        const index = cohorte.userList.indexOf(parseInt(alumnoId));
+        if (index === -1) return res.status(404).json({ error: "Alumno no encontrado en este cohorte" });
+
+        // 1. Removemos al alumno de la lista
+        cohorte.userList.splice(index, 1);
+        await cohorte.save();
+
+        // 2. Le quitamos la cohorte al alumno
+        await Alumno.findOneAndUpdate({ id: parseInt(alumnoId) }, { cohorte_id: null });
+
+        res.json({ message: "Alumno eliminado del cohorte" });
+    } catch (error) {
+        res.status(500).json({ error: "Error interno al remover alumno" });
     }
-    
-    await getCollection().updateOne(
-        { id: parseInt(cohorteId) },
-        { $pull: { userList: { id: parseInt(userId) } } }
-    );
-    const cohorteActualizado = await getCollection().findOne({ id: parseInt(cohorteId) });
-    res.json({ message: "Usuario eliminado del cohorte", cohorte: cohorteActualizado });
 };
-
 
 export const getUsersInCohorte = async (req, res) => {
-    const { cohorteId } = req.params;
-    const cohorte = await getCollection().findOne({ id: parseInt(cohorteId) });
-    if (!cohorte) return res.status(404).json({ error: "Cohorte no encontrado" });
+    try {
+        const { cohorteId } = req.params;
+        const cohorte = await Cohorte.findOne({ id: parseInt(cohorteId) });
+        
+        if (!cohorte) return res.status(404).json({ error: "Cohorte no encontrado" });
 
-    res.json({ message: "Lista de usuarios en el cohorte", users: cohorte.userList });
-};
-
-export const getMateriaOfCohorte = async (req, res) => {
-    const { cohorteId } = req.params;
-    const cohorte = await getCollection().findOne({ id: parseInt(cohorteId) });
-    if (!cohorte) return res.status(404).json({ error: "Cohorte no encontrado" });
-
-    res.json({ message: "Materia del cohorte", materia: cohorte.materia });
-};
-
-export const getCohorteDuration = async (req, res) => {
-    const { cohorteId } = req.params;
-    const cohorte = await getCollection().findOne({ id: parseInt(cohorteId) });
-    if (!cohorte) return res.status(404).json({ error: "Cohorte no encontrado" });
-
-    const start = new Date(cohorte.startDate);
-    const end = new Date(cohorte.endDate);
-    
-    if (isNaN(start) || isNaN(end)) {
-        return res.status(500).json({ error: "Formato de fecha inválido en el servidor" });
+        const alumnos = await Alumno.find({ id: { $in: cohorte.userList } }).lean();
+        
+        res.json({ message: "Lista de alumnos en el cohorte", users: alumnos.map(omitPassword) });
+    } catch (error) {
+        res.status(500).json({ error: "Error al obtener alumnos de la cohorte" });
     }
-
-    const duration = Math.ceil((end - start) / (1000 * 60 * 60 * 24)); 
-    res.json({ message: "Duración del cohorte en días", duration: duration });
 };
 
-export const getAllCohortesWithUsers = async (req, res) => {
-    const listaCohorte = await getCollection().find().toArray();
-    res.json({ message: "Lista de cohortes con usuarios", data: listaCohorte });
-};
+export default {
+    getCohortes,
+    getCohorteById,
+    createCohorte,
+    updateCohorte,
+    deleteCohorte,
+    addUserToCohorte,
+    removeUserFromCohorte,
+    getUsersInCohorte
+}; 

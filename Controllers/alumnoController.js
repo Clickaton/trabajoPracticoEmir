@@ -1,67 +1,130 @@
 import Alumno from '../models/Alumno.js';
-import { getDB } from '../config/db.js';
+import Cohorte from '../models/Cohorte.js'; // IMPORTANTE: Agregamos el modelo Cohorte para poder limpiarlo
 
-const getCollection = () => getDB().collection('alumnos');
-
-// Función helper para omitir la contraseña en las respuestas y no repetir código.
+// Helper: quita la contraseña antes de devolver el JSON
 const omitPassword = (alumno) => {
-    const { password, ...alumnoSinPassword } = alumno;
+    const alumnoObj = alumno.toObject(); 
+    const { password, ...alumnoSinPassword } = alumnoObj;
     return alumnoSinPassword;
 };
 
 export const getAlumnos = async (req, res) => {
-    const listaAlumnos = await getCollection().find().toArray();
-    const alumnosSinPassword = listaAlumnos.map(omitPassword);
-    res.json({ message: 'Lista de alumnos', data: alumnosSinPassword });
+    try {
+        const listaAlumnos = await Alumno.find();
+        const alumnosSinPassword = listaAlumnos.map(omitPassword);
+        
+        res.json({ message: 'Lista de alumnos', data: alumnosSinPassword });
+    } catch (error) {
+        res.status(500).json({ error: "Error obteniendo alumnos" });
+    }
 };
 
 export const getAlumnoById = async (req, res) => {
-    const { id } = req.params;
-    const alumno = await getCollection().findOne({ id: parseInt(id) });
-    if (!alumno) {
-        return res.status(404).json({ error: "Alumno no encontrado" });
+    try {
+        const { id } = req.params;
+        const alumno = await Alumno.findOne({ id: parseInt(id) });
+        
+        if (!alumno) {
+            return res.status(404).json({ error: "Alumno no encontrado" });
+        }
+        
+        res.json({ message: `Detalles del alumno con ID: ${id}`, data: omitPassword(alumno) });
+    } catch (error) {
+        res.status(500).json({ error: "Error interno del servidor" });
     }
-    res.json({ message:` Detalles del alumno con ID: ${id}`, data: omitPassword(alumno) });
 };
 
 export const createAlumno = async (req, res) => {
-    const { id, name, email, password, legajo, activo, fecha_inscripcion } = req.body;
+    try {
+        // Agregamos cohorte_id a los datos que recibimos
+        const { name, email, password, legajo, activo, fecha_inscripcion, cohorte_id } = req.body;
 
-    if (!id || !name || !email || !password || !legajo || activo === undefined || !fecha_inscripcion) {
-        return res.status(400).json({ error: "Faltan datos obligatorios (id, name, email, password, legajo, activo, fecha_inscripcion)" });
+        if (!name || !email || !password || !legajo || activo === undefined || !fecha_inscripcion) {
+            return res.status(400).json({ error: "Faltan datos obligatorios" });
+        }
+
+        // 1. Verificamos que la cohorte exista ANTES de crear nada
+        let cohorteDestino = null;
+        if (cohorte_id) {
+            cohorteDestino = await Cohorte.findOne({ id: parseInt(cohorte_id) });
+            if (!cohorteDestino) {
+                return res.status(404).json({ error: "La cohorte seleccionada no existe en la base de datos" });
+            }
+        }
+
+        // 2. Creamos al alumno
+        const nuevoAlumno = await Alumno.create({
+            name,
+            email,
+            password,
+            legajo,
+            activo,
+            fecha_inscripcion,
+            cohorte_id: cohorteDestino ? cohorteDestino.id : null // Asignamos el ID de cohorte
+        });
+
+        // 3. Si venía con cohorte, lo metemos en el array de esa cohorte automáticamente
+        if (cohorteDestino) {
+            cohorteDestino.userList.push(nuevoAlumno.id);
+            await cohorteDestino.save();
+        }
+
+        res.status(201).json({ message: 'Alumno creado exitosamente', data: omitPassword(nuevoAlumno) });
+    } catch (error) {
+        if (error.code === 11000) {
+            return res.status(400).json({ error: "El Legajo ya existen en la base de datos" });
+        }
+        res.status(500).json({ error: "Error interno del servidor" });
     }
-
-    // Hashear la contraseña antes de guardarla.
-    const nuevoAlumno = new Alumno(id, name, email, password, legajo, activo, new Date(fecha_inscripcion));
-    await getCollection().insertOne(nuevoAlumno);
-
-    res.status(201).json({ message: 'Alumno creado exitosamente', data: omitPassword(nuevoAlumno) });
 };
 
 export const updateAlumno = async (req, res) => {
-    const { id } = req.params;
-    const { name, email, password, legajo, activo, fecha_inscripcion } = req.body;
+    try {
+        const { id } = req.params;
+        const { name, email, password, legajo, activo, fecha_inscripcion } = req.body;
 
-    const updateData = {};
-    if (name) updateData.name = name;
-    if (email) updateData.email = email;
-    if (password) updateData.password = password; 
-    if (legajo) updateData.legajo = legajo;
-    if (activo !== undefined) updateData.activo = activo;
-    if (fecha_inscripcion) updateData.fecha_inscripcion = new Date(fecha_inscripcion);
+        const datosAActualizar = {};
+        if (name) datosAActualizar.name = name;
+        if (email) datosAActualizar.email = email;
+        if (password) datosAActualizar.password = password; 
+        if (legajo) datosAActualizar.legajo = legajo;
+        if (activo !== undefined) datosAActualizar.activo = activo;
+        if (fecha_inscripcion) datosAActualizar.fecha_inscripcion = new Date(fecha_inscripcion);
 
-    const result = await getCollection().updateOne({ id: parseInt(id) }, { $set: updateData });
-    if (result.matchedCount === 0) return res.status(404).json({ error: "Alumno no encontrado" });
+        const alumnoActualizado = await Alumno.findOneAndUpdate(
+            { id: parseInt(id) }, 
+            datosAActualizar, 
+            { new: true } 
+        );
 
-    const alumnoActualizado = await getCollection().findOne({ id: parseInt(id) });
-    res.json({ message: "Alumno actualizado", data: omitPassword(alumnoActualizado) });
+        if (!alumnoActualizado) {
+            return res.status(404).json({ error: "Alumno no encontrado" });
+        }
+
+        res.json({ message: "Alumno actualizado", data: omitPassword(alumnoActualizado) });
+    } catch (error) {
+        res.status(500).json({ error: "Error al actualizar alumno" });
+    }
 };
 
 export const deleteAlumno = async (req, res) => {
-    const { id } = req.params;
-    const eliminado = await getCollection().findOne({ id: parseInt(id) });
-    if (!eliminado) return res.status(404).json({ error: "Alumno no encontrado" });
-    
-    await getCollection().deleteOne({ id: parseInt(id) });
-    res.json({ message: "Alumno eliminado", data: omitPassword(eliminado) });
+    try {
+        const { id } = req.params;
+        const alumnoIdNumerico = parseInt(id);
+
+        // 1. Borramos al alumno
+        const alumnoEliminado = await Alumno.findOneAndDelete({ id: alumnoIdNumerico });
+        
+        if (!alumnoEliminado) return res.status(404).json({ error: "Alumno no encontrado" });
+
+        // 2. CAZAFANTASMAS: Buscamos cualquier cohorte que tenga a este alumno y lo borramos de su array
+        await Cohorte.updateMany(
+            { userList: alumnoIdNumerico }, // Condición: si el ID está en la lista
+            { $pull: { userList: alumnoIdNumerico } } // Acción: sacarlo de la lista (pull)
+        );
+
+        res.json({ message: "Alumno eliminado limpiamente de todo el sistema", data: omitPassword(alumnoEliminado) });
+    } catch (error) {
+        res.status(500).json({ error: "Error al eliminar alumno" });
+    }
 };

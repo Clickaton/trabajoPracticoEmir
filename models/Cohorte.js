@@ -1,21 +1,26 @@
-import User from './User.js';
+import mongoose from 'mongoose';
 
-class Cohorte {
-    constructor(id, name, startDate, endDate, materia, userList = []) {
-        this.id = id;
-        this.name = name;
-        this.startDate = startDate;
-        this.endDate = endDate;
-        this.materia = materia;
-        this.userList = userList;
+const cohorteSchema = new mongoose.Schema({
+    id: { 
+        type: Number, 
+        required: true, 
+        unique: true 
+    },
+    name: { 
+        type: String, 
+        required: true 
+    },
+    startDate: { 
+        type: Date, 
+        required: true 
+    },
+    userList: [{ 
+        type: Number // Guardaremos los IDs personalizados de los alumnos acá
+    }]
+}, {
+    timestamps: true
+});
 
-        if (!Array.isArray(userList)) {
-            throw new Error('userList debe ser un array de objetos User');
-        }
-
-        this.userList = userList;
-
-    }
-}
+const Cohorte = mongoose.model('Cohorte', cohorteSchema);
 
 export default Cohorte;

@@ -1,11 +1,39 @@
-class PeriodoInscripcion {
-    constructor(id, nombre, fechaInicio, fechaFin, activo = false) {
-        this.id = id;
-        this.nombre = nombre;           // Ej: "Primer Cuatrimestre 2026"
-        this.fechaInicio = fechaInicio; // Objeto Date o String 'YYYY-MM-DD'
-        this.fechaFin = fechaFin;       // Objeto Date o String 'YYYY-MM-DD'
-        this.activo = activo;           // Booleano: true (abierto) o false (cerrado)
-    }
-}
+import mongoose from 'mongoose';
 
-module.exports = PeriodoInscripcion;
+const periodoInscripcionSchema = new mongoose.Schema({
+    id: { 
+        type: Number, 
+        required: true, 
+        unique: true 
+    },
+    nombre: { 
+        type: String, 
+        required: true 
+    },
+    fechaInicio: { 
+        type: Date, 
+        required: true 
+    },
+    fechaFin: { 
+        type: Date, 
+        required: true 
+    },
+    horaInicio: { 
+        type: String, 
+        required: true 
+    },
+    horaFin: { 
+        type: String, 
+        required: true 
+    },
+    activo: { 
+        type: Boolean, 
+        default: false 
+    }
+}, {
+    timestamps: true
+});
+
+const PeriodoInscripcion = mongoose.model('PeriodoInscripcion', periodoInscripcionSchema);
+
+export default PeriodoInscripcion;

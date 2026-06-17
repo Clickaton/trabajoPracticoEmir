@@ -1,74 +1,103 @@
 import Administrativo from '../models/Administrativo.js';
-import { getDB } from '../config/db.js';
 
-const getCollection = () => getDB().collection('administrativos');
-
-// Helper: quita la contraseña antes de enviar datos a vistas o API
+// Helper: quita la contraseña de los objetos traídos de Mongo
 const omitPassword = (admin) => {
-    const { password, ...adminSinPassword } = admin;
+    // Convertimos el documento de Mongo a un objeto de JS puro
+    const adminObj = admin.toObject(); 
+    const { password, ...adminSinPassword } = adminObj;
     return adminSinPassword;
 };
 
 // RENDERIZAR VISTAS
 const getAdministrativos = async (req, res) => {
-    const lista = await getCollection().find().toArray();
-    res.render('administrativos/lista', { administrativos: lista.map(omitPassword) });
-};
+    try {
+        const administrativosBBDD = await Administrativo.find();
+        
+        // Le pedimos a Mongoose que nos lea el array del 'enum' de models administrativo
+        const rolesPermitidos = Administrativo.schema.path('rol').enumValues;
 
-const getRegisterForm = (req, res) => {
-    res.render('administrativos/registrar');
-};
-
-const getEditForm = async (req, res) => {
-    const admin = await getCollection().findOne({ id: parseInt(req.params.id) });
-    if (!admin) return res.status(404).send("Administrativo no encontrado");
-
-    res.render('administrativos/editar', { admin });
+        // validación de seguridad (omitPassword).
+        // Lo mande abajo la clave "lista" porque así lo configura en el index.pug
+        res.render('administrativos/index', { 
+            lista: administrativosBBDD.map(omitPassword),
+            roles: rolesPermitidos });
+    } catch (error) {
+        res.status(500).send("Error obteniendo administrativos");
+    }
 };
 
 // PROCESAR DATOS (POST / API)
 const getAdministrativoById = async (req, res) => {
-    const admin = await getCollection().findOne({ id: parseInt(req.params.id) });
-    if (!admin) return res.status(404).json({ error: "Administrativo no encontrado" });
+    try {
+        const admin = await Administrativo.findOne({ id: parseInt(req.params.id) });
+        if (!admin) return res.status(404).json({ error: "Administrativo no encontrado" });
 
-    res.json({ data: omitPassword(admin) });
+        res.json({ data: omitPassword(admin) });
+    } catch (error) {
+        res.status(500).json({ error: "Error interno del servidor" });
+    }
 };
 
 const createAdministrativo = async (req, res) => {
-    const { id, name, email, password, rol, area } = req.body;
+    try {
+        const { name, email, password, rol, area } = req.body;
+        
+        await Administrativo.create({
+            name,
+            email,
+            password,
+            rol,
+            area
+        });
 
-    const nuevoAdmin = new Administrativo(parseInt(id), name, email, password, rol, area);
-    await getCollection().insertOne(nuevoAdmin);
-
-    res.redirect('/api/administrativos');
+        res.redirect('/api/administrativos');
+    } catch (error) {
+        console.log("Error al crear:", error);
+        if (error.code === 11000) {
+            return res.status(400).send("El ID de administrativo ya existe");
+        }
+        res.status(500).send("Error interno del servidor");
+    }
 };
 
 const updateAdministrativo = async (req, res) => {
-    const { name, email, password, rol, area } = req.body;
-    
-    const updateData = {};
-    if (name) updateData.name = name;
-    if (email) updateData.email = email;
-    if (password) updateData.password = password;
-    if (rol) updateData.rol = rol;
-    if (area) updateData.area = area;
+    try {
+        const { name, email, password, rol, area } = req.body;
+        
+        const datosAActualizar = {};
+        if (name) datosAActualizar.name = name;
+        if (email) datosAActualizar.email = email;
+        if (password) datosAActualizar.password = password;
+        if (rol) datosAActualizar.rol = rol;
+        if (area) datosAActualizar.area = area;
 
-    const result = await getCollection().updateOne({ id: parseInt(req.params.id) }, { $set: updateData });
-    if (result.matchedCount === 0) return res.status(404).send("Administrativo no encontrado");
-    
-    res.redirect('/api/administrativos');
+        const adminActualizado = await Administrativo.findOneAndUpdate(
+            { id: parseInt(req.params.id) }, 
+            datosAActualizar
+        );
+
+        if (!adminActualizado) return res.status(404).send("Administrativo no encontrado");
+
+        res.redirect('/api/administrativos');
+    } catch (error) {
+        res.status(500).send("Error al actualizar");
+    }
 };
 
 const deleteAdministrativo = async (req, res) => {
-    const result = await getCollection().deleteOne({ id: parseInt(req.params.id) });
-    if (result.deletedCount === 0) return res.status(404).send("Administrativo no encontrado");
-    res.redirect('/api/administrativos');
+    try {
+        const adminEliminado = await Administrativo.findOneAndDelete({ id: parseInt(req.params.id) });
+        
+        if (!adminEliminado) return res.status(404).send("Administrativo no encontrado");
+
+        res.redirect('/api/administrativos');
+    } catch (error) {
+        res.status(500).send("Error al eliminar");
+    }
 };
 
 export default {
     getAdministrativos,
-    getRegisterForm,
-    getEditForm,
     getAdministrativoById,
     createAdministrativo,
     updateAdministrativo,

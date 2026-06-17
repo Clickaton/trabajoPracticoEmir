@@ -1,0 +1,30 @@
+.tab-pane.fade#academico-pane(role="tabpanel" aria-labelledby="academico-tab")
+  .row
+    // COLUMNA IZQUIERDA: MATERIAS
+    .col-lg-7.mb-4
+      .d-flex.justify-content-between.align-items-center.mb-3
+        h4.mb-0.text-secondary Plan de Estudios
+        button.btn.btn-primary.shadow-sm(data-bs-toggle="modal" data-bs-target="#modalCrearMateria")
+          i.bi.bi-journal-plus.me-1
+          | Nueva Materia
+      .card.shadow-sm.border-0
+        .card-body.p-0#contenedorMaterias
+          .p-5.text-center
+            .spinner-border.text-primary(role="status")
+    
+    // COLUMNA DERECHA: CORRELATIVIDADES
+    .col-lg-5.mb-4
+      h4.mb-3.text-secondary Reglas de Cursada
+      .card.shadow-sm.border-0
+        .card-header.bg-dark.text-white
+          label.form-label.mb-1.small Seleccionar Materia para ver requisitos:
+          select.form-select.form-select-sm#selectorMateriaReglas
+            option(selected disabled) Cargando materias...
+        .card-body.p-0#contenedorReglas
+          .p-5.text-center.text-muted
+            i.bi.bi-diagram-3.fs-1.mb-3.d-block
+            h6 Elegí una materia del menú superior
+        .card-footer.bg-light.text-end
+          button.btn.btn-sm.btn-info.text-white#btnAbrirModalRegla(data-bs-toggle="modal" data-bs-target="#modalCrearRegla" disabled)
+            i.bi.bi-plus-circle.me-1
+            | Agregar Requisito

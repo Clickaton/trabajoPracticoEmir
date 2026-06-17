@@ -1,13 +1,30 @@
-import User from './User.js';
+import mongoose from 'mongoose';
+import User from './User.js'; 
 
-class Alumno extends User {
-    constructor(id, name, email, password, legajo, activo, fecha_inscripcion) {
-        super(id, name, email, password);
-
-        this.legajo = legajo;
-        this.activo = activo; 
-        this.fecha_inscripcion = fecha_inscripcion; 
+// REFACTORIZACIÓN: Migración a diseño polimórfico mediante Discriminadores de Mongoose.
+// Alumno ya no crea una colección propia; ahora extiende directamente del esquema base 'User' (Herencia).
+// Los campos comunes (id, name, email, password, createdAt, updatedAt) se heredan automáticamente,
+// por lo que se eliminaron de este archivo para evitar redundancia de datos.
+const Alumno = User.discriminator('Alumno', new mongoose.Schema({
+    
+    // Definición exclusiva de atributos específicos del perfil estudiante:
+    legajo: { 
+        type: String, 
+        required: true,
+        unique: true 
+    },
+    activo: { 
+        type: Boolean, 
+        required: true 
+    },
+    fecha_inscripcion: { 
+        type: Date, 
+        required: true 
+    },
+    cohorte_id: {
+        type: Number,
+        default: null // Permite registrar al alumno antes de asignarle una cursada específica
     }
-}
+}));
 
 export default Alumno;
