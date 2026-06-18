@@ -19,8 +19,15 @@ export const userLogin = async (req, res) => {
         // IMPORTANTE: Guarda una versión limpia del usuario en la sesión, no el objeto de Mongoose.
         req.session.user = usuario.toObject();
         
-        // Redirigimos al usuario a una página protegida tras el login exitoso.
-        res.redirect('/getUsers');
+        // Redirigimos al alumno al dashboard y al personal administrativo al panel de administración.
+        if (usuario.tipoPerfil === 'Alumno') {
+            return res.redirect('/dashboard');
+        } else if (usuario.rol === 'Administrativo' || usuario.rol === 'Direccion') {
+            return res.redirect('/api/administrativos');
+        } else {
+            res.redirect('/getUsers');
+        }
+
     } catch (error) {
         res.status(500).send("Error interno del servidor");
     }
@@ -133,4 +140,15 @@ export const deleteUser = async (req, res) => {
     } catch (error) {
         res.status(500).json({ error: "Error interno del servidor" });
     }
+};
+
+export const logout = (req, res) => {
+    req.session.destroy((err) => {
+        if (err) {
+            console.error('Error cerrando sesión:', err);
+            return res.status(500).send('Error al cerrar sesión');
+        }
+        res.clearCookie('connect.sid');
+        res.redirect('/login');
+    });
 };

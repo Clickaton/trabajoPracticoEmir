@@ -9,8 +9,8 @@ router.get('/login', (req, res) => {
     res.render('userLogin');
 });
 router.post('/login', userController.userLogin);
-router.get('/registerUser', userController.getRegisterForm);
 router.post('/createUser', userController.createUser);
+router.get('/logout', userController.logout);
 
 // --- Rutas Protegidas (Redirigen al login si no hay sesión) ---
 router.get('/getUsers', requireLogin, userController.getUsers);

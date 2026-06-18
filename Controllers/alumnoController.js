@@ -1,5 +1,6 @@
 import Alumno from '../models/Alumno.js';
 import Cohorte from '../models/Cohorte.js'; // IMPORTANTE: Agregamos el modelo Cohorte para poder limpiarlo
+import Materia from '../models/Materia.js';
 
 // Helper: quita la contraseña antes de devolver el JSON
 const omitPassword = (alumno) => {
@@ -31,6 +32,30 @@ export const getAlumnoById = async (req, res) => {
         res.json({ message: `Detalles del alumno con ID: ${id}`, data: omitPassword(alumno) });
     } catch (error) {
         res.status(500).json({ error: "Error interno del servidor" });
+    }
+};
+
+export const getDashboard = async (req, res) => {
+    try {
+        const sessionUser = req.session.user;
+        if (!sessionUser) {
+            return res.redirect('/login');
+        }
+
+        if (sessionUser.tipoPerfil !== 'Alumno') {
+            return res.status(403).send('Acceso no autorizado');
+        }
+
+        const alumno = await Alumno.findOne({ id: parseInt(sessionUser.id) });
+        if (!alumno) {
+            return res.status(404).send('Alumno no encontrado');
+        }
+
+        const materias = await Materia.find().lean();
+        res.render('alumnos/dashboard', { alumno: omitPassword(alumno), materias });
+    } catch (error) {
+        console.error(error);
+        res.status(500).send('Error interno del servidor');
     }
 };
 

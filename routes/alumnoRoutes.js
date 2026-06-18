@@ -8,6 +8,7 @@ const router = express.Router();
 router.use(requireLogin);
 
 // Rutas de API para Alumnos
+router.get('/dashboard', alumnoController.getDashboard);
 router.get('/getAlumnos', alumnoController.getAlumnos);
 router.get('/getAlumnoById/:id', alumnoController.getAlumnoById);
 router.post('/createAlumno', alumnoController.createAlumno);
