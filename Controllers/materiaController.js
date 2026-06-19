@@ -2,7 +2,7 @@ import Materia from '../models/Materia.js';
 
 export const getMaterias = async (req, res) => {
     try {
-        const listaMaterias = await Materia.find();
+        const listaMaterias = await Materia.find().sort({ anio: 1, nombre: 1 });
         res.json({ message: 'Lista de materias', data: listaMaterias });
     } catch (error) {
         res.status(500).json({ error: "Error obteniendo las materias" });

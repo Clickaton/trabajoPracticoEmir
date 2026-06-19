@@ -7,13 +7,11 @@ block contenido
       table.table.table-striped
         thead
           tr
-            th ID
             th Nombre
             th Año
         tbody
           each materia in materias
             tr
-              td= materia.id
               td= materia.nombre
               td= materia.anio
     else

@@ -15,14 +15,12 @@ block contenido
           table.table.table-hover
             thead
               tr
-                th ID
                 th Nombre
                 th Año
                 th Acciones
             tbody
               each mat in materias
                 tr
-                  td= mat.id
                   td= mat.nombre
                   td= mat.anio
                   td
@@ -69,8 +67,28 @@ block contenido
             button.btn.btn-secondary(type='button' data-bs-dismiss='modal') Cancelar
             button.btn.btn-primary(type='submit') Guardar Cambios
 
+  .modal.fade#modalMensaje(tabindex='-1' aria-hidden='true')
+    .modal-dialog
+      .modal-content
+        .modal-header.bg-info.text-white
+          h5.modal-title#modalMensajeTitulo Mensaje
+          button.btn-close(type='button' data-bs-dismiss='modal' aria-label='Close')
+        .modal-body
+          p#modalMensajeTexto.mb-0
+        .modal-footer.bg-light
+          button.btn.btn-secondary(type='button' data-bs-dismiss='modal') Cerrar
+
 block scripts
   script.
+    function mostrarModalMensaje(titulo, mensaje) {
+      const modalTitulo = document.getElementById('modalMensajeTitulo');
+      const modalTexto = document.getElementById('modalMensajeTexto');
+      const modalElement = document.getElementById('modalMensaje');
+      if (modalTitulo) modalTitulo.innerText = titulo;
+      if (modalTexto) modalTexto.innerText = mensaje;
+      if (modalElement) new bootstrap.Modal(modalElement).show();
+    }
+
     document.addEventListener('click', async (e) => {
       if (e.target && e.target.dataset && e.target.dataset.materia) {
         const materiaId = e.target.dataset.materia;
@@ -85,10 +103,10 @@ block scripts
           });
           const json = await resp.json();
           if (!resp.ok) throw new Error(json.error || json.message || 'Error');
-          alert('Inscripción exitosa');
-          location.reload();
+          mostrarModalMensaje('Inscripción exitosa', 'Se completó la inscripción correctamente.');
+          setTimeout(() => location.reload(), 1200);
         } catch (err) {
-          alert('Error: ' + err.message);
+          mostrarModalMensaje('Error de correlatividad', err.message || 'Ocurrió un error.');
         }
       }
     });

@@ -51,7 +51,7 @@ export const getDashboard = async (req, res) => {
             return res.status(404).send('Alumno no encontrado');
         }
 
-        const materias = await Materia.find().lean();
+        const materias = await Materia.find().sort({ anio: 1 }).lean();
         res.render('alumnos/dashboard', { alumno: omitPassword(alumno), materias });
     } catch (error) {
         console.error(error);
