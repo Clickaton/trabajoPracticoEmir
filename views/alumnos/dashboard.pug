@@ -30,13 +30,51 @@ block contenido
         else
           p.text-muted No hay materias cargadas.
 
+  // Modal de edición de perfil para Alumno
+  .modal.fade#modalEditarAlumno(tabindex='-1')
+    .modal-dialog.modal-lg
+      .modal-content
+        .modal-header.bg-primary.text-white
+          h5.modal-title Editar Ficha del Alumno
+          button.btn-close.btn-close-white(type='button' data-bs-dismiss='modal')
+        form#formEditarAlumno
+          .modal-body
+            .row
+              .col-6.mb-3
+                label.form-label ID (Numérico)
+                input.form-control#editAlumnoId(type='number' name='id' readonly)
+              .col-6.mb-3
+                label.form-label Legajo
+                input.form-control#editAlumnoLegajo(type='text' name='legajo' required)
+            .mb-3
+              label.form-label Nombre Completo
+              input.form-control#editAlumnoName(type='text' name='name' required)
+            .row
+              .col-6.mb-3
+                label.form-label Email
+                input.form-control#editAlumnoEmail(type='email' name='email' required)
+              .col-6.mb-3
+                label.form-label Contraseña (Dejar en blanco para no cambiar)
+                input.form-control#editAlumnoPassword(type='password' name='password')
+            .row
+              .col-6.mb-3
+                label.form-label Estado
+                select.form-select#editAlumnoActivo(name='activo' required)
+                  option(value='true') Activo
+                  option(value='false') Inactivo
+              .col-6.mb-3
+                label.form-label Fecha de Inscripción
+                input.form-control#editAlumnoFecha(type='date' name='fecha_inscripcion' required)
+          .modal-footer.bg-light
+            button.btn.btn-secondary(type='button' data-bs-dismiss='modal') Cancelar
+            button.btn.btn-primary(type='submit') Guardar Cambios
+
 block scripts
   script.
     document.addEventListener('click', async (e) => {
       if (e.target && e.target.dataset && e.target.dataset.materia) {
         const materiaId = e.target.dataset.materia;
         const alumnoId = #{alumno.id};
-        // Elegimos cohorte del alumno si existe
         const cohorteId = #{alumno.cohorte_id || 'null'};
 
         try {

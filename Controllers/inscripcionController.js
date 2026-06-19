@@ -115,12 +115,19 @@ export const createInscripcion = async (req, res) => {
         for (const regla of correlatividades) {
             const registroRequisito = historialAlumno.find(h => h.materia_id === regla.requisito_id);
 
+            const materiaRequisito = await Materia.findOne({ id: regla.requisito_id }).lean();
+            const nombreMateria = materiaRequisito ? materiaRequisito.nombre : `ID ${regla.requisito_id}`;
+
             if (!registroRequisito) {
-                return res.status(400).json({ error: `No cumple la correlatividad: falta cursar la materia ID ${regla.requisito_id}` });
+                return res.status(400).json({ 
+                    error: `No cumple la correlatividad: falta cursar la materia "${nombreMateria}"` 
+                });
             }
 
-            if (regla.condicion === 'Regular' && !['Regular', 'Aprobada'].includes(registroRequisito.estado)) {
-                return res.status(400).json({ error: `Necesitás tener Regular la materia ID ${regla.requisito_id}` });
+            if (regla.tipo_requisito === 'Regular' && !['Regular', 'Aprobada'].includes(registroRequisito.estado)) {
+                return res.status(400).json({ 
+                    error: `Necesitás tener Regular la materia "${nombreMateria}"` 
+                });
             }
 
             if (regla.condicion === 'Aprobada' && registroRequisito.estado !== 'Aprobada') {
