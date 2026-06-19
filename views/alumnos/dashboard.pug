@@ -7,8 +7,8 @@ block contenido
         .card
           .card-body
             h4= alumno.name
-            p.mb-1 text-muted= `Legajo: ${alumno.legajo || 'N/A'}`
-            p.mb-1 text-muted= `Cohorte: ${alumno.cohorte_id || 'Sin cohorte'}`
+            p.mb-1.text-muted= `Legajo: ${alumno.legajo || 'N/A'}`
+            p.mb-1.text-muted= `Cohorte: ${alumno.cohorte_id || 'Sin cohorte'}`
       .col-md-8
         h3 Materias disponibles
         if materias.length
