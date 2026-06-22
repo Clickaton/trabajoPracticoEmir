@@ -10,7 +10,8 @@ html(lang="es")
         .col-md-6.col-lg-5
           h1.mb-4.text-center Iniciar Sesión
           
-          //- Manejo del error con el estilo de alerta de Bootstrap
+          //- Si hay error, mostramos un modal (se activa con JS)
+          //- Mantener la alerta como respaldo en caso de que JS esté deshabilitado
           if error
             .alert.alert-danger.text-center(role="alert")= error
 
@@ -24,3 +25,18 @@ html(lang="es")
             
             //- Botón principal que ocupa todo el ancho
             button.btn.btn-primary.w-100(type="submit") Ingresar
+
+    //- Modal de error (Bootstrap)
+    if error
+
+    //- Bootstrap JS y script para activar el modal si hay error
+    script(src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js")
+    if error
+      script.
+        document.addEventListener('DOMContentLoaded', function () {
+          var modalEl = document.getElementById('errorModal');
+          if (modalEl) {
+            var modal = new bootstrap.Modal(modalEl);
+            modal.show();
+          }
+        });

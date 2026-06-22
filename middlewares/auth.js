@@ -8,10 +8,25 @@ export const requireLogin = (req, res, next) => {
 
 export const requireRole = (role) => {
     return (req, res, next) => {
-        if (req.session && req.session.user.rol === role) {
-            return next(); // El usuario tiene el rol requerido, la petición continúa
-        } else {
-            return res.status(403).send('Acceso no autorizado'); // El usuario no tiene el rol requerido
+        // No autenticado -> login
+        if (!req.session || !req.session.user) {
+            return res.redirect('/login');
         }
+
+        const user = req.session.user;
+        const userRole = (user.rol || user.role || '').toString();
+
+        if (userRole === role) {
+            return next(); // El usuario tiene el rol requerido, la petición continúa
+        }
+
+        // Si es un alumno autenticado, redirigimos silenciosamente al dashboard
+        const tipoPerfil = (user.tipoPerfil || '').toString();
+        if (tipoPerfil.toLowerCase() === 'alumno' || userRole.toLowerCase() === 'alumno') {
+            return res.redirect('/dashboard');
+        }
+
+        // Para cualquier otro caso, devolvemos 403
+        return res.status(403).send('Acceso no autorizado'); // El usuario no tiene el rol requerido
     };
 };

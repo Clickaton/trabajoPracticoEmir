@@ -13,7 +13,8 @@ export const userLogin = async (req, res) => {
         const usuario = await User.findOne({ email, password });
         
         if (!usuario) {
-            return res.status(401).json({ error: "Credenciales inválidas" });
+            // Renderizamos la misma vista de login pasando el error
+            return res.status(401).render('userLogin', { error: 'Credenciales inválidas' });
         }
 
         // IMPORTANTE: Guarda una versión limpia del usuario en la sesión, no el objeto de Mongoose.

@@ -3,47 +3,93 @@ extends ../layout
 block contenido
   .container.mt-4
     .row
-      .col-md-4
+      .col-12
+        ul.nav.nav-tabs.nav-tabs-custom#dashboardTabs(role='tablist')
+          li.nav-item
+            button.nav-link.active(type='button' data-bs-toggle='tab' data-bs-target='#tabInscripciones' aria-controls='tabInscripciones' aria-selected='true') Inscripciones
+          li.nav-item
+            button.nav-link(type='button' data-bs-toggle='tab' data-bs-target='#tabHistorial' aria-controls='tabHistorial' aria-selected='false') Historial Académico
+
+    .tab-content.mt-3
+      .tab-pane.fade.show.active#tabInscripciones
+        .row
+          .col-md-4
+            .card.mb-4
+              .card-body
+                h4= alumno.name
+                p.mb-1.text-muted= `Legajo: ${alumno.legajo || 'N/A'}`
+                p.mb-1.text-muted= `Cohorte: ${alumno.cohorte_id || 'Sin cohorte'}`
+          .col-md-8
+            h3 Materias disponibles
+            if materias.length
+              table.table.table-hover
+                thead
+                  tr
+                    th Nombre
+                    th Año
+                    th Acciones
+                tbody
+                  each mat in materias
+                    tr
+                      td= mat.nombre
+                      td= mat.anio
+                      td
+                        button.btn.btn-sm.btn-primary(type='button' data-materia=mat.id) Inscribirme
+            else
+              p.text-muted No hay materias cargadas.
+      .tab-pane.fade#tabHistorial
+        .row.mb-3
+          .col-md-6
+            .card.mb-3
+              .card-body
+                h5.card-title Datos del Alumno
+                p.mb-1
+                  strong Nombre:
+                  span.ms-1= alumno.name
+                p.mb-1
+                  strong Legajo:
+                  span.ms-1= alumno.legajo || 'N/A'
+                p.mb-1
+                  strong Cohorte:
+                  span.ms-1= alumno.cohorte_id || 'Sin cohorte'
+                p.mb-1
+                  strong Email:
+                  span.ms-1= alumno.email || 'No disponible'
+          .col-md-6
+            .card.mb-3
+              .card-body
+                h5.card-title Progreso de Carrera
+                p.mb-1 Porcentaje completado:
+                  strong#porcentajeCarrera Cargando...
+                p.mb-1
+                  small.text-muted Los datos se calculan desde tu historial académico.
         .card
           .card-body
-            h4= alumno.name
-            p.mb-1.text-muted= `Legajo: ${alumno.legajo || 'N/A'}`
-            p.mb-1.text-muted= `Cohorte: ${alumno.cohorte_id || 'Sin cohorte'}`
-      .col-md-8
-        h3 Materias disponibles
-        if materias.length
-          table.table.table-hover
-            thead
-              tr
-                th Nombre
-                th Año
-                th Acciones
-            tbody
-              each mat in materias
-                tr
-                  td= mat.nombre
-                  td= mat.anio
-                  td
-                    button.btn.btn-sm.btn-primary(type='button' data-materia=mat.id) Inscribirme
-        else
-          p.text-muted No hay materias cargadas.
+            h5.card-title Historial Académico
+            div#historialFeedback.mb-3
+              p.text-muted Cargando historial...
+            .table-responsive
+              table.table.table-striped.table-hover#historialTable
+                thead
+                  tr
+                    th Materia
+                    th Año
+                    th Condición
+                    th Nota
+                tbody
+                  tr
+                    td(colspan='4').text-center Cargando...
 
   // Modal de edición de perfil para Alumno
   .modal.fade#modalEditarAlumno(tabindex='-1')
     .modal-dialog.modal-lg
       .modal-content
         .modal-header.bg-primary.text-white
-          h5.modal-title Editar Ficha del Alumno
+          h5.modal-title Editar Perfil
           button.btn-close.btn-close-white(type='button' data-bs-dismiss='modal')
         form#formEditarAlumno
           .modal-body
             .row
-              .col-6.mb-3
-                label.form-label ID (Numérico)
-                input.form-control#editAlumnoId(type='number' name='id' readonly)
-              .col-6.mb-3
-                label.form-label Legajo
-                input.form-control#editAlumnoLegajo(type='text' name='legajo' required)
             .mb-3
               label.form-label Nombre Completo
               input.form-control#editAlumnoName(type='text' name='name' required)
@@ -52,17 +98,11 @@ block contenido
                 label.form-label Email
                 input.form-control#editAlumnoEmail(type='email' name='email' required)
               .col-6.mb-3
-                label.form-label Contraseña (Dejar en blanco para no cambiar)
+                label.form-label Nueva Contraseña
                 input.form-control#editAlumnoPassword(type='password' name='password')
-            .row
-              .col-6.mb-3
-                label.form-label Estado
-                select.form-select#editAlumnoActivo(name='activo' required)
-                  option(value='true') Activo
-                  option(value='false') Inactivo
               .col-6.mb-3
                 label.form-label Fecha de Inscripción
-                input.form-control#editAlumnoFecha(type='date' name='fecha_inscripcion' required)
+                input.form-control#editAlumnoFecha(type='date' name='fecha_inscripcion' readonly)
           .modal-footer.bg-light
             button.btn.btn-secondary(type='button' data-bs-dismiss='modal') Cancelar
             button.btn.btn-primary(type='submit') Guardar Cambios
@@ -89,6 +129,48 @@ block scripts
       if (modalElement) new bootstrap.Modal(modalElement).show();
     }
 
+    async function cargarHistorialAcademico() {
+      const alumnoId = #{alumno.id};
+      const feedback = document.getElementById('historialFeedback');
+      const porcentaje = document.getElementById('porcentajeCarrera');
+      const tabla = document.getElementById('historialTable');
+
+      if (!tabla || !porcentaje || !feedback) return;
+
+      try {
+        const respuesta = await fetch(`/api/estado-academico/${alumnoId}`);
+        if (!respuesta.ok) {
+          throw new Error('No se pudo cargar el historial académico');
+        }
+        const data = await respuesta.json();
+        porcentaje.innerText = data.porcentaje_carrera || '0%';
+
+        if (!data.materias || !data.materias.length) {
+          tabla.querySelector('tbody').innerHTML = '<tr><td colspan="4" class="text-center text-muted">No hay materias en el historial.</td></tr>';
+          feedback.innerHTML = '<p class="text-muted">No se encontraron materias en el historial académico.</p>';
+          return;
+        }
+
+        const filas = data.materias.map(m => {
+          const nota = m.nota !== null && m.nota !== undefined ? m.nota : '-';
+          return `
+            <tr>
+              <td>${m.nombre}</td>
+              <td>${m.anio || '-'}</td>
+              <td>${m.estado || '-'}</td>
+              <td>${nota}</td>
+            </tr>
+          `;
+        }).join('');
+
+        tabla.querySelector('tbody').innerHTML = filas;
+        feedback.innerHTML = '<p class="text-muted">Se muestran todas las materias del plan ordenadas por año.</p>';
+      } catch (error) {
+        tabla.querySelector('tbody').innerHTML = '<tr><td colspan="4" class="text-center text-danger">Error cargando el historial.</td></tr>';
+        feedback.innerHTML = `<p class="text-danger">${error.message}</p>`;
+      }
+    }
+
     document.addEventListener('click', async (e) => {
       if (e.target && e.target.dataset && e.target.dataset.materia) {
         const materiaId = e.target.dataset.materia;
@@ -108,5 +190,18 @@ block scripts
         } catch (err) {
           mostrarModalMensaje('Error de correlatividad', err.message || 'Ocurrió un error.');
         }
+      }
+    });
+
+    document.addEventListener('shown.bs.tab', function (event) {
+      if (event.target && event.target.getAttribute('data-bs-target') === '#tabHistorial') {
+        cargarHistorialAcademico();
+      }
+    });
+
+    document.addEventListener('DOMContentLoaded', function () {
+      const historialTab = document.querySelector('[data-bs-target="#tabHistorial"]');
+      if (historialTab && historialTab.classList.contains('active')) {
+        cargarHistorialAcademico();
       }
     });
