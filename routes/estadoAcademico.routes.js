@@ -1,8 +1,11 @@
 import express from 'express';
 import estadoAcademicoController from '../Controllers/estadoAcademicoController.js';
+import { verifyToken } from '../middlewares/authHybrid.js';
 
 const router = express.Router();
 
-router.get('/:alumnoId', estadoAcademicoController.getEstadoAcademico); // GET /api/estado-academico/101
+// Proteger ruta con middleware JWT
+router.use(verifyToken);
+router.get('/:alumnoId', estadoAcademicoController.getEstadoAcademico);
 
 export default router;

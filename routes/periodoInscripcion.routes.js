@@ -1,7 +1,11 @@
 import express from 'express';
 import periodoInscripcionController from '../Controllers/periodoinscripcionController.js';
+import { requireLogin } from '../middlewares/authHybrid.js';
 
 const router = express.Router();
+
+// Proteger todas las rutas con middleware JWT
+router.use(requireLogin);
 
 router.get('/', periodoInscripcionController.getPeriodos);                    // GET    /api/periodos-inscripcion
 router.get('/activos', periodoInscripcionController.getPeriodosActivos);      // GET    /api/periodos-inscripcion/activos

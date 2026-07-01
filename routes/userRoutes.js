@@ -1,10 +1,10 @@
 import express from 'express';
 import * as userController from '../Controllers/userController.js';
-import { requireLogin } from '../middlewares/auth.js';
+import { requireLogin } from '../middlewares/authHybrid.js';
 
 const router = express.Router();
 
-// --- Rutas Públicas (No requieren estar logeado) ---
+// --- Rutas Públicas ---
 router.get('/login', (req, res) => {
     res.render('userLogin');
 });
@@ -12,7 +12,7 @@ router.post('/login', userController.userLogin);
 router.post('/createUser', userController.createUser);
 router.get('/logout', userController.logout);
 
-// --- Rutas Protegidas (Redirigen al login si no hay sesión) ---
+// --- Rutas Protegidas ---
 router.get('/getUsers', requireLogin, userController.getUsers);
 router.get('/editUser/:id', requireLogin, userController.getEditForm);
 router.get('/getUserById/:id', requireLogin, userController.getUserById);

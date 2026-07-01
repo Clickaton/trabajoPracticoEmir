@@ -37,16 +37,17 @@ export const getAlumnoById = async (req, res) => {
 
 export const getDashboard = async (req, res) => {
     try {
-        const sessionUser = req.session.user;
-        if (!sessionUser) {
+        // El usuario viene del JWT decodificado
+        const user = req.user;
+        if (!user) {
             return res.redirect('/login');
         }
 
-        if (sessionUser.tipoPerfil !== 'Alumno') {
-            return res.status(403).send('Acceso no autorizado');
+        if (user.tipoPerfil !== 'Alumno') {
+            return res.redirect('/login');
         }
 
-        const alumno = await Alumno.findOne({ id: parseInt(sessionUser.id) });
+        const alumno = await Alumno.findOne({ id: parseInt(user.id) });
         if (!alumno) {
             return res.status(404).send('Alumno no encontrado');
         }

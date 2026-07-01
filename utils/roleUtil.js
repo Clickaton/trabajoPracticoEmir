@@ -14,11 +14,3 @@ export function inferRoleFromDoc(doc) {
   }
   return null;
 }
-
-export function normalizeForSession(user) {
-  const inferred = inferRoleFromDoc(user) || 'alumno';
-  return {
-    ...user,
-    role: String(inferred),
-  };
-}

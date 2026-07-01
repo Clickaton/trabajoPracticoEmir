@@ -1,7 +1,11 @@
 import express from 'express';
 import correlatividadController from '../Controllers/correlatividadController.js';
+import { requireLogin } from '../middlewares/authHybrid.js';
 
 const router = express.Router();
+
+// Proteger todas las rutas con middleware JWT
+router.use(requireLogin);
 
 router.get('/', correlatividadController.getCorrelatividades);                      // GET    /api/correlatividades
 router.get('/materia/:materiaId', correlatividadController.getRequisitosByMateria); // GET    /api/correlatividades/materia/1

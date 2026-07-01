@@ -1,7 +1,11 @@
 import express from 'express';
 import cohorteController from '../Controllers/cohorteController.js';
+import { requireLogin } from '../middlewares/authHybrid.js';
 
 const router = express.Router();
+
+// Proteger todas las rutas con middleware JWT
+router.use(requireLogin);
 
 router.get('/getCohortes', cohorteController.getCohortes);
 router.get('/getCohorteById/:id', cohorteController.getCohorteById);

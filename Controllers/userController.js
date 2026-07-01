@@ -1,4 +1,5 @@
 import User from '../models/User.js'; // Asegurate de que la ruta sea correcta (mayúsculas/minúsculas)
+import jwt from 'jsonwebtoken';
 
 // Renderiza el formulario de registro
 export const getRegisterForm = (req, res) => {
@@ -13,14 +14,29 @@ export const userLogin = async (req, res) => {
         const usuario = await User.findOne({ email, password });
         
         if (!usuario) {
-            // Renderizamos la misma vista de login pasando el error
             return res.status(401).render('userLogin', { error: 'Credenciales inválidas' });
         }
 
-        // IMPORTANTE: Guarda una versión limpia del usuario en la sesión, no el objeto de Mongoose.
-        req.session.user = usuario.toObject();
+        // Crear payload con datos del usuario
+        const payload = {
+            id: usuario.id,
+            email: usuario.email,
+            rol: usuario.rol,
+            tipoPerfil: usuario.tipoPerfil
+        };
+
+        // Firmar token JWT con expiración de 8 horas
+        const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '8h' });
+
+        // Guardar token en cookie httpOnly
+        res.cookie('jwtToken', token, {
+            httpOnly: true,
+            secure: false,      // true en producción (HTTPS)
+            maxAge: 1000 * 60 * 60 * 8,
+            sameSite: 'strict'
+        });
         
-        // Redirigimos al alumno al dashboard y al personal administrativo al panel de administración.
+        // Redirigir según el tipo de perfil
         if (usuario.tipoPerfil === 'Alumno') {
             return res.redirect('/dashboard');
         } else if (usuario.rol === 'Administrativo' || usuario.rol === 'Direccion') {
@@ -144,12 +160,7 @@ export const deleteUser = async (req, res) => {
 };
 
 export const logout = (req, res) => {
-    req.session.destroy((err) => {
-        if (err) {
-            console.error('Error cerrando sesión:', err);
-            return res.status(500).send('Error al cerrar sesión');
-        }
-        res.clearCookie('connect.sid');
-        res.redirect('/login');
-    });
+    // Limpiar cookies
+    res.clearCookie('jwtToken');
+    res.redirect('/login');
 };

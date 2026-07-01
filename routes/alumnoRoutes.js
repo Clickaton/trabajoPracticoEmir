@@ -1,11 +1,12 @@
 import express from 'express';
 import * as alumnoController from '../Controllers/alumnoController.js';
-import { requireLogin } from '../middlewares/auth.js';
+import { requireLogin, verifyToken } from '../middlewares/authHybrid.js';
 
 const router = express.Router();
 
-// Protegemos TODAS las rutas a continuación aplicando el middleware globalmente a este router
+// Proteger todas las rutas con middleware JWT
 router.use(requireLogin);
+router.use(verifyToken);
 
 // Rutas de API para Alumnos
 router.get('/dashboard', alumnoController.getDashboard);
