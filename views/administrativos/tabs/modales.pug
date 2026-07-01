@@ -59,6 +59,9 @@
                 if roles
                   each rol in roles
                     option(value=rol)= rol
+            .col-6.mb-3
+              label.form-label Nueva Contraseña (Opcional)
+              input.form-control#editPassword(type="password" name="password" placeholder="Dejar en blanco para no cambiar")
         .modal-footer.bg-light
           button.btn.btn-secondary(type="button" data-bs-dismiss="modal") Cancelar
           button.btn.btn-primary(type="submit") Actualizar Cambios
