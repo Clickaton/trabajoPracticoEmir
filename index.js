@@ -2,6 +2,7 @@ import express from 'express';
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
+import bcrypt from 'bcrypt';
 
 import path from 'path';
 import { fileURLToPath } from 'url'; 
@@ -28,10 +29,40 @@ import historialAcademicoRoutes from './routes/historialAcademico.routes.js';
 import estadoAcademicoRoutes from './routes/estadoAcademico.routes.js';
 import periodoInscripcionRoutes from './routes/periodoInscripcion.routes.js';
 import inscripcionRoutes from './routes/inscripcion.routes.js';
+import Administrativo from './models/Administrativo.js';
+import User from './models/User.js';
+
+const crearDefaultAdminUser = async () => {
+    try {
+        const adminExistente = await Administrativo.findOne({ email: 'admin@admin.com' });
+
+        if (!adminExistente) {
+            await Administrativo.create({
+                name: 'Administrador',
+                email: 'admin@admin.com',
+                password: 'admin123',
+                rol: 'Administrativo',
+                area: 'Sistema'
+            });
+
+            console.log('Usuario administrador por defecto creado.');     
+        }
+
+    } catch (error) {
+        console.error('Error asegurando el usuario administrador por defecto:', error);
+    }
+};
 
 // Conexión a MongoDB Atlas
 mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log('Conectado exitosamente a MongoDB Atlas'))
+  .then(async () => {
+    console.log('Conectado exitosamente a MongoDB Atlas');
+    await crearDefaultAdminUser();
+
+    app.listen(PORT, () => {
+        console.log(`Servidor escuchando en http://localhost:${PORT}`);
+    });
+  })
   .catch((error) => console.error('Error conectando a MongoDB:', error));
 
 // Configuración del motor de plantillas Pug usando la ruta absoluta
@@ -59,6 +90,3 @@ app.use('/api/estado-academico', estadoAcademicoRoutes);
 app.use('/api/periodos-inscripcion', periodoInscripcionRoutes);
 app.use('/api/inscripciones', inscripcionRoutes);
 
-app.listen(PORT, () => {
-    console.log(`Servidor escuchando en http://localhost:${PORT}`);
-});

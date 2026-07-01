@@ -11,9 +11,14 @@ export const getRegisterForm = (req, res) => {
 export const userLogin = async (req, res) => {
     try {
         const { email, password } = req.body;
-        const usuario = await User.findOne({ email, password });
+        const usuario = await User.findOne({ email });
         
         if (!usuario) {
+            return res.status(401).render('userLogin', { error: 'Credenciales inválidas' });
+        }
+
+        const passwordValida = await usuario.comparePassword(password);
+        if (!passwordValida) {
             return res.status(401).render('userLogin', { error: 'Credenciales inválidas' });
         }
 
