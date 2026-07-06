@@ -25,9 +25,15 @@ export const userLogin = async (req, res) => {
         // Crear payload con datos del usuario
         const payload = {
             id: usuario.id,
+            name: usuario.name,
             email: usuario.email,
             rol: usuario.rol,
-            tipoPerfil: usuario.tipoPerfil
+            role: usuario.rol,
+            tipoPerfil: usuario.tipoPerfil,
+            area: usuario.area,
+            legajo: usuario.legajo,
+            activo: usuario.activo,
+            fecha_inscripcion: usuario.fecha_inscripcion
         };
 
         // Firmar token JWT con expiración de 8 horas

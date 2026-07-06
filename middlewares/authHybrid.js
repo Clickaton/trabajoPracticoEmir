@@ -83,6 +83,7 @@ export const verifyToken = (req, res, next) => {
 
 /**
  * Middleware para verificar rol de Administrativo (APIs)
+ * SIN USO ACTUALMENTE, pero puede ser útil para futuras rutas de API que requieran rol específico
  */
 export const isAdmin = (req, res, next) => {
     if (req.user && (req.user.rol === 'Administrativo' || req.user.rol === 'Direccion')) {

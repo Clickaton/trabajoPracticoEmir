@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
 import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
 
 import path from 'path';
 import { fileURLToPath } from 'url'; 
@@ -32,6 +33,9 @@ import inscripcionRoutes from './routes/inscripcion.routes.js';
 import Administrativo from './models/Administrativo.js';
 import User from './models/User.js';
 
+/*
+    Función para crear un usuario administrador por defecto si no existe.
+*/
 const crearDefaultAdminUser = async () => {
     try {
         const adminExistente = await Administrativo.findOne({ email: 'admin@admin.com' });
@@ -74,8 +78,24 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
 app.use((req, res, next) => {
-    res.locals.jwtToken = req.cookies?.jwtToken || null;
-    next();
+    const token = req.cookies?.jwtToken || null;
+    res.locals.jwtToken = token;
+
+    if (!token) {
+        res.locals.usuario = null;
+        return next();
+    }
+
+    jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
+        if (err) {
+            res.locals.usuario = null;
+            return next();
+        }
+
+        req.user = decoded;
+        res.locals.usuario = decoded;
+        next();
+    });
 });
 
 // Usar enrutadores
