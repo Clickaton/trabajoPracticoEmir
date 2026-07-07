@@ -4,13 +4,20 @@ import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-
 import path from 'path';
 import { fileURLToPath } from 'url'; 
+import { consultarIAConHistorial } from './services/geminiService.js';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
 
 dotenv.config(); // Inicializar variables de entorno
 
 const app = express();
+// Crear el servidor HTTP envolviendo la app de Express
+const httpServer = createServer(app);
+
+// Inicializar Socket.io pasándole el servidor HTTP
+const io = new Server(httpServer);
 
 // IMPORTANTE PARA RENDER: process.env.PORT permite que Render asigne su propio puerto.
 const PORT = process.env.PORT || 3000;
@@ -32,6 +39,59 @@ import periodoInscripcionRoutes from './routes/periodoInscripcion.routes.js';
 import inscripcionRoutes from './routes/inscripcion.routes.js';
 import Administrativo from './models/Administrativo.js';
 import User from './models/User.js';
+
+// ==========================================
+// LÓGICA DEL CHAT WEBSOCKET
+// ==========================================
+const chatsActivos = {};
+
+io.on("connection", (socket) => {
+  console.log("Un usuario se conectó al chat");
+
+  chatsActivos[socket.id] = [];
+
+  socket.on("mensaje", async (datos) => {
+    const textoUsuario = datos.texto?.trim() || "";
+    const pantallaActual = datos.contexto || "sistema general";
+
+    if (!textoUsuario) return;
+
+    // Mostrar el mensaje del usuario en la interfaz
+    io.emit("mensaje", {
+      usuario: datos.usuario || "Usuario",
+      texto: textoUsuario
+    });
+
+    try {
+      chatsActivos[socket.id].push({
+        role: "user",
+        parts: [{ text: textoUsuario }]
+      });
+
+      const respuesta = await consultarIAConHistorial(pantallaActual, chatsActivos[socket.id]);
+
+      chatsActivos[socket.id].push({
+        role: "model",
+        parts: [{ text: respuesta }]
+      });
+
+      io.emit("mensaje", {
+        usuario: "Asesor Virtual",
+        texto: respuesta
+      });
+    } catch (error) {
+      console.error("Error en el flujo de Gemini con historial:", error);
+      io.emit("mensaje", {
+        usuario: "Asesor Virtual",
+        texto: "Disculpá, tuve un problema al procesar tu consulta en este momento."
+      });
+    }
+  });
+
+  socket.on("disconnect", () => {
+    delete chatsActivos[socket.id];
+  });
+});
 
 /*
     Función para crear un usuario administrador por defecto si no existe.
@@ -63,7 +123,7 @@ mongoose.connect(process.env.MONGO_URI)
     console.log('Conectado exitosamente a MongoDB Atlas');
     await crearDefaultAdminUser();
 
-    app.listen(PORT, () => {
+    httpServer.listen(PORT, () => {
         console.log(`Servidor escuchando en http://localhost:${PORT}`);
     });
   })

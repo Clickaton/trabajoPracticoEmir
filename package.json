@@ -13,6 +13,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "bcrypt": "^6.0.0",
     "cookie-parser": "^1.4.7",
     "dotenv": "^17.4.2",
@@ -20,6 +21,7 @@
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^8.24.0",
     "mongoose-sequence": "^6.0.1",
-    "pug": "^3.0.4"
+    "pug": "^3.0.4",
+    "socket.io": "^4.8.3"
   }
 }
