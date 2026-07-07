@@ -118,8 +118,37 @@ block contenido
         .modal-footer.bg-light
           button.btn.btn-secondary(type='button' data-bs-dismiss='modal') Cerrar
 
+  // Globo flotante para abrir el chat
+  button.btn.btn-primary.rounded-circle.shadow-lg#btn-chat-flotante(type='button' style='position: fixed; bottom: 30px; right: 30px; width: 60px; height: 60px; z-index: 1050;' onclick='toggleChat()')
+    i.bi.bi-chat-dots-fill.fs-3
+
+  .card.shadow-lg#ventana-chat-flotante(style='position: fixed; bottom: 100px; right: 30px; width: 350px; display: none; z-index: 1050; border-radius: 15px; overflow: hidden;')
+    .card-header.bg-primary.text-white.d-flex.justify-content-between.align-items-center
+      h6.mb-0
+        i.bi.bi-robot.me-2
+        | Soporte IA
+      button.btn-close.btn-close-white.btn-sm(type='button' onclick='toggleChat()')
+    .card-body.bg-light.p-3
+      ul#chat-messages.list-unstyled(style='height: 300px; overflow-y: auto; margin-bottom: 0;')
+        li.mb-3
+          .bg-white.border.border-primary.rounded.p-2.shadow-sm(style='max-width: 85%;')
+            small.fw-bold.text-primary Asistente:
+            br
+            small ¡Hola! Soy tu asistente de soporte. Escribí tu duda y con gusto te ayudaremos.
+    .card-footer.bg-white.p-2
+      form#chat-form.d-flex
+        input#chat-input.form-control.form-control-sm.me-2(type='text' placeholder='Escribí acá...' autocomplete='off' required)
+        button.btn.btn-sm.btn-primary(type='submit')
+          i.bi.bi-send-fill
+
 block scripts
+  script(src='/socket.io/socket.io.js')
   script.
+    function toggleChat() {
+      const ventana = document.getElementById('ventana-chat-flotante');
+      ventana.style.display = ventana.style.display === 'none' ? 'block' : 'none';
+    }
+
     function mostrarModalMensaje(titulo, mensaje) {
       const modalTitulo = document.getElementById('modalMensajeTitulo');
       const modalTexto = document.getElementById('modalMensajeTexto');
@@ -205,6 +234,51 @@ block scripts
     document.addEventListener('shown.bs.tab', function (event) {
       if (event.target && event.target.getAttribute('data-bs-target') === '#tabHistorial') {
         cargarHistorialAcademico();
+      }
+    });
+
+    const socket = io();
+    const chatForm = document.getElementById('chat-form');
+    const chatInput = document.getElementById('chat-input');
+    const chatMessages = document.getElementById('chat-messages');
+
+    function agregarMensajeVisual(emisor, texto, clasesCaja, clasesTitulo) {
+      const li = document.createElement('li');
+      li.classList.add('mb-3', 'd-flex');
+      li.innerHTML = `
+        <div class="${clasesCaja} rounded p-2 shadow-sm" style="max-width: 85%;">
+          <small class="fw-bold ${clasesTitulo}">${emisor}</small><br>
+          <small>${texto}</small>
+        </div>
+      `;
+      chatMessages.appendChild(li);
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    if (chatForm) {
+      chatForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const texto = chatInput.value.trim();
+        if (!texto) return;
+
+        agregarMensajeVisual('Vos', texto, 'bg-primary text-white ms-auto', 'text-white-50');
+
+        socket.emit('mensaje', {
+          usuario: currentUser?.name || 'Alumno',
+          texto,
+          usuarioLogueado: currentUser || null
+        });
+        chatInput.value = '';
+      });
+    }
+
+    socket.on('mensaje', (datos) => {
+      const nombreUsuario = currentUser?.name || 'Alumno';
+      if (datos.usuario !== nombreUsuario) {
+        const esIA = datos.usuario === 'Asesor Virtual';
+        const clasesCaja = esIA ? 'bg-white border border-primary' : 'bg-secondary text-white';
+        const clasesTitulo = esIA ? 'text-primary' : 'text-white-50';
+        agregarMensajeVisual(datos.usuario, datos.texto, clasesCaja, clasesTitulo);
       }
     });
 

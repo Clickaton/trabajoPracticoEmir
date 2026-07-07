@@ -53,10 +53,11 @@ io.on("connection", (socket) => {
   socket.on("mensaje", async (datos) => {
     const textoUsuario = datos.texto?.trim() || "";
     const pantallaActual = datos.contexto || "sistema general";
+    const usuario = datos.usuarioLogueado || null;
+    const rolUsuario = usuario?.rol || usuario?.role || usuario?.tipoPerfil || "";
 
     if (!textoUsuario) return;
 
-    // Mostrar el mensaje del usuario en la interfaz
     io.emit("mensaje", {
       usuario: datos.usuario || "Usuario",
       texto: textoUsuario
@@ -68,7 +69,12 @@ io.on("connection", (socket) => {
         parts: [{ text: textoUsuario }]
       });
 
-      const respuesta = await consultarIAConHistorial(pantallaActual, chatsActivos[socket.id]);
+      const respuesta = await consultarIAConHistorial(
+        textoUsuario,
+        rolUsuario,
+        pantallaActual,
+        chatsActivos[socket.id]
+      );
 
       chatsActivos[socket.id].push({
         role: "model",

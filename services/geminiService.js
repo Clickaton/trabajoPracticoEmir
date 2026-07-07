@@ -13,14 +13,42 @@ if (!apiKey) {
 const genAI = new GoogleGenerativeAI(apiKey);
 const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
-export const consultarIAConHistorial = async (pantallaActual = "sistema general", historial = []) => {
-  try {
-    const contexto = await fs.readFile("./prompts/asistente.txt", "utf-8");
+const leerPromptBase = async () => {
+  return fs.readFile("./prompts/asistente.txt", "utf-8");
+};
 
+const construirPromptSegunRol = async (pregunta, rolUsuario, pantallaActual = "sistema general") => {
+  const contextoBase = await leerPromptBase();
+  const rolNormalizado = (rolUsuario || "").toString().toLowerCase();
+
+  let instruccionRol = "";
+
+  if (rolNormalizado === "alumno") {
+    instruccionRol = `
+Eres el asistente de soporte para alumnos del ISFT 225.
+Solo puedes responder preguntas relacionadas con:
+- cómo inscribirme en materias
+- cómo ver mi historial académico
+- cómo modificar mi usuario
+Si el usuario pregunta por otros temas, responde de forma breve indicando que solo puedes ayudar con esas materias.
+`;
+  } else if (rolNormalizado === "administrativo" || rolNormalizado === "direccion") {
+    instruccionRol = `
+Eres el asistente de soporte para administración del ISFT 225.
+Puedes responder consultas generales del sistema y del panel administrativo.
+`;
+  }
+
+  return `Contexto de la pantalla: ${pantallaActual}\n\n${contextoBase}\n\n${instruccionRol}\n\nCliente:\n${pregunta}`;
+};
+
+export const consultarIAConHistorial = async (pregunta, rolUsuario, pantallaActual = "sistema general", historial = []) => {
+  try {
+    const prompt = await construirPromptSegunRol(pregunta, rolUsuario, pantallaActual);
     const contenido = [
       {
         role: "user",
-        parts: [{ text: `Contexto de la pantalla: ${pantallaActual}\n\n${contexto}` }]
+        parts: [{ text: prompt }]
       },
       ...historial
     ];
@@ -33,13 +61,8 @@ export const consultarIAConHistorial = async (pantallaActual = "sistema general"
   }
 };
 
-export const consultarIA = async (pregunta) => {
-  return consultarIAConHistorial("sistema general", [
-    {
-      role: "user",
-      parts: [{ text: pregunta }]
-    }
-  ]);
+export const consultarIA = async (pregunta, rolUsuario) => {
+  return consultarIAConHistorial(pregunta, rolUsuario, "sistema general", []);
 };
 
 export default { consultarIA, consultarIAConHistorial };

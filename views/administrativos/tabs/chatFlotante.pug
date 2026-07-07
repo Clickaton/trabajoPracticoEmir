@@ -48,11 +48,13 @@ script.
     // Mostramos el mensaje propio pegado a la derecha
     agregarMensajeVisual('Vos', texto, 'bg-primary text-white ms-auto', 'text-white-50');
     
-    // Obtenemos el nombre del administrativo usando tu variable global currentUser
     const nombreUsuario = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.name : 'Administrativo';
     
-    // Lo mandamos al backend
-    socket.emit('mensaje', { usuario: nombreUsuario, texto: texto });
+    socket.emit('mensaje', {
+      usuario: nombreUsuario,
+      texto: texto,
+      usuarioLogueado: currentUser || null
+    });
     chatInput.value = '';
   });
 
