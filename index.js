@@ -1,24 +1,17 @@
+// ==========================================
+// 1. TODAS LAS IMPORTACIONES ARRIBA DE TODO
+// ==========================================
+import { createServer } from 'http';
+import { Server } from 'socket.io';
+import { consultarIA } from './services/geminiServices.js';
 import express from 'express';
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
 import bcrypt from 'bcrypt';
-
 import path from 'path';
-import { fileURLToPath } from 'url'; 
+import { fileURLToPath } from 'url';
 
-dotenv.config(); // Inicializar variables de entorno
-
-const app = express();
-
-// IMPORTANTE PARA RENDER: process.env.PORT permite que Render asigne su propio puerto.
-const PORT = process.env.PORT || 3000;
-
-// Recrear __filename y __dirname LA CLAVE PARA QUE NO FALLE EN RENDER
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Importar enrutadores
 import userRoutes from './routes/userRoutes.js';
 import cohorteRoutes from './routes/cohorteRoutes.js';
 import materiaRoutes from './routes/materiaRoutes.js';
@@ -32,40 +25,44 @@ import inscripcionRoutes from './routes/inscripcion.routes.js';
 import Administrativo from './models/Administrativo.js';
 import User from './models/User.js';
 
-const crearDefaultAdminUser = async () => {
-    try {
-        const adminExistente = await Administrativo.findOne({ email: 'admin@admin.com' });
+// ==========================================
+// 2. CONFIGURACIÓN INICIAL
+// ==========================================
+dotenv.config();
 
-        if (!adminExistente) {
-            await Administrativo.create({
-                name: 'Administrador',
-                email: 'admin@admin.com',
-                password: 'admin123',
-                rol: 'Administrativo',
-                area: 'Sistema'
-            });
+const app = express();
+const server = createServer(app);
+const io = new Server(server);
 
-            console.log('Usuario administrador por defecto creado.');     
-        }
+const PORT = process.env.PORT || 3000;
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-    } catch (error) {
-        console.error('Error asegurando el usuario administrador por defecto:', error);
+// ==========================================
+// 3. LÓGICA DEL CHAT WEBSOCKET
+// ==========================================
+io.on("connection", (socket) => {
+  console.log("Un usuario se conectó al chat");
+
+  socket.on("mensaje", async (datos) => {
+    // Reenviamos el mensaje a todos los conectados
+    io.emit("mensaje", datos);
+
+    // Si el mensaje arranca con @gemini, le hablamos a la IA
+    if (datos.texto.startsWith("@gemini")) {
+      const pregunta = datos.texto.replace("@gemini", "").trim();
+      const respuesta = await consultarIA(pregunta);
+      io.emit("mensaje", {
+        usuario: "Asesor Virtual",
+        texto: respuesta
+      });
     }
-};
+  });
+});
 
-// Conexión a MongoDB Atlas
-mongoose.connect(process.env.MONGO_URI)
-  .then(async () => {
-    console.log('Conectado exitosamente a MongoDB Atlas');
-    await crearDefaultAdminUser();
-
-    app.listen(PORT, () => {
-        console.log(`Servidor escuchando en http://localhost:${PORT}`);
-    });
-  })
-  .catch((error) => console.error('Error conectando a MongoDB:', error));
-
-// Configuración del motor de plantillas Pug usando la ruta absoluta
+// ==========================================
+// 4. CONFIGURACIÓN DE EXPRESS Y MIDDLEWARES
+// ==========================================
 app.set('view engine', 'pug');
 app.set('views', path.join(__dirname, 'views'));
 
@@ -90,3 +87,38 @@ app.use('/api/estado-academico', estadoAcademicoRoutes);
 app.use('/api/periodos-inscripcion', periodoInscripcionRoutes);
 app.use('/api/inscripciones', inscripcionRoutes);
 
+// ==========================================
+// 5. FUNCIONES AUXILIARES
+// ==========================================
+const crearDefaultAdminUser = async () => {
+    try {
+        const adminExistente = await Administrativo.findOne({ email: 'admin@admin.com' });
+        if (!adminExistente) {
+            await Administrativo.create({
+                name: 'Administrador',
+                email: 'admin@admin.com',
+                password: 'admin123',
+                rol: 'Administrativo',
+                area: 'Sistema'
+            });
+            console.log('Usuario administrador por defecto creado.');     
+        }
+    } catch (error) {
+        console.error('Error asegurando el usuario administrador por defecto:', error);
+    }
+};
+
+// ==========================================
+// 6. ARRANQUE DEL SERVIDOR
+// ==========================================
+mongoose.connect(process.env.MONGO_URI)
+  .then(async () => {
+    console.log('Conectado exitosamente a MongoDB Atlas');
+    await crearDefaultAdminUser();
+
+    // Acá está el cambio que hablamos: usamos server.listen
+    server.listen(PORT, () => {
+        console.log(`Servidor escuchando en http://localhost:${PORT}`);
+    });
+  })
+  .catch((error) => console.error('Error conectando a MongoDB:', error));

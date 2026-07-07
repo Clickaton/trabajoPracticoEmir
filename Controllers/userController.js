@@ -51,6 +51,8 @@ export const userLogin = async (req, res) => {
         }
 
     } catch (error) {
+        // 
+        console.log("🔥 EL ERROR REAL ES:", error);
         res.status(500).send("Error interno del servidor");
     }
 };
