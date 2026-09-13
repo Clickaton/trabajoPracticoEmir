@@ -11,9 +11,17 @@
         span Seleccionar Cohorte:
         select.form-select.form-select-sm.w-auto#selectorCohorte
           option(selected disabled) Cargando cohortes...
-      button.btn.btn-sm.btn-info.text-white#btnAbrirModalAlumno(data-bs-toggle="modal" data-bs-target="#modalCrearAlumno" disabled)
-        i.bi.bi-person-plus.me-1
-        | Dar de Alta Alumno
+      
+      .d-flex.gap-2
+        button.btn.btn-sm.btn-success.text-white#btnAbrirSheets(disabled)
+          i.bi.bi-file-earmark-spreadsheet.me-1
+          | Abrir en Sheets
+        button.btn.btn-sm.btn-warning.text-dark#btnSincronizarSheets(disabled)
+          i.bi.bi-arrow-repeat.me-1
+          | Sincronizar Datos de Sheets
+        button.btn.btn-sm.btn-info.text-white#btnAbrirModalAlumno(data-bs-toggle="modal" data-bs-target="#modalCrearAlumno" disabled)
+          i.bi.bi-person-plus.me-1
+          | Dar de Alta Alumno
 
     .card-body.p-0#contenedorAlumnos
       .p-5.text-center.text-muted

@@ -1,0 +1,360 @@
+.tab-pane.fade#correo-pane(role="tabpanel" aria-labelledby="correo-tab")
+  .d-flex.justify-content-between.align-items-center.mb-3
+    h4.mb-0.text-secondary Correo ISFT 225
+    span.badge.bg-secondary Vista previa (datos ficticios)
+
+  .card.shadow-sm.border-0
+    .card-body.p-0
+      .d-flex.correo-wrapper
+
+        // 10% - Iconos de filtro + nuevo mensaje
+        .correo-iconos.d-flex.flex-column.align-items-center.py-3.gap-2.border-end
+          button.btn.btn-nuevo#btnNuevoMensaje(type="button" data-bs-toggle="tooltip" data-bs-placement="right" title="Redactar nuevo" onclick="abrirRedaccionNueva()")
+            i.bi.bi-pencil-square
+
+          hr.w-75.my-1
+
+          button.btn.btn-icono.active#filtroRecibidos(data-filtro="recibidos" type="button" data-bs-toggle="tooltip" data-bs-placement="right" title="Recibidos")
+            i.bi.bi-inbox-fill
+          button.btn.btn-icono#filtroEnviados(data-filtro="enviados" type="button" data-bs-toggle="tooltip" data-bs-placement="right" title="Enviados")
+            i.bi.bi-send-fill
+          button.btn.btn-icono#filtroTodos(data-filtro="todos" type="button" data-bs-toggle="tooltip" data-bs-placement="right" title="Todos")
+            i.bi.bi-collection-fill
+          button.btn.btn-icono#filtroDestacados(data-filtro="destacados" type="button" data-bs-toggle="tooltip" data-bs-placement="right" title="Destacados")
+            i.bi.bi-star-fill
+
+        // 30% - Lista de mensajes
+        .correo-lista.border-end
+          .p-2.border-bottom
+            input.form-control.form-control-sm(type="text" placeholder="Buscar...")
+          #listaMensajes.lista-mensajes
+            .mensaje-item.p-3.border-bottom.no-leido(
+              data-filtro="recibidos"
+              data-remitente="Ana Gómez"
+              data-fecha="Hoy, 09:14"
+              data-asunto="Reunión de coordinación - Cohorte 2026"
+              data-cuerpo="Buen día, les escribo para coordinar la reunión de la próxima semana sobre la organización de la Cohorte 2026. Necesitaríamos definir fecha, horario y los temas a tratar en el orden del día. Quedo atenta a su disponibilidad. Saludos, Ana."
+              onclick="abrirVistaMensaje(this)")
+              .d-flex.justify-content-between.align-items-start
+                span.fw-bold Ana Gómez
+                .mensaje-acciones.d-flex.align-items-center.gap-1
+                  small.text-muted 09:14
+                  button.btn-accion(type="button" title="Destacar" onclick="toggleDestacado(event, this)")
+                    i.bi.bi-star
+                  button.btn-accion.btn-accion-eliminar(type="button" title="Eliminar" onclick="eliminarMensaje(event, this)")
+                    i.bi.bi-trash
+              .fw-semibold.text-truncate Reunión de coordinación - Cohorte 2026
+              small.text-muted.text-truncate Buen día, les escribo para coordinar la reunión...
+
+            .mensaje-item.p-3.border-bottom(
+              data-filtro="recibidos"
+              data-remitente="Martín Ríos"
+              data-fecha="Ayer, 17:40"
+              data-asunto="Consulta sobre correlatividades"
+              data-cuerpo="Hola, quería consultarte sobre las correlatividades de tercer año, ya que un alumno me planteó una duda puntual sobre si puede cursar la materia sin tener aprobada la anterior. ¿Podrías confirmarme el reglamento vigente? Gracias."
+              onclick="abrirVistaMensaje(this)")
+              .d-flex.justify-content-between.align-items-start
+                span Martín Ríos
+                .mensaje-acciones.d-flex.align-items-center.gap-1
+                  small.text-muted Ayer
+                  button.btn-accion(type="button" title="Destacar" onclick="toggleDestacado(event, this)")
+                    i.bi.bi-star
+                  button.btn-accion.btn-accion-eliminar(type="button" title="Eliminar" onclick="eliminarMensaje(event, this)")
+                    i.bi.bi-trash
+              .text-truncate Consulta sobre correlatividades
+              small.text-muted.text-truncate Hola, quería consultarte sobre...
+
+            .mensaje-item.p-3.border-bottom(
+              data-filtro="enviados"
+              data-remitente="Para: Secretaría Académica"
+              data-fecha="Lunes, 11:05"
+              data-asunto="Envío de planillas de asistencia"
+              data-cuerpo="Adjunto las planillas correspondientes al mes de agosto de todas las comisiones a mi cargo. Cualquier corrección que necesiten, avísenme y lo reviso. Saludos."
+              onclick="abrirVistaMensaje(this)")
+              .d-flex.justify-content-between.align-items-start
+                span Para: Secretaría Académica
+                .mensaje-acciones.d-flex.align-items-center.gap-1
+                  small.text-muted Lun
+                  button.btn-accion(type="button" title="Destacar" onclick="toggleDestacado(event, this)")
+                    i.bi.bi-star
+                  button.btn-accion.btn-accion-eliminar(type="button" title="Eliminar" onclick="eliminarMensaje(event, this)")
+                    i.bi.bi-trash
+              .text-truncate Envío de planillas de asistencia
+              small.text-muted.text-truncate Adjunto las planillas correspondientes...
+
+            .mensaje-item.p-3.border-bottom.no-leido(
+              data-filtro="recibidos"
+              data-filtro-extra="destacados"
+              data-remitente="Dirección"
+              data-fecha="28/08, 08:30"
+              data-asunto="Cambio de horario - importante"
+              data-cuerpo="Se informa a todo el personal administrativo y docente que, a partir del lunes, la mesa de entradas atenderá en horario extendido hasta las 20hs. Por favor comuniquen este cambio a los alumnos de sus respectivas comisiones."
+              onclick="abrirVistaMensaje(this)")
+              .d-flex.justify-content-between.align-items-start
+                span.fw-bold Dirección
+                .mensaje-acciones.d-flex.align-items-center.gap-1
+                  small.text-muted 28/08
+                  button.btn-accion(type="button" title="Destacar" onclick="toggleDestacado(event, this)")
+                    i.bi.bi-star-fill
+                  button.btn-accion.btn-accion-eliminar(type="button" title="Eliminar" onclick="eliminarMensaje(event, this)")
+                    i.bi.bi-trash
+              .fw-semibold.text-truncate Cambio de horario - importante
+              small.text-muted.text-truncate Se informa a todo el personal que...
+
+            .mensaje-item.p-3.border-bottom(
+              data-filtro="enviados"
+              data-remitente="Para: Prof. Laura Díaz"
+              data-fecha="26/08, 14:15"
+              data-asunto="Materiales de la materia"
+              data-cuerpo="Te paso el material actualizado de la cátedra para que lo subas al aula virtual antes del próximo parcial. Cualquier duda me escribís. Saludos."
+              onclick="abrirVistaMensaje(this)")
+              .d-flex.justify-content-between.align-items-start
+                span Para: Prof. Laura Díaz
+                .mensaje-acciones.d-flex.align-items-center.gap-1
+                  small.text-muted 26/08
+                  button.btn-accion(type="button" title="Destacar" onclick="toggleDestacado(event, this)")
+                    i.bi.bi-star
+                  button.btn-accion.btn-accion-eliminar(type="button" title="Eliminar" onclick="eliminarMensaje(event, this)")
+                    i.bi.bi-trash
+              .text-truncate Materiales de la materia
+              small.text-muted.text-truncate Te paso el material actualizado...
+
+            .mensaje-item.p-3(
+              data-filtro="recibidos"
+              data-remitente="Soporte Sistema"
+              data-fecha="20/08, 10:00"
+              data-asunto="Bienvenido al nuevo sistema de correo interno"
+              data-cuerpo="Este es un mensaje de prueba para mostrar cómo se ve un correo dentro del sistema. A partir de ahora, todas las comunicaciones internas del instituto van a pasar por acá."
+              onclick="abrirVistaMensaje(this)")
+              .d-flex.justify-content-between.align-items-start
+                span Soporte Sistema
+                .mensaje-acciones.d-flex.align-items-center.gap-1
+                  small.text-muted 20/08
+                  button.btn-accion(type="button" title="Destacar" onclick="toggleDestacado(event, this)")
+                    i.bi.bi-star
+                  button.btn-accion.btn-accion-eliminar(type="button" title="Eliminar" onclick="eliminarMensaje(event, this)")
+                    i.bi.bi-trash
+              .text-truncate Bienvenido al nuevo sistema de correo interno
+              small.text-muted.text-truncate Este es un mensaje de prueba...
+
+        // 60% - Redacción (y vista de mensaje, que se abre encima)
+        .correo-redaccion.p-4.d-flex.flex-column.position-relative
+
+          form#formRedactar.d-flex.flex-column.flex-grow-1(onsubmit="return enviarMensajeFicticio(event)")
+            h6.text-muted.mb-3 Redactar mensaje
+            .mb-3
+              label.form-label.small.text-muted Para
+              input#inputPara.form-control(type="text" list="listaContactos" placeholder="nombre@isft225.edu.ar")
+              datalist#listaContactos
+                option(value="ana.gomez@isft225.edu.ar")
+                option(value="martin.rios@isft225.edu.ar")
+                option(value="laura.diaz@isft225.edu.ar")
+                option(value="direccion@isft225.edu.ar")
+                option(value="secretaria@isft225.edu.ar")
+
+            .mb-3
+              label.form-label.small.text-muted Asunto
+              input#inputAsunto.form-control(type="text" placeholder="Asunto del mensaje")
+
+            .mb-3.flex-grow-1.d-flex.flex-column
+              label.form-label.small.text-muted Mensaje
+              textarea#inputCuerpo.form-control.flex-grow-1(placeholder="Escribí tu mensaje...")
+
+            .d-flex.justify-content-end.gap-2
+              button.btn.btn-outline-secondary(type="button" onclick="document.getElementById('formRedactar').reset()")
+                | Descartar
+              button.btn.btn-primary(type="submit")
+                i.bi.bi-send.me-1
+                | Enviar
+
+          // Vista de lectura, tapa la redacción cuando hay un mensaje abierto
+          #vistaMensaje.vista-mensaje-overlay.d-none.position-absolute.top-0.start-0.w-100.h-100.bg-white.p-4.d-flex.flex-column
+            .d-flex.justify-content-between.align-items-start.mb-3
+              div
+                h5#vistaAsunto.mb-1
+                small.text-muted
+                  span#vistaRemitente
+                  |  ·
+                  |
+                  span#vistaFecha
+              button.btn.btn-sm.btn-outline-secondary(type="button" title="Cerrar" onclick="cerrarVistaMensaje()")
+                i.bi.bi-x-lg
+            hr.mt-0
+            #vistaCuerpo.flex-grow-1.overflow-auto
+
+  style.
+    .correo-wrapper {
+      min-height: 520px;
+    }
+    .correo-iconos {
+      width: 10%;
+      background-color: #f8f9fa;
+    }
+    .correo-iconos .btn-icono,
+    .correo-iconos .btn-nuevo {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #6c757d;
+      font-size: 1.1rem;
+      border: none;
+      background: transparent;
+    }
+    .correo-iconos .btn-icono:hover,
+    .correo-iconos .btn-nuevo:hover {
+      background-color: #e9ecef;
+    }
+    .correo-iconos .btn-icono.active {
+      background-color: #0d6efd;
+      color: #fff;
+    }
+    .correo-iconos .btn-nuevo {
+      background-color: #0d6efd;
+      color: #fff;
+    }
+    .correo-iconos .btn-nuevo:hover {
+      background-color: #0b5ed7;
+      color: #fff;
+    }
+    .correo-lista {
+      width: 30%;
+      overflow-y: auto;
+      max-height: 520px;
+    }
+    .lista-mensajes .mensaje-item {
+      cursor: pointer;
+    }
+    .lista-mensajes .mensaje-item:hover {
+      background-color: #f8f9fa;
+    }
+    .lista-mensajes .mensaje-item.seleccionado {
+      background-color: #e7f1ff;
+    }
+    .lista-mensajes .mensaje-item.no-leido span.fw-bold,
+    .lista-mensajes .mensaje-item.no-leido .fw-semibold {
+      color: #0d6efd;
+    }
+    .mensaje-acciones .btn-accion {
+      border: none;
+      background: transparent;
+      padding: 2px 4px;
+      color: #adb5bd;
+      font-size: 0.9rem;
+      line-height: 1;
+    }
+    .mensaje-acciones .btn-accion:hover {
+      color: #f5b301;
+    }
+    .mensaje-acciones .btn-accion i.bi-star-fill {
+      color: #f5b301;
+    }
+    .mensaje-acciones .btn-accion-eliminar:hover {
+      color: #dc3545;
+    }
+    .correo-redaccion {
+      width: 60%;
+    }
+    .vista-mensaje-overlay {
+      z-index: 5;
+    }
+
+  script.
+    document.addEventListener('DOMContentLoaded', function () {
+      // Tooltips de Bootstrap (los iconos no los inicializan solos, hay que activarlos)
+      document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(function (el) {
+        new bootstrap.Tooltip(el);
+      });
+
+      var botonesFiltro = document.querySelectorAll('.correo-iconos .btn-icono');
+
+      botonesFiltro.forEach(function (boton) {
+        boton.addEventListener('click', function () {
+          botonesFiltro.forEach(function (b) { b.classList.remove('active'); });
+          boton.classList.add('active');
+          aplicarFiltroActivo();
+        });
+      });
+    });
+
+    function aplicarFiltroActivo() {
+      var botonActivo = document.querySelector('.correo-iconos .btn-icono.active');
+      var filtro = botonActivo.getAttribute('data-filtro');
+      var mensajes = document.querySelectorAll('#listaMensajes .mensaje-item');
+
+      mensajes.forEach(function (mensaje) {
+        var tipo = mensaje.getAttribute('data-filtro');
+        var extra = mensaje.getAttribute('data-filtro-extra');
+
+        if (filtro === 'todos' || tipo === filtro || extra === filtro) {
+          mensaje.style.display = '';
+        } else {
+          mensaje.style.display = 'none';
+        }
+      });
+    }
+
+    function abrirVistaMensaje(elemento) {
+      document.querySelectorAll('#listaMensajes .mensaje-item').forEach(function (m) {
+        m.classList.remove('seleccionado');
+      });
+      elemento.classList.add('seleccionado');
+      elemento.classList.remove('no-leido');
+
+      document.getElementById('vistaAsunto').textContent = elemento.getAttribute('data-asunto');
+      document.getElementById('vistaRemitente').textContent = elemento.getAttribute('data-remitente');
+      document.getElementById('vistaFecha').textContent = elemento.getAttribute('data-fecha');
+      document.getElementById('vistaCuerpo').textContent = elemento.getAttribute('data-cuerpo');
+
+      document.getElementById('vistaMensaje').classList.remove('d-none');
+    }
+
+    function cerrarVistaMensaje() {
+      document.getElementById('vistaMensaje').classList.add('d-none');
+    }
+
+    function abrirRedaccionNueva() {
+      cerrarVistaMensaje();
+      document.querySelectorAll('#listaMensajes .mensaje-item').forEach(function (m) {
+        m.classList.remove('seleccionado');
+      });
+      document.getElementById('formRedactar').reset();
+      document.getElementById('inputPara').focus();
+    }
+
+    function toggleDestacado(event, boton) {
+      event.stopPropagation();
+      var item = boton.closest('.mensaje-item');
+      var icono = boton.querySelector('i');
+
+      if (item.getAttribute('data-filtro-extra') === 'destacados') {
+        item.removeAttribute('data-filtro-extra');
+        icono.classList.remove('bi-star-fill');
+        icono.classList.add('bi-star');
+      } else {
+        item.setAttribute('data-filtro-extra', 'destacados');
+        icono.classList.remove('bi-star');
+        icono.classList.add('bi-star-fill');
+      }
+
+      aplicarFiltroActivo();
+    }
+
+    function eliminarMensaje(event, boton) {
+      event.stopPropagation();
+      if (!confirm('¿Eliminar este mensaje? Esta acción no se puede deshacer.')) return;
+
+      var item = boton.closest('.mensaje-item');
+      if (item.classList.contains('seleccionado')) {
+        cerrarVistaMensaje();
+      }
+      item.remove();
+    }
+
+    function enviarMensajeFicticio(event) {
+      event.preventDefault();
+      alert('Esto es solo una vista previa visual. Todavía no está conectado a la lógica real de envío.');
+      return false;
+    }

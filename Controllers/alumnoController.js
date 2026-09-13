@@ -1,6 +1,7 @@
 import Alumno from '../models/Alumno.js';
 import Cohorte from '../models/Cohorte.js'; // IMPORTANTE: Agregamos el modelo Cohorte para poder limpiarlo
 import Materia from '../models/Materia.js';
+import { actualizarAlumnoEnPlanilla } from '../services/googleSheetsService.js';
 
 // Helper: quita la contraseña antes de devolver el JSON
 const omitPassword = (alumno) => {
@@ -125,6 +126,30 @@ export const updateAlumno = async (req, res) => {
 
         if (!alumnoActualizado) {
             return res.status(404).json({ error: "Alumno no encontrado" });
+        }
+
+        // 🟢 NUEVO: Empujar cambios a Google Sheets con mensajes de diagnóstico para la consola
+        console.log("Intentando sincronizar con Sheets...");
+        console.log("Cohorte ID:", alumnoActualizado.cohorte_id);
+        console.log("Tokens de Google presentes?:", req.user?.googleTokens ? "Sí" : "NO");
+
+        if (alumnoActualizado.cohorte_id) {
+            if (req.user && req.user.googleTokens) {
+                const cohorte = await Cohorte.findOne({ id: alumnoActualizado.cohorte_id });
+                
+                if (cohorte && cohorte.spreadsheetId) {
+                    try {
+                        await actualizarAlumnoEnPlanilla(cohorte.spreadsheetId, req.user.googleTokens, alumnoActualizado);
+                        console.log("¡Éxito! Sheets actualizado.");
+                    } catch (errorSheets) {
+                        console.error("Aviso: No se pudo actualizar Google Sheets:", errorSheets.message);
+                    }
+                } else {
+                    console.log("La cohorte no tiene un Excel vinculado todavía.");
+                }
+            } else {
+                console.log("ERROR: Faltan los tokens de Google en esta ruta para poder escribir en Sheets.");
+            }
         }
 
         res.json({ message: "Alumno actualizado", data: omitPassword(alumnoActualizado) });

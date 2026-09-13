@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "main": "index.js",
   "type": "module",
+  "engines": {
+    "node": "20.x"
+  },
   "scripts": {
     "start": "node index.js",
     "debug": "node --inspect-brk=9229 index.js",
@@ -18,6 +21,8 @@
     "cookie-parser": "^1.4.7",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
+    "google-auth-library": "^9.15.1",
+    "googleapis": "^144.0.0",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^8.24.0",
     "mongoose-sequence": "^6.0.1",

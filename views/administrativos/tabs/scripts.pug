@@ -60,6 +60,43 @@ script.
     const cohorteId = e.target.value;
     const cohorteNombre = e.target.options[e.target.selectedIndex].text;
     document.getElementById('btnAbrirModalAlumno').disabled = false;
+
+    const btnSheets = document.getElementById('btnAbrirSheets');
+    if (btnSheets) {
+      btnSheets.disabled = false;
+      // Al hacer clic, abre el endpoint en una pestaña nueva
+      btnSheets.onclick = () => window.open(`/api/sheets/abrir-cohorte/${cohorteId}`, '_blank');
+    }
+
+    // SINCRONICZADOR: Lógica del botón de Sincronización
+    const btnSync = document.getElementById('btnSincronizarSheets');
+    if (btnSync) {
+      btnSync.disabled = false;
+      btnSync.onclick = async () => {
+        // Le ponemos un efecto de carga al botón para que el usuario sepa que está trabajando
+        const textoOriginal = btnSync.innerHTML;
+        btnSync.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Sincronizando...';
+        btnSync.disabled = true;
+        
+        try {
+          const res = await fetch(`/api/sheets/sync/${cohorteId}`);
+          if(res.ok) {
+            // Si sale bien, recargamos la tablita de abajo para ver los datos frescos
+            await dibujarTablaAlumnos(cohorteId);
+          } else {
+            alert("Error al sincronizar con Google Sheets.");
+          }
+        } catch(err) {
+          console.error(err);
+          alert("Error de conexión al sincronizar.");
+        } finally {
+          // Devolvemos el botón a la normalidad
+          btnSync.innerHTML = textoOriginal;
+          btnSync.disabled = false;
+        }
+      };
+    }
+
     document.getElementById('hiddenCohorteId').value = cohorteId;
     document.getElementById('textoAvisoCohorte').innerHTML = `El alumno será inscripto automáticamente en la cohorte: <b>${cohorteNombre}</b>`;
     await dibujarTablaAlumnos(cohorteId);

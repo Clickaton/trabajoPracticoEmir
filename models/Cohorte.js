@@ -16,7 +16,8 @@ const cohorteSchema = new mongoose.Schema({
     },
     userList: [{ 
         type: Number // Guardaremos los IDs personalizados de los alumnos acá
-    }]
+    }],
+    spreadsheetId: { type: String, default: null }
 }, {
     timestamps: true
 });

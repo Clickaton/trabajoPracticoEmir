@@ -1,4 +1,4 @@
-import User from '../models/User.js'; // Asegurate de que la ruta sea correcta (mayúsculas/minúsculas)
+import User from '../models/User.js';
 import jwt from 'jsonwebtoken';
 
 // Renderiza el formulario de registro
@@ -43,8 +43,8 @@ export const userLogin = async (req, res) => {
         res.cookie('jwtToken', token, {
             httpOnly: true,
             secure: false,      // true en producción (HTTPS)
-            maxAge: 1000 * 60 * 60 * 8,
-            sameSite: 'strict'
+            maxAge: 1000 * 60 * 60 * 2,
+            sameSite: 'lax' // antes: 'strict'
         });
         
         // Redirigir según el tipo de perfil

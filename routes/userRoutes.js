@@ -1,3 +1,4 @@
+import * as googleAuthController from '../Controllers/googleAuthController.js';
 import express from 'express';
 import * as userController from '../Controllers/userController.js';
 import { requireLogin } from '../middlewares/authHybrid.js';
@@ -8,6 +9,10 @@ const router = express.Router();
 router.get('/login', (req, res) => {
     res.render('userLogin');
 });
+// --- Rutas de Login con Google ---
+router.get('/auth/google', googleAuthController.getGoogleAuthURL);
+router.get('/auth/google/callback', googleAuthController.googleAuthCallback);
+
 router.post('/login', userController.userLogin);
 router.post('/createUser', userController.createUser);
 router.get('/logout', userController.logout);

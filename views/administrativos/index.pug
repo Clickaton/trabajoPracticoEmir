@@ -14,7 +14,8 @@ block contenido
         // NUEVA PESTAÑA: PERÍODOS DE INSCRIPCIÓN
         li.nav-item(role="presentation")
           button.nav-link#periodos-tab(data-bs-toggle="tab" data-bs-target="#periodos-pane" type="button" role="tab" aria-controls="periodos-pane" aria-selected="false") Períodos de Inscripción
-
+        li.nav-item(role="presentation")
+          button.nav-link#correo-tab(data-bs-toggle="tab" data-bs-target="#correo-pane" type="button" role="tab" aria-controls="correo-pane" aria-selected="false") Correo ISFT 225
   .container-fluid.px-4
     // Contenedor de las pestañas
     .tab-content#dashboardTabsContent
@@ -22,6 +23,7 @@ block contenido
       include tabs/cohortes.pug
       include tabs/materias.pug
       include tabs/periodos.pug
+      include tabs/correo.pug
 
   include tabs/chatFlotante.pug
   

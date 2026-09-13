@@ -27,6 +27,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Importar enrutadores
+import sheetsRoutes from './routes/sheetsRoutes.js';
 import userRoutes from './routes/userRoutes.js';
 import cohorteRoutes from './routes/cohorteRoutes.js';
 import materiaRoutes from './routes/materiaRoutes.js';
@@ -73,7 +74,8 @@ io.on("connection", (socket) => {
         textoUsuario,
         rolUsuario,
         pantallaActual,
-        chatsActivos[socket.id]
+        chatsActivos[socket.id],
+        usuario
       );
 
       chatsActivos[socket.id].push({
@@ -145,6 +147,11 @@ app.use(cookieParser());
 
 app.use((req, res, next) => {
     const token = req.cookies?.jwtToken || null;
+// La entrada principal del sistema lleva al formulario de autenticación.
+app.get('/', (req, res) => {
+  res.redirect('/login');
+});
+
     res.locals.jwtToken = token;
 
     if (!token) {
@@ -165,6 +172,7 @@ app.use((req, res, next) => {
 });
 
 // Usar enrutadores
+app.use('/api/sheets', sheetsRoutes);
 app.use('/', userRoutes);
 app.use('/', cohorteRoutes);
 app.use('/', alumnoRoutes);
@@ -175,4 +183,31 @@ app.use('/api/historial', historialAcademicoRoutes);
 app.use('/api/estado-academico', estadoAcademicoRoutes);
 app.use('/api/periodos-inscripcion', periodoInscripcionRoutes);
 app.use('/api/inscripciones', inscripcionRoutes);
+
+// Responder con JSON para clientes de API y con una vista para navegadores.
+app.use((req, res, next) => {
+  const error = new Error('Ubicación no disponible');
+  error.status = 404;
+  next(error);
+});
+
+app.use((error, req, res, next) => {
+  const status = error.status || error.statusCode || 500;
+  const statusCode = status >= 400 && status < 600 ? status : 500;
+  const isApiRequest = req.path.startsWith('/api/') || req.is('application/json') || req.get('Accept')?.includes('application/json');
+
+  if (isApiRequest) {
+    return res.status(statusCode).json({
+      error: statusCode === 500 ? 'Error interno del sistema' : (error.message || 'Ubicación no disponible')
+    });
+  }
+
+  res.status(statusCode).render('error', {
+    statusCode,
+    title: statusCode === 500 ? 'Error interno del sistema' : 'Ubicación no disponible',
+    message: statusCode === 500
+      ? 'Se produjo un problema inesperado. Intentá nuevamente más tarde.'
+      : 'La página que estás buscando no está disponible o fue movida.'
+  });
+});
 
