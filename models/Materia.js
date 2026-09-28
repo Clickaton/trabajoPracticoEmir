@@ -1,9 +1,23 @@
-class Materia {
-    constructor(id, nombre, anio) {
-        this.id = id;
-        this.nombre = nombre; // Ej: "Matemática 1"
-        this.anio = anio;     // Ej: 1, 2, o 3
+import mongoose from 'mongoose';
+
+const materiaSchema = new mongoose.Schema({
+    id: { 
+        type: Number, 
+        required: true, 
+        unique: true 
+    },
+    nombre: { 
+        type: String, 
+        required: true 
+    },
+    anio: { 
+        type: Number, 
+        required: true 
     }
-}
+}, {
+    timestamps: true
+});
+
+const Materia = mongoose.model('Materia', materiaSchema);
 
 export default Materia;

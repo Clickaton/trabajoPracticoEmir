@@ -1,0 +1,622 @@
+extends ../layout
+
+block contenido
+  .container.mt-4
+    .row
+      .col-12
+        ul.nav.nav-tabs.nav-tabs-custom#dashboardTabs(role='tablist')
+          li.nav-item
+            button.nav-link.active(type='button' data-bs-toggle='tab' data-bs-target='#tabInscripciones' aria-controls='tabInscripciones' aria-selected='true') Inscripciones
+          li.nav-item
+            button.nav-link(type='button' data-bs-toggle='tab' data-bs-target='#tabHistorial' aria-controls='tabHistorial' aria-selected='false') Historial Académico
+          li.nav-item
+            button.nav-link(type='button' data-bs-toggle='tab' data-bs-target='#tabConstancias' aria-controls='tabConstancias' aria-selected='false') Constancia de Alumno Regular
+          li.nav-item
+            button.nav-link(type='button' data-bs-toggle='tab' data-bs-target='#tabPorcentaje' aria-controls='tabPorcentaje' aria-selected='false') Constancia de Porcentaje de Materias
+
+    .tab-content.mt-3
+      .tab-pane.fade.show.active#tabInscripciones
+        .row
+          .col-md-4
+            .card.mb-4
+              .card-body
+                h4= alumno.name
+                p.mb-1.text-muted= `Legajo: ${alumno.legajo || 'N/A'}`
+                p.mb-1.text-muted= `Cohorte: ${alumno.cohorte_id || 'Sin cohorte'}`
+          .col-md-8
+            h3 Materias disponibles
+            if materias.length
+              table.table.table-hover
+                thead
+                  tr
+                    th Nombre
+                    th Año
+                    th Acciones
+                tbody
+                  each mat in materias
+                    tr
+                      td= mat.nombre
+                      td= mat.anio
+                      td
+                        button.btn.btn-sm.btn-primary(type='button' data-materia=mat.id) Inscribirme
+            else
+              p.text-muted No hay Períodos de Inscripción o Materias cargadas en este momento.
+      .tab-pane.fade#tabHistorial
+        .row.mb-3
+          .col-md-6
+            .card.mb-3
+              .card-body
+                h5.card-title Datos del Alumno
+                p.mb-1
+                  strong Nombre:
+                  span.ms-1= alumno.name
+                p.mb-1
+                  strong Legajo:
+                  span.ms-1= alumno.legajo || 'N/A'
+                p.mb-1
+                  strong Cohorte:
+                  span.ms-1= alumno.cohorte_id || 'Sin cohorte'
+                p.mb-1
+                  strong Email:
+                  span.ms-1= alumno.email || 'No disponible'
+          .col-md-6
+            .card.mb-3
+              .card-body
+                h5.card-title Progreso de Carrera
+                p.mb-1 Porcentaje completado:
+                  strong#porcentajeCarrera Cargando...
+                p.mb-1
+                  small.text-muted Los datos se calculan desde tu historial académico.
+        .card
+          .card-body
+            h5.card-title Historial Académico
+            div#historialFeedback.mb-3
+              p.text-muted Cargando historial...
+            .table-responsive
+              table.table.table-striped.table-hover#historialTable
+                thead
+                  tr
+                    th Materia
+                    th Año
+                    th Condición
+                    th Nota
+                tbody
+                  tr
+                    td(colspan='4').text-center Cargando...
+      // NUEVO TAB DE CONSTANCIAS DE ALUMNO REGULAR
+      .tab-pane.fade#tabConstancias
+        .d-flex.justify-content-between.align-items-center.mb-3
+          h3.mb-0 Listado de solicitudes
+          button.btn.btn-info.text-white.shadow-sm(data-bs-toggle="modal" data-bs-target="#modalConstancia")
+            i.bi.bi-file-earmark-pdf.me-1
+            | Nueva solicitud
+        .card.shadow-sm.border-0
+          .card-body.p-0
+            .table-responsive
+              table.table.table-hover.align-middle.mb-0#tablaConstancias
+                thead.table-dark
+                  tr
+                    th.ps-4 Constancia
+                    th Fecha solicitud
+                    th Presentar a
+                    th Estado
+                    th Fecha vencimiento
+                tbody
+                  tr
+                    td.text-center.py-4.text-muted(colspan="5") Cargando solicitudes...
+      // NUEVO TAB DE PORCENTAJE DE MATERIAS
+      .tab-pane.fade#tabPorcentaje
+        .d-flex.justify-content-between.align-items-center.mb-3
+          h3.mb-0 Certificados de Porcentaje
+          button.btn.btn-primary.text-white.shadow-sm(data-bs-toggle="modal" data-bs-target="#modalPorcentaje")
+            i.bi.bi-file-earmark-bar-graph.me-1
+            | Solicitar Certificado
+        .card.shadow-sm.border-0
+          .card-body.p-0
+            .table-responsive
+              table.table.table-hover.align-middle.mb-0#tablaPorcentaje
+                thead.table-dark
+                  tr
+                    th.ps-4 Constancia
+                    th Fecha solicitud
+                    th Presentar a
+                    th Estado
+                    th Fecha vencimiento
+                tbody
+                  tr
+                    td.text-center.py-4.text-muted(colspan="5") Cargando solicitudes...
+
+  // Modal de edición de perfil para Alumno
+  .modal.fade#modalEditarAlumno(tabindex='-1')
+    .modal-dialog.modal-lg
+      .modal-content
+        .modal-header.bg-primary.text-white
+          h5.modal-title Editar Perfil
+          button.btn-close.btn-close-white(type='button' data-bs-dismiss='modal')
+        form#formEditarAlumno
+          .modal-body
+            .row
+            .mb-3
+              label.form-label Nombre Completo
+              input.form-control#editAlumnoName(type='text' name='name' required)
+            .row
+              .col-6.mb-3
+                label.form-label Email
+                input.form-control#editAlumnoEmail(type='email' name='email' required)
+              .col-6.mb-3
+                label.form-label Nueva Contraseña
+                input.form-control#editAlumnoPassword(type='password' name='password')
+              .col-6.mb-3
+                label.form-label Fecha de Inscripción
+                input.form-control#editAlumnoFecha(type='date' name='fecha_inscripcion' readonly)
+          .modal-footer.bg-light
+            button.btn.btn-secondary(type='button' data-bs-dismiss='modal') Cancelar
+            button.btn.btn-primary(type='submit') Guardar Cambios
+
+  .modal.fade#modalMensaje(tabindex='-1' aria-hidden='true')
+    .modal-dialog
+      .modal-content
+        .modal-header.bg-info.text-white
+          h5.modal-title#modalMensajeTitulo Mensaje
+          button.btn-close(type='button' data-bs-dismiss='modal' aria-label='Close')
+        .modal-body
+          p#modalMensajeTexto.mb-0
+        .modal-footer.bg-light
+          button.btn.btn-secondary(type='button' data-bs-dismiss='modal') Cerrar
+  // Modal de Nueva Constancia
+  .modal.fade#modalConstancia(tabindex='-1')
+    .modal-dialog
+      .modal-content
+        .modal-header.bg-info.text-white
+          h5.modal-title Solicitar Constancia de Alumno Regular
+          button.btn-close.btn-close-white(type='button' data-bs-dismiss='modal')
+        form#formGenerarConstancia
+          .modal-body
+            .alert.alert-warning.small
+              i.bi.bi-exclamation-triangle-fill.me-2
+              | Por seguridad, debés confirmar tu DNI para generar este documento.
+            .mb-3
+              label.form-label Tu DNI (Sin puntos)
+              input.form-control#inputDniConstancia(type='text' name='dni' required placeholder='Ej: 35123456')
+            .mb-3
+              label.form-label Presentar a:
+              input.form-control(type='text' name='presentar_a' required placeholder='Ej: Obra Social, Empleador, etc.')
+            .mb-3
+              label.form-label Observaciones (Opcional):
+              textarea.form-control(name='observaciones' rows="2" placeholder='Algún detalle adicional...')
+          .modal-footer.bg-light
+            button.btn.btn-secondary(type='button' data-bs-dismiss='modal') Cancelar
+            button.btn.btn-info.text-white(type='submit') 
+              i.bi.bi-download.me-1
+              | Generar y Descargar PDF
+
+  // Modal de Nuevo Certificado de Porcentaje
+  .modal.fade#modalPorcentaje(tabindex='-1')
+    .modal-dialog
+      .modal-content
+        .modal-header.bg-primary.text-white
+          h5.modal-title Solicitar Certificado de Porcentaje
+          button.btn-close.btn-close-white(type='button' data-bs-dismiss='modal')
+        form#formGenerarPorcentaje
+          .modal-body
+            .alert.alert-info.small
+              i.bi.bi-info-circle-fill.me-2
+              | Este documento calculará automáticamente tu porcentaje en base a las materias aprobadas en tu historial.
+            .mb-3
+              label.form-label Tu DNI (Sin puntos)
+              input.form-control#inputDniPorcentaje(type='text' name='dni' required placeholder='Ej: 35123456')
+            .mb-3
+              label.form-label Presentar a:
+              input.form-control(type='text' name='presentar_a' required placeholder='Ej: Universidad, Trabajo, etc.')
+            .mb-3
+              label.form-label Observaciones (Opcional):
+              textarea.form-control(name='observaciones' rows="2" placeholder='Algún detalle adicional...')
+          .modal-footer.bg-light
+            button.btn.btn-secondary(type='button' data-bs-dismiss='modal') Cancelar
+            button.btn.btn-primary.text-white(type='submit') 
+              i.bi.bi-download.me-1
+              | Generar y Descargar PDF
+
+  // Globo flotante para abrir el chat
+  button.btn.btn-primary.rounded-circle.shadow-lg#btn-chat-flotante(type='button' style='position: fixed; bottom: 30px; right: 30px; width: 60px; height: 60px; z-index: 1050;' onclick='toggleChat()')
+    i.bi.bi-chat-dots-fill.fs-3
+
+  .card.shadow-lg#ventana-chat-flotante(style='position: fixed; bottom: 100px; right: 30px; width: 350px; display: none; z-index: 1050; border-radius: 15px; overflow: hidden;')
+    .card-header.bg-primary.text-white.d-flex.justify-content-between.align-items-center
+      h6.mb-0
+        i.bi.bi-robot.me-2
+        | Soporte IA
+      button.btn-close.btn-close-white.btn-sm(type='button' onclick='toggleChat()')
+    .card-body.bg-light.p-3
+      ul#chat-messages.list-unstyled(style='height: 300px; overflow-y: auto; margin-bottom: 0;')
+        li.mb-3
+          .bg-white.border.border-primary.rounded.p-2.shadow-sm(style='max-width: 85%;')
+            small.fw-bold.text-primary Asistente:
+            br
+            small ¡Hola! Soy tu asistente de soporte. Escribí tu duda y con gusto te ayudaremos.
+    .card-footer.bg-white.p-2
+      form#chat-form.d-flex
+        input#chat-input.form-control.form-control-sm.me-2(type='text' placeholder='Escribí acá...' autocomplete='off' required)
+        button.btn.btn-sm.btn-primary(type='submit')
+          i.bi.bi-send-fill
+
+block scripts
+  script(src='/socket.io/socket.io.js')
+  script.
+    function toggleChat() {
+      const ventana = document.getElementById('ventana-chat-flotante');
+      ventana.style.display = ventana.style.display === 'none' ? 'block' : 'none';
+    }
+
+    function mostrarModalMensaje(titulo, mensaje) {
+      const modalTitulo = document.getElementById('modalMensajeTitulo');
+      const modalTexto = document.getElementById('modalMensajeTexto');
+      const modalElement = document.getElementById('modalMensaje');
+      if (modalTitulo) modalTitulo.innerText = titulo;
+      if (modalTexto) modalTexto.innerText = mensaje;
+      if (modalElement) new bootstrap.Modal(modalElement).show();
+    }
+
+    // Función auxiliar para obtener las cabeceras
+    // El JWT se envía automáticamente en las cookies (httpOnly)
+    // Solo necesitamos content-type en la mayoría de casos
+    function getAuthHeaders() {
+      return { 'Content-Type': 'application/json' };
+    }
+
+    async function cargarHistorialAcademico() {
+      const alumnoId = #{alumno.id};
+      const feedback = document.getElementById('historialFeedback');
+      const porcentaje = document.getElementById('porcentajeCarrera');
+      const tabla = document.getElementById('historialTable');
+
+      if (!tabla || !porcentaje || !feedback) return;
+
+      try {
+        const respuesta = await fetch(`/api/estado-academico/${alumnoId}`, {
+          headers: getAuthHeaders()
+        });
+        if (!respuesta.ok) {
+          throw new Error('No se pudo cargar el historial académico');
+        }
+        const data = await respuesta.json();
+        porcentaje.innerText = data.porcentaje_carrera || '0%';
+
+        if (!data.materias || !data.materias.length) {
+          tabla.querySelector('tbody').innerHTML = '<tr><td colspan="4" class="text-center text-muted">No hay materias en el historial.</td></tr>';
+          feedback.innerHTML = '<p class="text-muted">No se encontraron materias en el historial académico.</p>';
+          return;
+        }
+
+        const filas = data.materias.map(m => {
+          const nota = m.nota !== null && m.nota !== undefined ? m.nota : '-';
+          return `
+            <tr>
+              <td>${m.nombre}</td>
+              <td>${m.anio || '-'}</td>
+              <td>${m.estado || '-'}</td>
+              <td>${nota}</td>
+            </tr>
+          `;
+        }).join('');
+
+        tabla.querySelector('tbody').innerHTML = filas;
+        feedback.innerHTML = '<p class="text-muted">Se muestran todas las materias del plan ordenadas por año.</p>';
+      } catch (error) {
+        tabla.querySelector('tbody').innerHTML = '<tr><td colspan="4" class="text-center text-danger">Error cargando el historial.</td></tr>';
+        feedback.innerHTML = `<p class="text-danger">${error.message}</p>`;
+      }
+    }
+
+    document.addEventListener('click', async (e) => {
+      // Buscamos el botón de inscripción más cercano
+      const boton = e.target.closest('button[data-materia]');
+      
+      if (boton) {
+        // 1. Guardamos el texto original y ponemos un spinner de carga
+        const textoOriginal = boton.innerHTML;
+        boton.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Inscribiendo...';
+        boton.disabled = true;
+
+        const materiaId = boton.dataset.materia;
+        const alumnoId = #{alumno.id};
+        const cohorteId = #{alumno.cohorte_id || 'null'};
+
+        try {
+          const resp = await fetch('/api/inscripciones', {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ 
+                alumno_id: alumnoId, 
+                cohorte_id: cohorteId, 
+                materias_ids: [parseInt(materiaId)] 
+            })
+          });
+          
+          const json = await resp.json();
+          
+          // Si el backend devuelve un error (ej. falta correlatividad)
+          if (!resp.ok) {
+            let errorMsg = json.error || 'No se pudo procesar la inscripción.';
+            if (json.detalleErrores && json.detalleErrores.length > 0) {
+              errorMsg = "Motivo del rechazo:\n" + json.detalleErrores.join('\n');
+            }
+            throw new Error(errorMsg);
+          }
+          
+          // 2. ÉXITO: Cambiamos a verde, ponemos "Inscripto" y dejamos el botón bloqueado (disabled = true) para que no se pueda volver a clickear
+          boton.classList.remove('btn-primary');
+          boton.classList.add('btn-success');
+          boton.innerHTML = '<i class="bi bi-check-circle me-1"></i> Inscripto';
+          boton.disabled = true; 
+          
+          mostrarModalMensaje('Inscripción exitosa', 'Se completó la inscripción correctamente.');
+          
+        } catch (err) {
+          // Si falló por correlatividad, devolvemos el botón a su estado original para que pueda reintentar
+          boton.innerHTML = textoOriginal;
+          boton.disabled = false;
+          mostrarModalMensaje('Error de inscripción', err.message);
+        }
+      }
+    });
+
+    document.addEventListener('shown.bs.tab', function (event) {
+      if (event.target && event.target.getAttribute('data-bs-target') === '#tabHistorial') {
+        cargarHistorialAcademico();
+      }
+    });
+
+    const socket = io();
+    const chatForm = document.getElementById('chat-form');
+    const chatInput = document.getElementById('chat-input');
+    const chatMessages = document.getElementById('chat-messages');
+
+    function agregarMensajeVisual(emisor, texto, clasesCaja, clasesTitulo) {
+      const li = document.createElement('li');
+      li.classList.add('mb-3', 'd-flex');
+      li.innerHTML = `
+        <div class="${clasesCaja} rounded p-2 shadow-sm" style="max-width: 85%;">
+          <small class="fw-bold ${clasesTitulo}">${emisor}</small><br>
+          <small>${texto}</small>
+        </div>
+      `;
+      chatMessages.appendChild(li);
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    if (chatForm) {
+      chatForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const texto = chatInput.value.trim();
+        if (!texto) return;
+
+        agregarMensajeVisual('Vos', texto, 'bg-primary text-white ms-auto', 'text-white-50');
+
+        socket.emit('mensaje', {
+          usuario: currentUser?.name || 'Alumno',
+          texto,
+          usuarioLogueado: currentUser || null
+        });
+        chatInput.value = '';
+      });
+    }
+
+    socket.on('mensaje', (datos) => {
+      const nombreUsuario = currentUser?.name || 'Alumno';
+      if (datos.usuario !== nombreUsuario) {
+        const esIA = datos.usuario === 'Asesor Virtual';
+        const clasesCaja = esIA ? 'bg-white border border-primary' : 'bg-secondary text-white';
+        const clasesTitulo = esIA ? 'text-primary' : 'text-white-50';
+        agregarMensajeVisual(datos.usuario, datos.texto, clasesCaja, clasesTitulo);
+      }
+    });
+
+    document.addEventListener('DOMContentLoaded', function () {
+      const historialTab = document.querySelector('[data-bs-target="#tabHistorial"]');
+      if (historialTab && historialTab.classList.contains('active')) {
+        cargarHistorialAcademico();
+      }
+    });
+
+    // --- LÓGICA DE CONSTANCIAS ---
+    async function cargarConstancias() {
+      const tbody = document.querySelector('#tablaConstancias tbody');
+      try {
+        const respuesta = await fetch('/api/constancias/mis-solicitudes', { headers: getAuthHeaders() });
+        const json = await respuesta.json();
+        
+        // Filtramos para que NO muestre las de porcentaje
+        const solicitudes = (json.data || []).filter(c => c.tipo_constancia !== 'Porcentaje de Materias');
+        
+        if (solicitudes.length > 0) {
+          let html = '';
+          solicitudes.forEach(c => {
+            const fechaReq = new Date(c.fecha_emision).toLocaleDateString('es-AR');
+            const fechaVenc = new Date(c.fecha_vencimiento).toLocaleDateString('es-AR');
+            const vencida = new Date() > new Date(c.fecha_vencimiento);
+            const badgeEstado = vencida 
+                ? '<span class="badge bg-danger">Vencida</span>' 
+                : '<span class="badge bg-success">Activa</span>';
+
+            html += `
+              <tr>
+                <td class="ps-4 fw-medium text-primary">${c.tipo_constancia || 'Alumno Regular'}</td>
+                <td>${fechaReq}</td>
+                <td>${c.presentar_a}</td>
+                <td>${badgeEstado}</td>
+                <td>${fechaVenc}</td>
+              </tr>
+            `;
+          });
+          tbody.innerHTML = html;
+        } else {
+          tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted">No tienes solicitudes previas.</td></tr>';
+        }
+      } catch (error) {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-danger">Error al cargar las solicitudes.</td></tr>';
+      }
+    }
+
+    // Disparador: Carga la tabla al tocar la pestaña
+    document.addEventListener('shown.bs.tab', function (event) {
+      if (event.target && event.target.getAttribute('data-bs-target') === '#tabConstancias') {
+        cargarConstancias();
+      }
+    });
+
+    // Función para buscar y cargar la tabla de porcentajes
+    async function cargarPorcentajes() {
+      const tbody = document.querySelector('#tablaPorcentaje tbody');
+      if (!tbody) return;
+
+      try {
+        const respuesta = await fetch('/api/constancias/mis-solicitudes', { headers: getAuthHeaders() });
+        const json = await respuesta.json();
+        
+        // Filtramos para que SOLO muestre las de Porcentaje en esta tabla
+        const solicitudes = (json.data || []).filter(c => c.tipo_constancia === 'Porcentaje de Materias');
+
+        if (solicitudes.length > 0) {
+          let html = '';
+          solicitudes.forEach(c => {
+            const fechaReq = new Date(c.fecha_emision).toLocaleDateString('es-AR');
+            const fechaVenc = new Date(c.fecha_vencimiento).toLocaleDateString('es-AR');
+            const vencida = new Date() > new Date(c.fecha_vencimiento);
+            const badgeEstado = vencida 
+                ? '<span class="badge bg-danger">Vencida</span>' 
+                : '<span class="badge bg-success">Activa</span>';
+
+            html += `
+              <tr>
+                <td class="ps-4 fw-medium text-primary">${c.tipo_constancia}</td>
+                <td>${fechaReq}</td>
+                <td>${c.presentar_a}</td>
+                <td>${badgeEstado}</td>
+                <td>${fechaVenc}</td>
+              </tr>
+            `;
+          });
+          tbody.innerHTML = html;
+        } else {
+          tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted">No tienes solicitudes previas.</td></tr>';
+        }
+      } catch (error) {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-danger">Error al cargar las solicitudes.</td></tr>';
+      }
+    }
+
+    // Escuchar el clic en la pestaña para que se recargue automáticamente la tabla
+    document.addEventListener('shown.bs.tab', function (event) {
+      if (event.target && event.target.getAttribute('data-bs-target') === '#tabPorcentaje') {
+        cargarPorcentajes();
+      }
+    });
+
+    // Cargar la tabla si la página arranca directamente en esta pestaña
+    if (document.querySelector('#tabPorcentaje').classList.contains('active')) {
+      cargarPorcentajes();
+    }
+
+    // Envío del formulario PDF
+    document.getElementById('formGenerarConstancia')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const boton = e.target.querySelector('button[type="submit"]');
+      const textoOriginal = boton.innerHTML;
+      boton.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Generando...';
+      boton.disabled = true;
+
+      const data = Object.fromEntries(new FormData(e.target));
+      
+      try {
+        const res = await fetch('/api/constancias/generar', {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify(data)
+        });
+
+        if (res.ok) {
+          const blob = await res.blob();
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `Constancia_${data.dni}.pdf`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          
+          bootstrap.Modal.getInstance(document.getElementById('modalConstancia')).hide();
+          e.target.reset();
+          cargarConstancias(); 
+        } else {
+          const err = await res.json();
+          // FIX: Cerramos el modal del formulario primero
+          bootstrap.Modal.getInstance(document.getElementById('modalConstancia')).hide();
+          
+          // Esperamos 400ms para que Bootstrap limpie el fondo oscuro antes de mostrar el error
+          setTimeout(() => {
+            mostrarModalMensaje("Error de validación", err.error);
+          }, 400);
+        }
+      } catch (error) {
+        console.error(error);
+        bootstrap.Modal.getInstance(document.getElementById('modalConstancia')).hide();
+        setTimeout(() => {
+          mostrarModalMensaje("Error del Servidor", "No se pudo conectar con el generador.");
+        }, 400);
+      } finally {
+        boton.innerHTML = textoOriginal;
+        boton.disabled = false;
+      }
+    });
+
+    // Envío del formulario de Porcentaje de Materias
+    document.getElementById('formGenerarPorcentaje')?.addEventListener('submit', async (e) => {
+      e.preventDefault(); // <-- ESTO ES LO QUE EVITA QUE SE RECARGUE LA PÁGINA
+      const boton = e.target.querySelector('button[type="submit"]');
+      const textoOriginal = boton.innerHTML;
+      boton.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Generando...';
+      boton.disabled = true;
+
+      const data = Object.fromEntries(new FormData(e.target));
+      
+      try {
+        // Llama a la ruta nueva que creamos
+        const res = await fetch('/api/constancias/generar-porcentaje', {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify(data)
+        });
+
+        if (res.ok) {
+          const blob = await res.blob();
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `Porcentaje_Materias_${data.dni}.pdf`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          
+          bootstrap.Modal.getInstance(document.getElementById('modalPorcentaje')).hide();
+          e.target.reset();
+          cargarPorcentajes();
+          // Si querés que se recargue la tabla acá, podés llamar a tu función cargarConstancias();
+        } else {
+          const err = await res.json();
+          bootstrap.Modal.getInstance(document.getElementById('modalPorcentaje')).hide();
+          setTimeout(() => {
+            mostrarModalMensaje("Error de validación", err.error);
+          }, 400);
+        }
+      } catch (error) {
+        console.error(error);
+        bootstrap.Modal.getInstance(document.getElementById('modalPorcentaje')).hide();
+        setTimeout(() => {
+          mostrarModalMensaje("Error del Servidor", "No se pudo conectar con el generador.");
+        }, 400);
+      } finally {
+        boton.innerHTML = textoOriginal;
+        boton.disabled = false;
+      }
+    });

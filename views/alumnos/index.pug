@@ -1,0 +1,22 @@
+extends ../layout
+
+block contenido
+  // Sub-navbar azul claro (Inscripción / Plan de Estudios)
+  .nav-tabs-custom.w-100
+    .container
+      ul.nav.nav-tabs.justify-content-center.border-0(role="tablist")
+        li.nav-item(role="presentation")
+          button.nav-link#inscripcion-tab(data-bs-toggle="tab" data-bs-target="#inscripcion-pane" type="button" role="tab") INSCRIPCIÓN A MATERIAS
+        li.nav-item(role="presentation")
+          button.nav-link.active#plan-tab(data-bs-toggle="tab" data-bs-target="#plan-pane" type="button" role="tab") PLAN DE ESTUDIOS
+        li.nav-item(role="presentation")
+          button.nav-link#constancias-tab(data-bs-toggle="tab" data-bs-target="#constancias-pane" type="button" role="tab") CONSTANCIAS DE ALUMNO REGULAR
+        li.nav-item(role="presentation")
+          button.nav-link#porcentaje-tab(data-bs-toggle="tab" data-bs-target="#porcentaje-pane" type="button" role="tab") CONSTANCIA DE PORCENTAJE MATERIAS
+  .container.py-4
+    .tab-content
+      // Inyectamos las vistas de la carpeta tabs
+      include tabs/inscripcion.pug
+      include tabs/plan.pug
+      include tabs/constancias.pug
+      include tabs/porcentaje.pug

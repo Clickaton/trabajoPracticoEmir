@@ -1,10 +1,28 @@
-class Correlatividad {
-    constructor(id, materia_id, requisito_id, tipo_requisito) {
-        this.id = id;
-        this.materia_id = materia_id;       // Ej: ID 4 (Diseño de Sistemas)
-        this.requisito_id = requisito_id;   // Ej: ID 2 (Programación 1)
-        this.tipo_requisito = tipo_requisito; // String: 'Regular' o 'Aprobada'
-    }
-}
+import mongoose from 'mongoose';
 
-module.exports = Correlatividad;
+const correlatividadSchema = new mongoose.Schema({
+    id: { 
+        type: Number, 
+        required: true, 
+        unique: true 
+    },
+    materia_id: { 
+        type: Number, 
+        required: true 
+    },
+    requisito_id: { 
+        type: Number, 
+        required: true 
+    },
+    tipo_requisito: { 
+        type: String, 
+        required: true,
+        enum: ['Regular', 'Aprobada'] // Validación estricta a nivel de base de datos
+    }
+}, {
+    timestamps: true
+});
+
+const Correlatividad = mongoose.model('Correlatividad', correlatividadSchema);
+
+export default Correlatividad;

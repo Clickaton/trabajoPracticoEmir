@@ -1,0 +1,43 @@
+doctype html
+html(lang="es")
+  head
+    meta(charset="UTF-8")
+    meta(name="viewport" content="width=device-width, initial-scale=1.0")
+    title Verificación de Constancia - ISFT 225
+    link(href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet")
+    link(rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css")
+  body.bg-light
+    .container.py-5
+      .row.justify-content-center
+        .col-md-6.col-lg-5
+          .card.shadow-lg.border-0.rounded-4
+            .card-body.p-5.text-center
+              if !valido
+                // PANTALLA ROJA - FALSO
+                i.bi.bi-x-circle-fill.text-danger(style="font-size: 4rem;")
+                h2.mt-3.text-danger Documento Inválido
+                p.text-muted= mensaje
+              else
+                if vencida
+                  // PANTALLA AMARILLA - VENCIDO
+                  i.bi.bi-exclamation-triangle-fill.text-warning(style="font-size: 4rem;")
+                  h2.mt-3.text-warning Documento Vencido
+                  p.text-muted Esta constancia fue real, pero superó sus 5 días de validez.
+                else
+                  // PANTALLA VERDE - OK
+                  i.bi.bi-check-circle-fill.text-success(style="font-size: 4rem;")
+                  h2.mt-3.text-success Documento Válido
+                  p.text-muted La constancia es auténtica.
+
+                h4.mt-4 #{constancia.tipo_constancia}
+                hr
+                .text-start.mt-4
+                  p.mb-2 #[strong Alumno:] #{alumno.name}
+                  p.mb-2 #[strong DNI:] #{alumno.dni}
+                  p.mb-2 #[strong Emitido el:] #{new Date(constancia.fecha_emision).toLocaleDateString('es-AR')}
+                  p.mb-2 #[strong Vencimiento:] #{new Date(constancia.fecha_vencimiento).toLocaleDateString('es-AR')}
+                  p.mb-2 #[strong Presentado a:] #{constancia.presentar_a}
+                  p.mb-0 #[strong Institución:] ISFT 225 - Desarrollo de Software
+
+              .mt-5
+                a.btn.btn-outline-secondary(href="/") Volver al inicio

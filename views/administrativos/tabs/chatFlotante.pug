@@ -1,0 +1,87 @@
+// Globo flotante para abrir el chat
+button.btn.btn-primary.rounded-circle.shadow-lg#btn-chat-flotante(type="button" style="position: fixed; bottom: 30px; right: 30px; width: 60px; height: 60px; z-index: 1050;" onclick="toggleChat()")
+  i.bi.bi-chat-dots-fill.fs-3
+
+// Ventana del chat (Oculta por defecto)
+.card.shadow-lg#ventana-chat-flotante(style="position: fixed; bottom: 100px; right: 30px; width: 350px; display: none; z-index: 1050; border-radius: 15px; overflow: hidden;")
+  .card-header.bg-primary.text-white.d-flex.justify-content-between.align-items-center
+    h6.mb-0 
+      i.bi.bi-robot.me-2 
+      | Soporte IA
+    button.btn-close.btn-close-white.btn-sm(type="button" onclick="toggleChat()")
+  
+  .card-body.bg-light.p-3
+    ul#chat-messages.list-unstyled(style="height: 300px; overflow-y: auto; margin-bottom: 0;")
+      // Mensaje inicial de bienvenida
+      li.mb-3
+        .bg-white.border.border-primary.rounded.p-2.shadow-sm(style="max-width: 85%;")
+          small.fw-bold.text-primary Asistente:
+          br
+          small ¡Hola! Soy tu asistente de soporte. Escribí tu duda y con guste te ayudaremos.
+  
+  .card-footer.bg-white.p-2
+    form#chat-form.d-flex
+      input#chat-input.form-control.form-control-sm.me-2(type="text" placeholder="Escribí acá..." autocomplete="off" required)
+      button.btn.btn-sm.btn-primary(type="submit") 
+        i.bi.bi-send-fill
+
+// Lógica exclusiva del chat
+script(src="/socket.io/socket.io.js")
+script.
+  // Función para abrir/cerrar la ventanita
+  function toggleChat() {
+    const ventana = document.getElementById('ventana-chat-flotante');
+    ventana.style.display = ventana.style.display === 'none' ? 'block' : 'none';
+  }
+
+  const socket = io();
+  const chatForm = document.getElementById('chat-form');
+  const chatInput = document.getElementById('chat-input');
+  const chatMessages = document.getElementById('chat-messages');
+
+  // Cuando el usuario envía un mensaje
+  chatForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const texto = chatInput.value.trim();
+    if (!texto) return;
+    
+    // Mostramos el mensaje propio pegado a la derecha
+    agregarMensajeVisual('Vos', texto, 'bg-primary text-white ms-auto', 'text-white-50');
+    
+    const nombreUsuario = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.name : 'Administrativo';
+    
+    socket.emit('mensaje', {
+      usuario: nombreUsuario,
+      texto: texto,
+      usuarioLogueado: currentUser || null
+    });
+    chatInput.value = '';
+  });
+
+  // Cuando llega una respuesta (sea de otro o de Gemini)
+  socket.on('mensaje', (datos) => {
+    const nombreUsuario = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.name : 'Administrativo';
+    
+    // Solo dibujamos si el mensaje no es nuestro (para no duplicarlo)
+    if (datos.usuario !== nombreUsuario) {
+       const esIA = datos.usuario === 'Asesor Virtual';
+       const clasesCaja = esIA ? 'bg-white border border-primary' : 'bg-secondary text-white';
+       const clasesTitulo = esIA ? 'text-primary' : 'text-white-50';
+       
+       agregarMensajeVisual(datos.usuario, datos.texto, clasesCaja, clasesTitulo);
+    }
+  });
+
+  // Función auxiliar para dibujar los mensajitos tipo WhatsApp
+  function agregarMensajeVisual(emisor, texto, clasesCaja, clasesTitulo) {
+    const li = document.createElement('li');
+    li.classList.add('mb-3', 'd-flex');
+    li.innerHTML = `
+      <div class="${clasesCaja} rounded p-2 shadow-sm" style="max-width: 85%;">
+        <small class="fw-bold ${clasesTitulo}">${emisor}</small><br>
+        <small>${texto}</small>
+      </div>
+    `;
+    chatMessages.appendChild(li);
+    chatMessages.scrollTop = chatMessages.scrollHeight; // Auto-scroll al final
+  }

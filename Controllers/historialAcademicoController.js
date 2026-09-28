@@ -1,88 +1,189 @@
-const HistorialAcademico = require('../models/HistorialAcademico.js');
-// Importamos los otros controladores para poder leer sus bases de datos temporales
-const materiaController = require('./materiaController.js');
-const alumnoController = require('./alumnoController.js');
+import HistorialAcademico from '../models/HistorialAcademico.js';
+import Alumno from '../models/Alumno.js';
+import Materia from '../models/Materia.js';
+import Cohorte from '../models/Cohorte.js';
+import Inscripcion from '../models/Inscripcion.js';
 
-// Base de datos temporal
-let listaHistorial = [
-    new HistorialAcademico(1, 101, 1, 'Aprobada'), // Ana (101) aprobó Matemática 1 (1)
-    new HistorialAcademico(2, 101, 2, 'Regular'),  // Ana (101) está regular en Programación 1 (2)
-    new HistorialAcademico(3, 102, 1, 'Cursando')  // Luis (102) está cursando Matemática 1 (1)
-];
+// HELPER MongoDB: Cruza los IDs con los nombres reales
+const poblarHistorial = async (registros) => {
+    const alumnos = await Alumno.find().lean();
+    const materias = await Materia.find().lean();
+    const cohortes = await Cohorte.find().lean();
 
-// FUNCIÓN HELPER: Cruza los IDs con los nombres reales
-const poblarHistorial = (registro) => {
-    const todosLosAlumnos = alumnoController.listaAlumnos;
-    const todasLasMaterias = materiaController.listaMaterias;
+    return registros.map(registro => {
+        const alumno = alumnos.find(a => a.id === registro.alumno_id);
+        const materia = materias.find(m => m.id === registro.materia_id);
 
-    // Buscamos los datos reales
-    const alumno = todosLosAlumnos ? todosLosAlumnos.find(a => a.id === registro.alumno_id) : null;
-    const materia = todasLasMaterias ? todasLasMaterias.find(m => m.id === registro.materia_id) : null;
+        // Buscamos la cohorte usando el cohorte_id que tiene guardado el alumno
+        const cohorte = (alumno && alumno.cohorte_id) 
+            ? cohortes.find(c => c.id === alumno.cohorte_id) 
+            : null;
 
-    return {
-        id_registro: registro.id,
-        alumno: alumno ? alumno.name : "Alumno Desconocido",
-        materia: materia ? materia.nombre : "Materia Desconocida",
-        estado: registro.estado
-    };
+        return {
+            id_registro: registro.id,
+            alumno: alumno ? alumno.name : "Alumno Desconocido",
+            cohorte: cohorte ? cohorte.name : "Sin Cohorte Asignada",
+            materia: materia ? materia.nombre : "Materia Desconocida",
+            anio: materia ? materia.anio : null,
+            estado: registro.estado,
+            nota: registro.nota
+        };
+    });
 };
 
+export const getHistorial = async (req, res) => {
+    try {
+        const lista = await HistorialAcademico.find().lean();
+        const alumnos = await Alumno.find().lean();
+        const materias = await Materia.find().lean();
+        const cohortes = await Cohorte.find().lean();
 
-// EXPORTS (Rutas)
+        const historialAgrupado = alumnos.map(alumno => {
+            // Buscamos la cohorte del alumno actual
+            const cohorte = alumno.cohorte_id 
+                ? cohortes.find(c => c.id === alumno.cohorte_id) 
+                : null;
 
-// 1. Obtener TODO el historial (Para el Admin)
-exports.getHistorial = (req, res) => {
-    const historialCompleto = listaHistorial.map(poblarHistorial);
-    res.json({ message: 'Historial Académico Global', data: historialCompleto });
-};
+            const registrosAlumno = lista
+                .filter(r => r.alumno_id === alumno.id)
+                .map(r => {
+                    const materia = materias.find(m => m.id === r.materia_id);
+                    return {
+                        materia: materia ? materia.nombre : "Materia Desconocida",
+                        anio: materia ? materia.anio : null,
+                        estado: r.estado,
+                        nota: r.nota
+                    };
+                })
+                .sort((a, b) => a.anio - b.anio);
 
-// 2. Obtener el historial de un SOLO alumno (Para el Dashboard del estudiante)
-exports.getHistorialByAlumno = (req, res) => {
-    const { alumnoId } = req.params;
-    // Filtramos solo las notas del alumno que nos piden
-    const historialAlumno = listaHistorial.filter(h => h.alumno_id === parseInt(alumnoId));
-    
-    // Le aplicamos los nombres lindos
-    const historialCompleto = historialAlumno.map(poblarHistorial);
-    
-    res.json({ message: `Historial del alumno ID: ${alumnoId}`, data: historialCompleto });
-};
+            return {
+                alumno: alumno.name,
+                cohorte: cohorte ? cohorte.name : "Sin Cohorte Asignada",
+                registros: registrosAlumno
+            };
+        });
 
-// 3. Crear un nuevo registro (El profesor carga una nota)
-exports.createRegistro = (req, res) => {
-    const { id, alumno_id, materia_id, estado } = req.body;
+        // Filtramos para mostrar solo a los alumnos que tienen al menos un registro
+        const historialFiltrado = historialAgrupado.filter(h => h.registros.length > 0);
 
-    if (!id || !alumno_id || !materia_id || !estado) {
-        return res.status(400).json({ error: "Faltan datos obligatorios" });
+        res.json({ message: 'Historial Académico Global', data: historialFiltrado });
+    } catch (error) {
+        res.status(500).json({ error: "Error obteniendo el historial global" });
     }
-
-    // Validación de seguridad para que no inventen estados
-    const estadosValidos = ['Cursando', 'Regular', 'Aprobada'];
-    if (!estadosValidos.includes(estado)) {
-        return res.status(400).json({ error: "El estado solo puede ser 'Cursando', 'Regular' o 'Aprobada'" });
-    }
-
-    const nuevoRegistro = new HistorialAcademico(id, alumno_id, materia_id, estado);
-    listaHistorial.push(nuevoRegistro);
-
-    res.status(201).json({ message: 'Registro creado exitosamente', data: nuevoRegistro });
 };
 
-// 4. Actualizar un registro (Ej: El alumno rindió el final y pasó de Regular a Aprobada)
-exports.updateRegistro = (req, res) => {
-    const { id } = req.params;
-    const { estado } = req.body; 
+export const getHistorialByAlumno = async (req, res) => {
+    try {
+        const { alumnoId } = req.params;
+        const historialAlumno = await HistorialAcademico.find({ alumno_id: parseInt(alumnoId) }).lean();
 
-    const registro = listaHistorial.find(h => h.id === parseInt(id));
-    if (!registro) return res.status(404).json({ error: "Registro no encontrado" });
+        if (historialAlumno.length === 0) {
+            return res.status(404).json({ error: `No se encontró historial para el alumno ID: ${alumnoId}` });
+        }
 
-    if (estado) {
+        const historialCompleto = await poblarHistorial(historialAlumno);
+        res.json({ message: `Historial del alumno ID: ${alumnoId}`, data: historialCompleto });
+    } catch (error) {
+        res.status(500).json({ error: "Error obteniendo el historial del alumno" });
+    }
+};
+
+export const createRegistro = async (req, res) => {
+    try {
+        const datos = req.body;
         const estadosValidos = ['Cursando', 'Regular', 'Aprobada'];
+
+        // Carga masiva (Insert Many)
+        if (Array.isArray(datos)) {
+            const registroInvalido = datos.find(d => !estadosValidos.includes(d.estado));
+            if (registroInvalido) {
+                return res.status(400).json({ error: `El estado '${registroInvalido.estado}' no es válido. Solo se acepta Cursando, Regular o Aprobada.` });
+            }
+            
+            const nuevosRegistros = await HistorialAcademico.insertMany(datos);
+            return res.status(201).json({ message: 'Registros creados masivamente', data: nuevosRegistros });
+        }
+
+        // Carga individual
+        const { id, alumno_id, materia_id, estado, nota = null } = datos;
+
+        if (!id || !alumno_id || !materia_id || !estado) {
+            return res.status(400).json({ error: "Faltan datos obligatorios" });
+        }
+
         if (!estadosValidos.includes(estado)) {
             return res.status(400).json({ error: "El estado solo puede ser 'Cursando', 'Regular' o 'Aprobada'" });
         }
-        registro.estado = estado; // Actualizamos el estado
-    }
 
-    res.json({ message: "Registro actualizado", data: registro });
+        const nuevoRegistro = await HistorialAcademico.create({ id: parseInt(id), alumno_id, materia_id, estado, nota });
+        res.status(201).json({ message: 'Registro creado exitosamente', data: nuevoRegistro });
+
+    } catch (error) {
+        if (error.code === 11000) return res.status(400).json({ error: "El ID del registro ya existe" });
+        res.status(500).json({ error: "Error al crear el registro" });
+    }
+};
+
+export const updateRegistro = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { estado, nota } = req.body;
+
+        const datosAActualizar = {};
+
+        if (estado) {
+            const estadosValidos = ['Cursando', 'Regular', 'Aprobada'];
+            if (!estadosValidos.includes(estado)) {
+                return res.status(400).json({ error: "El estado solo puede ser 'Cursando', 'Regular' o 'Aprobada'" });
+            }
+            datosAActualizar.estado = estado;
+        }
+
+        if (nota !== undefined) datosAActualizar.nota = nota;
+
+        const registroActualizado = await HistorialAcademico.findOneAndUpdate(
+            { id: parseInt(id) },
+            datosAActualizar,
+            { new: true }
+        );
+
+        if (!registroActualizado) return res.status(404).json({ error: "Registro no encontrado" });
+
+        // NUEVO: Si se aprueba o regulariza, el backend borra automáticamente la cursada de "Inscripciones"
+        if (estado === 'Regular' || estado === 'Aprobada') {
+            await Inscripcion.findOneAndDelete({
+                alumno_id: registroActualizado.alumno_id,
+                materia_id: registroActualizado.materia_id
+            });
+        }
+
+        res.json({ message: "Registro actualizado", data: registroActualizado });
+
+    } catch (error) {
+        res.status(500).json({ error: "Error al actualizar el registro" });
+    }
+};
+
+export const deleteRegistro = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const eliminado = await HistorialAcademico.findOneAndDelete({ id: parseInt(id) });
+        
+        if (!eliminado) {
+            return res.status(404).json({ error: "Registro no encontrado" });
+        }
+        
+        res.json({ message: "Registro eliminado del historial", data: eliminado });
+    } catch (error) {
+        res.status(500).json({ error: "Error al eliminar el registro" });
+    }
+};
+
+export default { 
+    getHistorial,
+    getHistorialByAlumno,
+    createRegistro,
+    updateRegistro,
+    deleteRegistro
 };

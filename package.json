@@ -3,7 +3,12 @@
   "version": "1.0.0",
   "main": "index.js",
   "type": "module",
+  "engines": {
+    "node": "20.x"
+  },
   "scripts": {
+    "start": "node index.js",
+    "debug": "node --inspect-brk=9229 index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -11,7 +16,20 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "bcrypt": "^6.0.0",
+    "cookie-parser": "^1.4.7",
+    "dotenv": "^17.4.2",
     "express": "^5.2.1",
-    "pug": "^3.0.4"
+    "google-auth-library": "^9.15.1",
+    "googleapis": "^144.0.0",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^8.24.0",
+    "mongoose-sequence": "^6.0.1",
+    "pdfkit": "^0.20.2",
+    "pdfkit-table": "^0.2.11",
+    "pug": "^3.0.4",
+    "qrcode": "^1.5.4",
+    "socket.io": "^4.8.3"
   }
 }

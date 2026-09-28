@@ -14,6 +14,8 @@ function crearUsuario(req, res) {
         .catch((error) => res.status(500).json({ error: 'Error al crear el usuario' }));
 }
 
+
+
 /* 
     module.export = exporto la clase.
 */ 

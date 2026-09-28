@@ -1,0 +1,14 @@
+// ==========================================
+// PANEL 4: PERÍODOS DE INSCRIPCIÓN
+// ==========================================
+.tab-pane.fade#periodos-pane(role="tabpanel" aria-labelledby="periodos-tab")
+  .d-flex.justify-content-between.align-items-center.mb-3
+    h4.mb-0.text-secondary Gestión de Inscripciones (Apertura y Cierre)
+    button.btn.btn-primary.shadow-sm(data-bs-toggle="modal" data-bs-target="#modalCrearPeriodo")
+      i.bi.bi-calendar-plus.me-1
+      | Nuevo Período
+
+  .card.shadow-sm.border-0
+    .card-body.p-0#contenedorPeriodos
+      .p-5.text-center
+        .spinner-border.text-primary(role="status")

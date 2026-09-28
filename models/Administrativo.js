@@ -1,15 +1,24 @@
-import User from './User.js';
+import mongoose from 'mongoose';
+import User from './User.js'; 
 
-// Aplicamos Herencia (extends) para que Administrativo herede las propiedades básicas de User (id, nombre, email, password).
-class Administrativo extends User {
-    constructor(id, name, email, password, rol, area) {
-        // 'super' llama al constructor de la clase padre (User)
-        super(id, name, email, password);
-
-        // Propiedades únicas de un Administrativo
-        this.rol = rol;   // Ej: 'SuperAdmin', 'Direccion'
-        this.area = area; // Ej: 'Dirección Académica', 'Inscripciones'
+// REFACTORIZACIÓN: Al igual que el modelo Alumno, este esquema hereda de 'User' 
+// para guardar todos los registros en la colección unificada 'usuarios'.
+// Internamente, Mongoose etiquetará a estos documentos bajo el tipoPerfil: 'Personal'.
+const Administrativo = User.discriminator('Personal', new mongoose.Schema({
+    
+    // Atributos exclusivos del equipo de gestión y docencia (los datos base ya se heredan del padre):
+    rol: {
+        type: String,
+        required: true,
+        // Validación estricta de seguridad a nivel de base de datos.
+        // Si el frontend intenta guardar un cargo que no coincida exactamente con esta lista 
+        // (por ejemplo, con errores de tipeo o roles inventados), Mongoose bloquea la operación.
+        enum: ['Administrativo', 'Secretario', 'Direccion', 'Bibliotecario', 'Profesor']
+    },
+    area: {
+        type: String,
+        required: true
     }
-}
+}));
 
 export default Administrativo;

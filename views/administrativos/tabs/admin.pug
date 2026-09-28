@@ -1,0 +1,37 @@
+.tab-pane.fade.show.active#admin-pane(role="tabpanel" aria-labelledby="admin-tab")
+  .d-flex.justify-content-between.align-items-center.mb-3
+    h4.mb-0.text-secondary Gestión de Personal
+    button.btn.btn-info.text-white.shadow-sm(data-bs-toggle="modal" data-bs-target="#modalCrear")
+      i.bi.bi-plus-lg.me-1
+      | Nuevo Administrativo
+
+  .card.shadow-sm.border-0
+    .card-body.p-0
+      .table-responsive
+        table.table.table-hover.align-middle.mb-0
+          thead.table-light
+            tr
+              th.ps-4 Nombre y Apellido
+              th Email
+              th Área
+              th Rol
+              th.text-center Acciones
+          tbody
+            if lista && lista.length > 0
+              each admin in lista
+                tr
+                  td.ps-4.fw-medium= admin.name
+                  td= admin.email
+                  td= admin.area
+                  td
+                    span.badge.bg-secondary= admin.rol
+                  td.text-center
+                    button.btn.btn-sm.btn-outline-primary.me-2(onclick=`abrirModalEditar(${JSON.stringify(admin)})`)
+                      i.bi.bi-pencil-square
+                      |  Editar
+                    form.d-inline(action=`/api/administrativos/eliminar/${admin.id}` method="POST")
+                      button.btn.btn-sm.btn-outline-danger(type="submit" onclick="return confirm('¿Seguro que querés eliminar este usuario?');")
+                        i.bi.bi-trash
+            else
+              tr
+                td.text-center.py-4(colspan="5") No hay personal registrado.

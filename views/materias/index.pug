@@ -1,0 +1,18 @@
+extends ../layout
+
+block contenido
+  .container.mt-4
+    h1.mb-3 Lista de Materias
+    if materias && materias.length
+      table.table.table-striped
+        thead
+          tr
+            th Nombre
+            th Año
+        tbody
+          each materia in materias
+            tr
+              td= materia.nombre
+              td= materia.anio
+    else
+      p.text-muted No hay materias cargadas.
