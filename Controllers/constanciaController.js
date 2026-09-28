@@ -50,7 +50,11 @@ export const generarConstanciaPDF = async (req, res) => {
         // ==========================================
         // GENERACIÓN DEL CÓDIGO QR EN MEMORIA
         // ==========================================
-        const baseUrl = 'http://localhost:3000';
+        const baseUrl =
+        process.env.APP_URL ||
+        process.env.RENDER_EXTERNAL_URL ||
+        `${req.protocol}://${req.get('host')}`;
+
         const urlValidacion = `${baseUrl}/validar/${codigoValidacion}`;
         
         const qrBuffer = await QRCode.toBuffer(urlValidacion, { 
