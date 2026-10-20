@@ -7,6 +7,11 @@ import crypto from 'crypto';
 import fs from 'fs'; 
 import QRCode from 'qrcode';
 
+const baseUrl =
+    process.env.APP_URL ||
+    process.env.RENDER_EXTERNAL_URL ||
+    `${req.protocol}://${req.get('host')}`;
+
 export const generarConstanciaPDF = async (req, res) => {
     try {
         const { dni, presentar_a, observaciones } = req.body;
@@ -50,10 +55,7 @@ export const generarConstanciaPDF = async (req, res) => {
         // ==========================================
         // GENERACIÓN DEL CÓDIGO QR EN MEMORIA
         // ==========================================
-        const baseUrl =
-        process.env.APP_URL ||
-        process.env.RENDER_EXTERNAL_URL ||
-        `${req.protocol}://${req.get('host')}`;
+
 
         const urlValidacion = `${baseUrl}/validar/${codigoValidacion}`;
         
@@ -254,7 +256,7 @@ export const generarPorcentajePDF = async (req, res) => {
         });
 
         // QR
-        const urlValidacion = `http://localhost:3000/validar/${codigoValidacion}`;
+        const urlValidacion = `${baseUrl}/validar/${codigoValidacion}`;
         const qrBuffer = await QRCode.toBuffer(urlValidacion, { margin: 1 });
 
         // PDF
