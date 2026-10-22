@@ -1,7 +1,6 @@
 import Administrativo from '../models/Administrativo.js';
 import { requireRole, verifyToken } from '../middlewares/authHybrid.js';
-import { parseLocalDate } from '../utils/dateUtils.js';
-import Alumno from '../models/Alumno.js';
+import { updateAlumno as actualizarAlumno } from './alumnoController.js';
 
 
 // Helper: quita la contraseña de los objetos traídos de Mongo
@@ -112,68 +111,10 @@ const deleteAdministrativo = async (req, res, next) => {
     }
 };
 
-export const updateAlumno = async (req, res, next) => {
-    try {
-        const { id } = req.params;
-        // NUEVO: Extraemos el dni del body en caso de que lo estén editando
-        const { dni, name, email, password, legajo, activo, fecha_inscripcion } = req.body;
-
-        const datosAActualizar = {};
-        if (dni) datosAActualizar.dni = dni; // NUEVO: Agregamos el DNI al objeto de actualización si fue enviado
-        if (name) datosAActualizar.name = name;
-        if (email) datosAActualizar.email = email;
-        if (password) datosAActualizar.password = password; 
-        if (legajo) datosAActualizar.legajo = legajo;
-        if (activo !== undefined) datosAActualizar.activo = activo;
-        if (fecha_inscripcion) datosAActualizar.fecha_inscripcion = parseLocalDate(fecha_inscripcion);
-
-        const alumnoActualizado = await Alumno.findOneAndUpdate(
-            { id: parseInt(id) }, 
-            datosAActualizar, 
-            { new: true } 
-        );
-
-        if (!alumnoActualizado) {
-            const error = new Error('Alumno no encontrado');
-            error.status = 400;
-            return next(error);
-        }
-
-        //NUEVO: Empujar cambios a Google Sheets con mensajes de diagnóstico para la consola
-        console.log("Intentando sincronizar con Sheets...");
-        console.log("Cohorte ID:", alumnoActualizado.cohorte_id);
-        console.log("Tokens de Google presentes?:", req.user?.googleTokens ? "Sí" : "NO");
-
-        if (alumnoActualizado.cohorte_id) {
-            if (req.user && req.user.googleTokens) {
-                const cohorte = await Cohorte.findOne({ id: alumnoActualizado.cohorte_id });
-                
-                if (cohorte && cohorte.spreadsheetId) {
-                    try {
-                        await actualizarAlumnoEnPlanilla(cohorte.spreadsheetId, req.user.googleTokens, alumnoActualizado);
-                        console.log("¡Éxito! Sheets actualizado.");
-                    } catch (errorSheets) {
-                        console.error("Aviso: No se pudo actualizar Google Sheets:", errorSheets.message);
-                    }
-                } else {
-                    console.log("La cohorte no tiene un Excel vinculado todavía.");
-                }
-            } else {
-                console.log("ERROR: Faltan los tokens de Google en esta ruta para poder escribir en Sheets.");
-            }
-        }
-
-        res.json({ message: "Alumno actualizado", data: omitPassword(alumnoActualizado) });
-    } catch (error) {
-        // NUEVO: Sumamos la captura del error 11000 por si en la edición intentan poner un DNI que ya usa otro
-        if (error.code === 11000) {
-            const error = new Error('El DNI o el Legajo ya existen en la base de datos');
-            error.status = 400;
-            return next(error);
-        }
-        next(error);
-    }
-};
+// Editar un alumno desde el panel administrativo: se reutiliza la lógica de alumnoController.updateAlumno.
+// La copia que había acá usaba Cohorte y actualizarAlumnoEnPlanilla sin importarlos: guardaba los cambios y después
+// fallaba con error 500 en cuanto el alumno tenía cohorte, y no conocía los datos de ingreso.
+export const updateAlumno = actualizarAlumno;
 
 export default {
     getAdministrativos,

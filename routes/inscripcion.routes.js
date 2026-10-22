@@ -1,13 +1,14 @@
 import express from 'express';
 import inscripcionController from '../Controllers/inscripcionController.js';
-import { verifyToken, requireOwnershipOrAdmin } from '../middlewares/authHybrid.js';
+import { verifyToken, requireOwnershipOrAdmin, requireStaffApi, isAdminRole } from '../middlewares/authHybrid.js';
 
 const router = express.Router();
 
 // Proteger todas las rutas con middleware JWT
 router.use(verifyToken);
 
-router.get('/', inscripcionController.getInscripciones);
+// Listado de TODAS las inscripciones (con el nombre de cada alumno): solo el personal. Un alumno ve las suyas en /alumno/:alumnoId
+router.get('/', requireStaffApi, inscripcionController.getInscripciones);
 router.get('/alumno/:alumnoId', requireOwnershipOrAdmin('alumnoId'), inscripcionController.getInscripcionesByAlumno);
 router.post(
   '/',
@@ -22,6 +23,6 @@ router.post(
   },
   inscripcionController.createInscripcion
 );
-router.delete('/:id', requireOwnershipOrAdmin('id'), inscripcionController.deleteInscripcion);
+router.delete('/:id', inscripcionController.deleteInscripcion); // la pertenencia de la inscripción se controla dentro
 
 export default router;

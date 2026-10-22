@@ -1,2 +1,4 @@
 node_modules/
 .env
+# Backups generados por scripts/migrate-v2.js (contienen datos de alumnos)
+backups/

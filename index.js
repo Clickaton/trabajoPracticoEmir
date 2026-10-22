@@ -2,7 +2,6 @@ import express from 'express';
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
-import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import path from 'path';
 import { fileURLToPath } from 'url'; 
@@ -38,70 +37,16 @@ import historialAcademicoRoutes from './routes/historialAcademico.routes.js';
 import estadoAcademicoRoutes from './routes/estadoAcademico.routes.js';
 import periodoInscripcionRoutes from './routes/periodoInscripcion.routes.js';
 import inscripcionRoutes from './routes/inscripcion.routes.js';
+import planEstudioRoutes from './routes/planEstudio.routes.js';
+import inscripcionFinalRoutes from './routes/inscripcionFinal.routes.js';
 import Administrativo from './models/Administrativo.js';
-import User from './models/User.js';
 import constanciaRoutes from './routes/constancias.routes.js';
 import { validarConstanciaPublica } from './Controllers/constanciaController.js'; //parvalidar qr
+import { configurarChat } from './services/chatService.js';
+import { manejadorDeErrores, rutaNoEncontrada } from './middlewares/errorHandler.js';
 
-// ==========================================
-// LÓGICA DEL CHAT WEBSOCKET
-// ==========================================
-const chatsActivos = {};
-
-io.on("connection", (socket) => {
-  console.log("Un usuario se conectó al chat");
-
-  chatsActivos[socket.id] = [];
-
-  socket.on("mensaje", async (datos) => {
-    const textoUsuario = datos.texto?.trim() || "";
-    const pantallaActual = datos.contexto || "sistema general";
-    const usuario = datos.usuarioLogueado || null;
-    const rolUsuario = usuario?.rol || usuario?.role || usuario?.tipoPerfil || "";
-
-    if (!textoUsuario) return;
-
-    io.emit("mensaje", {
-      usuario: datos.usuario || "Usuario",
-      texto: textoUsuario
-    });
-
-    try {
-      chatsActivos[socket.id].push({
-        role: "user",
-        parts: [{ text: textoUsuario }]
-      });
-
-      const respuesta = await consultarIAConHistorial(
-        textoUsuario,
-        rolUsuario,
-        pantallaActual,
-        chatsActivos[socket.id],
-        usuario
-      );
-
-      chatsActivos[socket.id].push({
-        role: "model",
-        parts: [{ text: respuesta }]
-      });
-
-      io.emit("mensaje", {
-        usuario: "Asesor Virtual",
-        texto: respuesta
-      });
-    } catch (error) {
-      console.error("Error en el flujo de Gemini con historial:", error);
-      io.emit("mensaje", {
-        usuario: "Asesor Virtual",
-        texto: "Disculpá, tuve un problema al procesar tu consulta en este momento."
-      });
-    }
-  });
-
-  socket.on("disconnect", () => {
-    delete chatsActivos[socket.id];
-  });
-});
+// Chat de soporte con el asistente virtual (identidad por sesión y respuestas privadas: ver services/chatService.js)
+configurarChat(io, { consultarIA: consultarIAConHistorial });
 
 /*
     Función para crear un usuario administrador por defecto si no existe.
@@ -147,12 +92,15 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-app.use((req, res, next) => {
-    const token = req.cookies?.jwtToken || null;
 // La entrada principal del sistema lleva al formulario de autenticación.
+// (Antes esta ruta se registraba dentro del middleware: se volvía a agregar en cada pedido.)
 app.get('/', (req, res) => {
   res.redirect('/login');
 });
+
+// Identifica a la persona en cada pedido a partir de la cookie con el JWT
+app.use((req, res, next) => {
+    const token = req.cookies?.jwtToken || null;
 
     res.locals.jwtToken = token;
 
@@ -188,27 +136,13 @@ app.use('/api/historial', historialAcademicoRoutes);
 app.use('/api/estado-academico', estadoAcademicoRoutes);
 app.use('/api/periodos-inscripcion', periodoInscripcionRoutes);
 app.use('/api/inscripciones', inscripcionRoutes);
+app.use('/api/planes', planEstudioRoutes);
+app.use('/api/inscripciones-final', inscripcionFinalRoutes);
 app.use('/api/constancias', constanciaRoutes);
 
+// Si ninguna ruta respondió: 404
+app.use(rutaNoEncontrada);
 
-
-// 1. CATCH-ALL: Si la ruta no existe o no se tiene acceso (Error 404).
-app.use((req, res, next) => {
-  const error = new Error('Ubicación no disponible');
-  error.status = 404;
-  next(error);
-});
-
-// 2. MANEJADOR DE ERRORES GLOBAL
-app.use((error, req, res, next) => {
-    const statusCode = error.status || error.statusCode || 500;
-
-    res.status(statusCode).render('error', {
-        statusCode,
-        title: statusCode === 500
-            ? 'Error interno del sistema'
-            : 'Ubicación no disponible',
-        message: error.message
-    });
-});
-
+// Manejador de errores global: responde JSON a los fetch() y muestra la página de error cuando se navega
+// (ver middlewares/errorHandler.js)
+app.use(manejadorDeErrores);

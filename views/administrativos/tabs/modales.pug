@@ -8,21 +8,26 @@
         .modal-body
           .mb-3
             label.form-label Nombre
+              +ayuda('Nombre y apellido de la persona que va a usar el panel.')
             input.form-control(type="text" name="name" required)
           .mb-3
             label.form-label Email
+              +ayuda('Correo con el que la persona ingresa al sistema.')
             input.form-control(type="email" name="email" required)
           .mb-3
             label.form-label Contraseña
+              +ayuda('Contraseña inicial de acceso. Después la persona puede cambiarla desde Mi Perfil.')
             input.form-control(type="password" name="password" required)
           .row
             .col-6.mb-3
               label.form-label Área
+                +ayuda('Sector del instituto en el que trabaja la persona.')
               select.form-select(name="area" required)
                 option(value="Alumnos") Alumnos
                 option(value="Sistemas") Sistemas
             .col-6.mb-3
               label.form-label Rol
+                +ayuda('Define qué puede hacer la persona dentro del panel.')
               select.form-select(name="rol" required)
                 option(value="" selected disabled) Seleccione un rol...
                 if roles
@@ -30,7 +35,7 @@
                     option(value=rol)= rol
         .modal-footer.bg-light
           button.btn.btn-secondary(type="button" data-bs-dismiss="modal") Cancelar
-          button.btn.btn-info.text-white(type="submit") Guardar
+          button.btn.btn-info.text-white(type="submit" data-ayuda="Dar de alta a la persona con los datos ingresados") Guardar
 
 .modal.fade#modalEditar(tabindex="-1")
   .modal-dialog
@@ -42,18 +47,22 @@
         .modal-body
           .mb-3
             label.form-label Nombre
+              +ayuda('Nombre y apellido de la persona que va a usar el panel.')
             input.form-control#editName(type="text" name="name" required)
           .mb-3
             label.form-label Email
+              +ayuda('Correo con el que la persona ingresa al sistema.')
             input.form-control#editEmail(type="email" name="email" required)
           .row
             .col-6.mb-3
               label.form-label Área
+                +ayuda('Sector del instituto en el que trabaja la persona.')
               select.form-select#editArea(name="area" required)
                 option(value="Alumnos") Alumnos
                 option(value="Sistemas") Sistemas
             .col-6.mb-3
               label.form-label Rol
+                +ayuda('Define qué puede hacer la persona dentro del panel.')
               select.form-select#editRol(name="rol" required)
                 option(value="" disabled) Seleccione un rol...
                 if roles
@@ -61,37 +70,43 @@
                     option(value=rol)= rol
             .col-6.mb-3
               label.form-label Nueva Contraseña (Opcional)
+                +ayuda('Completala solo si querés cambiarla; si la dejás vacía se mantiene la actual.')
               input.form-control#editPassword(type="password" name="password" placeholder="Dejar en blanco para no cambiar")
         .modal-footer.bg-light
           button.btn.btn-secondary(type="button" data-bs-dismiss="modal") Cancelar
-          button.btn.btn-primary(type="submit") Actualizar Cambios
+          button.btn.btn-primary(type="submit" data-ayuda="Guardar los cambios de esta persona") Actualizar Cambios
 
 .modal.fade#modalCrearCohorte(tabindex="-1")
   .modal-dialog
     .modal-content
       .modal-header.bg-primary.text-white
         h5.modal-title Nueva Cohorte
-        button.btn-close.btn-close-white(type="button" data-bs-dismiss="modal")
+        button.btn-close.btn-close-white(type="button" data-bs-dismiss="modal" aria-label="Cerrar")
       form#formCrearCohorte
         .modal-body
           .mb-3
-            input.form-control(type="hidden" name="id" required placeholder="Ej: 1")
+            label.form-label(for="crearCohorteNombre") Nombre / Año
+              +ayuda('Cómo se identifica la cohorte, normalmente por el año de ingreso. Ej: 2026.')
+            input.form-control#crearCohorteNombre(type="text" name="name" required placeholder="Ej: 2026")
           .mb-3
-            label.form-label Nombre / Año
-            input.form-control(type="text" name="name" required placeholder="Ej: 2026")
+            label.form-label(for="crearCohorteInicio") Fecha de Inicio
+              +ayuda('Día en que empieza a cursar la cohorte. Sirve de referencia para el inicio del ciclo.')
+            input.form-control#crearCohorteInicio(type="date" name="startDate" required)
           .mb-3
-            label.form-label Fecha de Inicio
-            input.form-control(type="date" name="startDate" required)
+            label.form-label(for="selectPlanCohorte") Plan de estudios
+              +ayuda('Carrera que cursa la cohorte. Define qué materias ve, sus correlatividades y las reglas de regularidad. Solo aparecen los planes activos. Si falta el plan, crealo en "Planes de Estudio".')
+            select.form-select#selectPlanCohorte(name="plan_id" required)
+              option(value="" selected disabled) Cargando planes...
         .modal-footer.bg-light
           button.btn.btn-secondary(type="button" data-bs-dismiss="modal") Cancelar
-          button.btn.btn-primary(type="submit") Guardar Cohorte
+          button.btn.btn-primary(type="submit" data-ayuda="Crear la cohorte con el plan elegido") Guardar Cohorte
 
 .modal.fade#modalCrearAlumno(tabindex="-1")
-  .modal-dialog.modal-lg
+  .modal-dialog.modal-lg.modal-dialog-scrollable
     .modal-content
       .modal-header.bg-info.text-white
         h5.modal-title Dar de Alta Nuevo Alumno
-        button.btn-close.btn-close-white(type="button" data-bs-dismiss="modal")
+        button.btn-close.btn-close-white(type="button" data-bs-dismiss="modal" aria-label="Cerrar")
       form#formCrearAlumno
         .modal-body
           .alert.alert-info.py-2.mb-4(role="alert")
@@ -99,225 +114,335 @@
             span#textoAvisoCohorte El alumno será inscripto en la cohorte seleccionada.
           .row
             .col-6.mb-3
-              label.form-label DNI
-              input.form-control(type="text" name="dni" required)
+              label.form-label(for="crearAlumnoDni") DNI
+                +ayuda('Documento del alumno, sin puntos. No puede repetirse con otro alumno.')
+              input.form-control#crearAlumnoDni(type="text" name="dni" required)
             .col-6.mb-3
-              label.form-label Legajo
-              input.form-control(type="text" name="legajo" required)
+              label.form-label(for="crearAlumnoLegajo") Legajo
+                +ayuda('Número de legajo institucional. No puede repetirse.')
+              input.form-control#crearAlumnoLegajo(type="text" name="legajo" required)
           .mb-3
-            label.form-label Nombre Completo
-            input.form-control(type="text" name="name" required)
+            label.form-label(for="crearAlumnoNombre") Nombre Completo
+              +ayuda('Apellido y nombre del alumno tal como figura en su DNI.')
+            input.form-control#crearAlumnoNombre(type="text" name="name" required)
           .row
             .col-6.mb-3
-              label.form-label Email
-              input.form-control(type="email" name="email" required)
+              label.form-label(for="crearAlumnoEmail") Email
+                +ayuda('Correo de contacto del alumno.')
+              input.form-control#crearAlumnoEmail(type="email" name="email" required)
             .col-6.mb-3
-              label.form-label Contraseña
-              input.form-control(type="password" name="password" required)
+              label.form-label(for="crearAlumnoPassword") Contraseña
+                +ayuda('Contraseña inicial para que el alumno ingrese al sistema.')
+              input.form-control#crearAlumnoPassword(type="password" name="password" required autocomplete="new-password")
           .row
             .col-6.mb-3
-              label.form-label Estado
-              select.form-select(name="activo" required)
+              label.form-label(for="crearAlumnoActivo") Estado
+                +ayuda('Un alumno inactivo no debería cursar. Se puede cambiar después.')
+              select.form-select#crearAlumnoActivo(name="activo" required)
                 option(value="true") Activo
                 option(value="false") Inactivo
             .col-6.mb-3
-              label.form-label Fecha de Inscripción
-              input.form-control(type="date" name="fecha_inscripcion" required)
+              label.form-label(for="crearAlumnoFecha") Fecha de Inscripción
+                +ayuda('Día en que el alumno se inscribió al instituto.')
+              input.form-control#crearAlumnoFecha(type="date" name="fecha_inscripcion" required)
+          +camposIngreso('crearAlumno')
           input(type="hidden" name="cohorte_id" id="hiddenCohorteId" value="")
         .modal-footer.bg-light
           button.btn.btn-secondary(type="button" data-bs-dismiss="modal") Cancelar
-          button.btn.btn-info.text-white(type="submit") Crear e Inscribir
+          button.btn.btn-info.text-white(type="submit" data-ayuda="Dar de alta al alumno e inscribirlo en la cohorte seleccionada") Crear e Inscribir
 
-.modal.fade#modalEditarAlumno(tabindex="-1")
-  .modal-dialog.modal-lg
+//- Los ids terminan en "Adm" a propósito: layout.pug engancha un manejador a #formEditarAlumno / #modalEditarAlumno (el perfil del propio alumno).
+//- Con los mismos ids, editar un alumno desde este panel disparaba además ese manejador (un segundo PUT y una recarga de la página).
+.modal.fade#modalEditarAlumnoAdm(tabindex="-1")
+  .modal-dialog.modal-lg.modal-dialog-scrollable
     .modal-content
       .modal-header.bg-primary.text-white
         h5.modal-title Editar Ficha del Alumno
-        button.btn-close.btn-close-white(type="button" data-bs-dismiss="modal")
-      form#formEditarAlumno
+        button.btn-close.btn-close-white(type="button" data-bs-dismiss="modal" aria-label="Cerrar")
+      form#formEditarAlumnoAdm
         .modal-body
           .row
             .col-4.mb-3
-              label.form-label ID
+              label.form-label(for="editAlumnoId") ID
+                +ayuda('Número interno del alumno. No se puede modificar.')
               input.form-control#editAlumnoId(type="number" name="id" readonly)
             .col-4.mb-3
-              label.form-label DNI
+              label.form-label(for="editAlumnoDni") DNI
+                +ayuda('Documento del alumno, sin puntos. No puede repetirse con otro alumno.')
               input.form-control#editAlumnoDni(type="text" name="dni" required)
             .col-4.mb-3
-              label.form-label Legajo
+              label.form-label(for="editAlumnoLegajo") Legajo
+                +ayuda('Número de legajo institucional. No puede repetirse.')
               input.form-control#editAlumnoLegajo(type="text" name="legajo" required)
           .mb-3
-            label.form-label Nombre Completo
+            label.form-label(for="editAlumnoName") Nombre Completo
+              +ayuda('Apellido y nombre del alumno tal como figura en su DNI.')
             input.form-control#editAlumnoName(type="text" name="name" required)
           .row
             .col-6.mb-3
-              label.form-label Email
+              label.form-label(for="editAlumnoEmail") Email
+                +ayuda('Correo de contacto del alumno.')
               input.form-control#editAlumnoEmail(type="email" name="email" required)
             .col-6.mb-3
-              label.form-label Contraseña (Dejar en blanco para no cambiar)
-              input.form-control#editAlumnoPassword(type="password" name="password")
+              label.form-label(for="editAlumnoPassword") Contraseña (dejar en blanco para no cambiar)
+                +ayuda('Completala solo si querés cambiar la contraseña del alumno; si la dejás vacía se mantiene la actual.')
+              input.form-control#editAlumnoPassword(type="password" name="password" autocomplete="new-password")
           .row
             .col-6.mb-3
-              label.form-label Estado
+              label.form-label(for="editAlumnoActivo") Estado
+                +ayuda('Un alumno inactivo no debería cursar. Se puede volver a activar en cualquier momento.')
               select.form-select#editAlumnoActivo(name="activo" required)
                 option(value="true") Activo
                 option(value="false") Inactivo
             .col-6.mb-3
-              label.form-label Fecha de Inscripción
+              label.form-label(for="editAlumnoFecha") Fecha de Inscripción
+                +ayuda('Día en que el alumno se inscribió al instituto.')
               input.form-control#editAlumnoFecha(type="date" name="fecha_inscripcion" required)
+          +camposIngreso('editAlumno')
         .modal-footer.bg-light
           button.btn.btn-secondary(type="button" data-bs-dismiss="modal") Cancelar
-          button.btn.btn-primary(type="submit") Guardar Cambios
+          button.btn.btn-primary(type="submit" data-ayuda="Guardar los cambios de la ficha del alumno") Guardar Cambios
 
 .modal.fade#modalCrearMateria(tabindex="-1")
   .modal-dialog
     .modal-content
       .modal-header.bg-primary.text-white
         h5.modal-title Nueva Materia
-        button.btn-close.btn-close-white(type="button" data-bs-dismiss="modal")
+        button.btn-close.btn-close-white(type="button" data-bs-dismiss="modal" aria-label="Cerrar")
       form#formCrearMateria
         .modal-body
+          .mb-3
+            label.form-label(for="selectPlanMateria") Plan de estudios
+              +ayuda('Plan al que pertenece la materia. Una vez creada no se puede pasar a otro plan.')
+            select.form-select#selectPlanMateria(name="plan_id" required)
           .row
             .col-6.mb-3
-              label.form-label ID de Materia
-              input.form-control(type="number" name="id" required placeholder="Ej: 101")
+              label.form-label(for="crearMateriaAnio") Año de Cursada
+                +ayuda('Año de la carrera en que se cursa (1, 2, 3...). Las listas se ordenan por año y luego por nombre.')
+              input.form-control#crearMateriaAnio(type="number" name="anio" required min="1" max="10" placeholder="Ej: 1")
             .col-6.mb-3
-              label.form-label Año de Cursada
-              input.form-control(type="number" name="anio" required min="1" placeholder="Ej: 1")
+              label.form-label(for="crearMateriaId") ID de Materia (opcional)
+                +ayuda('Dejalo vacío y el sistema asigna el siguiente número libre. Completalo solo si necesitás un número puntual.')
+              input.form-control#crearMateriaId(type="number" name="id" min="1" placeholder="Automático")
           .mb-3
-            label.form-label Nombre de la Materia
-            input.form-control(type="text" name="nombre" required placeholder="Ej: Programación I")
+            label.form-label(for="crearMateriaNombre") Nombre de la Materia
+              +ayuda('Nombre de la materia como figura en el plan de estudios.')
+            input.form-control#crearMateriaNombre(type="text" name="nombre" required placeholder="Ej: Programación I")
         .modal-footer.bg-light
           button.btn.btn-secondary(type="button" data-bs-dismiss="modal") Cancelar
-          button.btn.btn-primary(type="submit") Guardar Materia
+          button.btn.btn-primary(type="submit" data-ayuda="Agregar la materia al plan") Guardar Materia
 
 .modal.fade#modalEditarMateria(tabindex="-1")
   .modal-dialog
     .modal-content
       .modal-header.bg-warning.text-dark
         h5.modal-title Editar Materia
-        button.btn-close(type="button" data-bs-dismiss="modal")
+        button.btn-close(type="button" data-bs-dismiss="modal" aria-label="Cerrar")
       form#formEditarMateria
         .modal-body
+          .mb-3
+            label.form-label(for="editMateriaPlan") Plan de estudios
+              +ayuda('El plan de una materia no se puede cambiar, porque el historial y las correlatividades ya dependen de él. Si se cargó en el plan equivocado, creala de nuevo en el correcto.')
+            input.form-control#editMateriaPlan(type="text" disabled)
           .row
             .col-6.mb-3
-              label.form-label ID (No modificable)
+              label.form-label(for="editMateriaId") ID (no modificable)
+                +ayuda('Identificador interno de la materia. No se puede modificar.')
               input.form-control#editMateriaId(type="number" name="id" readonly)
             .col-6.mb-3
-              label.form-label Año de Cursada
-              input.form-control#editMateriaAnio(type="number" name="anio" required min="1")
+              label.form-label(for="editMateriaAnio") Año de Cursada
+                +ayuda('Año de la carrera en que se cursa. Las listas se ordenan por año y luego por nombre.')
+              input.form-control#editMateriaAnio(type="number" name="anio" required min="1" max="10")
           .mb-3
-            label.form-label Nombre de la Materia
+            label.form-label(for="editMateriaNombre") Nombre de la Materia
+              +ayuda('Nombre de la materia como figura en el plan de estudios.')
             input.form-control#editMateriaNombre(type="text" name="nombre" required)
         .modal-footer.bg-light
           button.btn.btn-secondary(type="button" data-bs-dismiss="modal") Cancelar
-          button.btn.btn-warning(type="submit") Guardar Cambios
+          button.btn.btn-warning(type="submit" data-ayuda="Guardar los cambios de la materia") Guardar Cambios
 
 .modal.fade#modalCrearRegla(tabindex="-1")
   .modal-dialog
     .modal-content
       .modal-header.bg-info.text-white
         h5.modal-title Agregar Requisito
-        button.btn-close.btn-close-white(type="button" data-bs-dismiss="modal")
+        button.btn-close.btn-close-white(type="button" data-bs-dismiss="modal" aria-label="Cerrar")
       form#formCrearRegla
         .modal-body
           .alert.alert-info.py-2.mb-3
             span#textoAvisoMateriaRegla Agregando requisito para...
-          .mb-3
-            label.form-label ID de la Regla (Único)
-            input.form-control(type="number" name="id" required placeholder="Ej: 501")
           input(type="hidden" name="materia_id" id="hiddenMateriaParaRegla")
           .mb-3
-            label.form-label Materia Requisito
+            label.form-label(for="selectMateriaRequisito") Materia Requisito
+              +ayuda('Materia que el alumno debe tener antes de cursar esta. Solo se ofrecen materias del mismo plan.')
             select.form-select#selectMateriaRequisito(name="requisito_id" required)
-              option(selected disabled) Cargando materias...
+              option(value="" selected disabled) Cargando materias...
           .mb-3
-            label.form-label Condición exigida
-            select.form-select(name="tipo_requisito" required)
+            label.form-label(for="selectTipoRequisito") Condición exigida
+              +ayuda('Regular: alcanza con haber regularizado la cursada. Aprobada: hace falta tener el final aprobado. Esto rige para CURSAR; para rendir el FINAL de la materia siempre se pide el final aprobado de sus correlativas.')
+            select.form-select#selectTipoRequisito(name="tipo_requisito" required)
               option(value="Regular") Tenerla Regular
               option(value="Aprobada") Tenerla Aprobada (Final)
         .modal-footer.bg-light
           button.btn.btn-secondary(type="button" data-bs-dismiss="modal") Cancelar
-          button.btn.btn-info.text-white(type="submit") Guardar Regla
+          button.btn.btn-info.text-white(type="submit" data-ayuda="Guardar la correlatividad") Guardar Regla
 
 .modal.fade#modalFichaAlumno(tabindex="-1")
   .modal-dialog.modal-xl.modal-dialog-scrollable
     .modal-content
       .modal-header.bg-dark.text-white
-        h5.modal-title#tituloFichaAlumno Ficha Académica
-        button.btn-close.btn-close-white(type="button" data-bs-dismiss="modal")
+        div
+          h5.modal-title.mb-0#tituloFichaAlumno Ficha Académica
+          small.text-white-50#subtituloFichaAlumno
+        button.btn-close.btn-close-white(type="button" data-bs-dismiss="modal" aria-label="Cerrar")
       .modal-body.bg-light
+        .row.g-3.mb-3
+          .col-md-4
+            .card.shadow-sm.border-0.h-100
+              .card-body
+                h6.text-secondary.mb-2 Semáforo
+                  +ayuda('Verde: al día. Amarillo: promoción condicional (aprobó la cursada pero debe el final de una correlativa). Rojo: perdió la regularidad de alguna materia y debe volver a cursarla. El color del alumno es el peor de sus materias.')
+                #fichaSemaforo.mb-2
+                small.text-muted#fichaSemaforoConteo
+          .col-md-4
+            .card.shadow-sm.border-0.h-100
+              .card-body
+                h6.text-secondary.mb-2 Progreso de la Carrera
+                  +ayuda('Cuenta las materias aprobadas y las promocionadas que ya no deben ningún final de sus correlativas.')
+                .progress(style="height: 25px;")
+                  .progress-bar.bg-success.fw-bold#barraProgresoCarrera(role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100") 0%
+                small.text-muted#fichaProgresoTexto
+          .col-md-4
+            .card.shadow-sm.border-0.h-100
+              .card-body
+                h6.text-secondary.mb-2 Plan e ingreso
+                #fichaPlanIngreso.small
+        #alertasFichaAlumno.mb-3
         .card.shadow-sm.border-0.mb-4
-          .card-body
-            h6.text-secondary.mb-3 <i class="bi bi-graph-up me-2"></i>Progreso de la Carrera
-            .progress(style="height: 25px;")
-              .progress-bar.bg-success.fw-bold#barraProgresoCarrera(role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100") 0%
+          .card-header.bg-white
+            h6.mb-0.text-info
+              i.bi.bi-list-check.me-2
+              | Estado por Materia
+              +ayuda('Todas las materias del plan, por año. La regularidad muestra cuándo vence y cuántos llamados y ausentes le quedan. Si perdió la regularidad, la materia figura como Vencida y puede volver a cursarla.')
+          .card-body.p-0#contenedorFichaEstado
+            .p-4.text-center.text-muted Cargando estado académico...
         .row
-          .col-lg-8
+          .col-lg-6
             .card.shadow-sm.border-0.mb-4
-              .card-header.bg-white.d-flex.justify-content-between.align-items-center
-                h6.mb-0.text-primary <i class="bi bi-calendar-check me-2"></i>Cursadas Actuales (Inscripciones)
+              .card-header.bg-white
+                h6.mb-0.text-primary
+                  i.bi.bi-calendar-check.me-2
+                  | Cursadas Actuales (Inscripciones)
+                  +ayuda('Materias en las que el alumno está inscripto para cursar y todavía no tienen acta de regularidad.')
               .card-body.p-0#contenedorFichaInscripciones
                 .p-4.text-center.text-muted Cargando inscripciones...
+          .col-lg-6
             .card.shadow-sm.border-0.mb-4
-              .card-header.bg-white
-                h6.mb-0.text-secondary <i class="bi bi-archive me-2"></i>Historial Académico (Actas y Notas)
-              .card-body.p-0#contenedorFichaHistorial
-                .p-4.text-center.text-muted Cargando historial...
-          .col-lg-4
-            .card.shadow-sm.border-0.mb-4
-              .card-header.bg-white
-                h6.mb-0.text-info <i class="bi bi-list-check me-2"></i>Estado por Materia
-              .card-body.p-0
-                .list-group.list-group-flush#contenedorFichaEstado
-                  .p-4.text-center.text-muted Cargando estado académico...
+              .card-header.bg-white.d-flex.flex-wrap.justify-content-between.align-items-center.gap-2
+                h6.mb-0.text-danger
+                  i.bi.bi-pencil-square.me-2
+                  | Finales (Inscripciones y Resultados)
+                  +ayuda('Inscripciones del alumno a mesas de examen. Desde acá se carga o corrige el resultado (nota, libro y folio) o se anula una inscripción pendiente.')
+                button.btn.btn-sm.btn-outline-danger#btnInscribirFinal(type="button" onclick="abrirModalInscripcionFinal()")
+                  i.bi.bi-plus-circle.me-1
+                  | Inscribir a un final
+              .card-body.p-0#contenedorFichaFinales
+                .p-4.text-center.text-muted Cargando finales...
+        .card.shadow-sm.border-0.mb-2
+          .card-header.bg-white.d-flex.flex-wrap.justify-content-between.align-items-center.gap-2
+            h6.mb-0.text-secondary
+              i.bi.bi-archive.me-2
+              | Historial Académico (Actas y Notas)
+              +ayuda('Registro de cada cursada y final, con su acta (libro y folio). Si el alumno volvió a cursar una materia, los intentos anteriores se conservan acá como historia. Usá "Cargar registro" para ingresar historial anterior (pase, ingreso a 2do o 3er año).')
+            button.btn.btn-sm.btn-success#btnNuevoRegistro(type="button" onclick="abrirModalNuevoRegistro()")
+              i.bi.bi-plus-circle.me-1
+              | Cargar registro
+          .card-body.p-0#contenedorFichaHistorial
+            .p-4.text-center.text-muted Cargando historial...
       .modal-footer
         button.btn.btn-secondary(type="button" data-bs-dismiss="modal") Cerrar Expediente
 
 .modal.fade#modalEditarActa(tabindex="-1" data-bs-backdrop="static")
-  .modal-dialog.modal-sm.modal-dialog-centered
+  .modal-dialog.modal-dialog-centered
     .modal-content
       .modal-header.bg-success.text-white
-        h6.modal-title Registrar Acta / Nota
-        button.btn-close.btn-close-white(type="button" data-bs-dismiss="modal")
+        h6.modal-title#tituloActa Registrar Acta / Nota
+        button.btn-close.btn-close-white(type="button" data-bs-dismiss="modal" aria-label="Cerrar")
       form#formEditarActa
         .modal-body
           input(type="hidden" id="editActaRegistroId")
           input(type="hidden" id="editActaAlumnoId")
-          input(type="hidden" id="editActaMateriaId")
           .mb-3
-            label.form-label.small.fw-bold Estado
+            label.form-label.small.fw-bold(for="editActaMateria") Materia
+              +ayuda('Materia del plan del alumno. Si ya la tiene Regular o en otro estado vigente, modificá ese registro en lugar de crear otro. Solo se abre una nueva cursada (recursada) si la anterior quedó Vencida.')
+            select.form-select.form-select-sm#editActaMateria(name="materia_id")
+            input.form-control.form-control-sm.d-none#editActaMateriaTexto(type="text" disabled)
+          .mb-3
+            label.form-label.small.fw-bold(for="editActaEstado") Estado
+              +ayuda('Cursando: está cursando. Regular: aprobó la cursada y puede rendir el final. Promocionada: aprobó sin final (nota 4 o más). Aprobada: tiene el final aprobado. Vencida: perdió la regularidad.')
             select.form-select.form-select-sm#editActaEstado(name="estado" required)
               option(value="Cursando") Cursando
               option(value="Regular") Regular
-              option(value="Aprobada") Aprobada
-          .mb-3
-            label.form-label.small.fw-bold Nota Final (Opcional)
-            input.form-control.form-control-sm#editActaNota(type="number" name="nota" min="1" max="10" placeholder="Ej: 8")
+              option(value="Promocionada") Promocionada
+              option(value="Aprobada") Aprobada (final aprobado)
+              option(value="Vencida") Vencida (perdió la regularidad)
+          .mb-3#grupoActaFechaReg
+            label.form-label.small.fw-bold(for="editActaFechaReg") Fecha de regularización
+              +ayuda('Desde esta fecha se cuentan el plazo de vigencia y los llamados de la regularidad. Para historial viejo cargá la fecha real, no la de hoy. No puede ser futura.')
+            input.form-control.form-control-sm#editActaFechaReg(type="date" name="fechaRegularizacion")
+          .row#filaActaNota
+            .col-4.mb-3#grupoActaNota
+              label.form-label.small.fw-bold(for="editActaNota") Nota
+                +ayuda('Número entero de 1 a 10. Para Aprobada y Promocionada, 4 o más.')
+              input.form-control.form-control-sm#editActaNota(type="number" name="nota" min="1" max="10" step="1" placeholder="1 a 10")
+            .col-4.mb-3#grupoActaLibro
+              label.form-label.small.fw-bold(for="editActaLibro") Libro
+                +ayuda('Libro de actas donde consta la nota. Obligatorio cuando se carga una nota.')
+              input.form-control.form-control-sm#editActaLibro(type="text" name="libro" maxlength="30" placeholder="Ej: 12")
+            .col-4.mb-3#grupoActaFolio
+              label.form-label.small.fw-bold(for="editActaFolio") Folio
+                +ayuda('Folio del libro de actas. Obligatorio cuando se carga una nota.')
+              input.form-control.form-control-sm#editActaFolio(type="text" name="folio" maxlength="30" placeholder="Ej: 87")
+          .mb-3#grupoActaFechaActa
+            label.form-label.small.fw-bold(for="editActaFechaActa") Fecha del acta
+              +ayuda('Día en que se firmó el acta. No puede ser futura ni anterior a la fecha de regularización.')
+            input.form-control.form-control-sm#editActaFechaActa(type="date" name="fechaActa")
+          .mb-3#grupoActaMotivo
+            label.form-label.small.fw-bold(for="editActaMotivo") Motivo del vencimiento
+              +ayuda('Por qué perdió la regularidad: Tiempo (venció el plazo), Llamados (agotó los llamados), Ausentes (excedió las ausencias) o Manual (decisión administrativa).')
+            select.form-select.form-select-sm#editActaMotivo(name="motivoVencimiento")
+              option(value="Manual") Manual
+              option(value="Tiempo") Tiempo
+              option(value="Llamados") Llamados
+              option(value="Ausentes") Ausentes
+          #avisoActa.alert.alert-light.border.small.py-2.mb-0
         .modal-footer.bg-light
           button.btn.btn-sm.btn-secondary(type="button" data-bs-dismiss="modal") Cancelar
-          button.btn.btn-sm.btn-success(type="submit") Guardar
+          button.btn.btn-sm.btn-success(type="submit" data-ayuda="Guardar el registro del historial (estado, nota, libro y folio)") Guardar
 
 .modal.fade#modalInscribirManual(tabindex="-1")
   .modal-dialog
     .modal-content
       .modal-header.bg-success.text-white
         h5.modal-title Inscribir Alumno a Materia
-        button.btn-close.btn-close-white(type="button" data-bs-dismiss="modal")
+        button.btn-close.btn-close-white(type="button" data-bs-dismiss="modal" aria-label="Cerrar")
       form#formInscribirManual
         .modal-body
           input(type="hidden" name="alumno_id" id="hiddenAlumnoIdInscripcion")
           input(type="hidden" name="cohorte_id" id="hiddenCohorteIdInscripcion")
+          #avisoPlanInscripcion.alert.alert-light.border.small.py-2.mb-3
           .mb-3
             label.form-label Seleccionar Materias
-            #checkboxesMateriasInscripcion.border.p-2.rounded.bg-white(style="max-height: 200px; overflow-y: auto;")
+              +ayuda('Se muestran las materias del plan del alumno, por año. El sistema controla las correlatividades y omite las que no cumple, avisando el motivo.')
+            #checkboxesMateriasInscripcion.border.p-2.rounded.bg-white(style="max-height: 260px; overflow-y: auto;")
           .mb-3
-            label.form-label Período Activo
+            label.form-label(for="selectPeriodosInscripcion") Período de Cursada abierto
+              +ayuda('Solo aparecen períodos de tipo Cursada que estén activos y dentro de sus fechas.')
             select.form-select(name="periodo_id" id="selectPeriodosInscripcion" required)
               option(selected disabled) Cargando períodos...
         .modal-footer.bg-light
           button.btn.btn-secondary(type="button" data-bs-dismiss="modal") Cancelar
-          button.btn.btn-success.text-white(type="submit") Confirmar Inscripción
+          button.btn.btn-success.text-white(type="submit" data-ayuda="Inscribir al alumno en las materias tildadas") Confirmar Inscripción
 
 // ==========================================
 // MODALES DE PERÍODOS DE INSCRIPCIÓN
@@ -327,59 +452,261 @@
     .modal-content
       .modal-header.bg-primary.text-white
         h5.modal-title Nuevo Período de Inscripción
-        button.btn-close.btn-close-white(type="button" data-bs-dismiss="modal")
+        button.btn-close.btn-close-white(type="button" data-bs-dismiss="modal" aria-label="Cerrar")
       form#formCrearPeriodo
         .modal-body
           .mb-3
-            label.form-label ID del Período
-            input.form-control(type="number" name="id" required placeholder="Ej: 1")
+            label.form-label(for="crearPeriodoNombre") Nombre del Llamado
+              +ayuda('Nombre con el que se identifica el período. Ej: Mesa de Diciembre 2026.')
+            input.form-control#crearPeriodoNombre(type="text" name="nombre" required placeholder="Ej: Mesa de Diciembre 2026")
           .mb-3
-            label.form-label Nombre del Llamado
-            input.form-control(type="text" name="nombre" required placeholder="Ej: Primer Cuatrimestre 2026")
+            label.form-label(for="crearPeriodoTipo") Tipo de período
+              +ayuda('Cursada: los alumnos se anotan a materias. Final: los alumnos se anotan a mesas de examen. Un período de Final cuenta como un llamado transcurrido para el vencimiento de la regularidad.')
+            select.form-select#crearPeriodoTipo(name="tipo" required)
+              option(value="Cursada" selected) Cursada (inscripción a materias)
+              option(value="Final") Final (inscripción a mesas de examen)
+          #grupoFechaExamenCrear.mb-3.d-none
+            label.form-label(for="crearPeriodoFechaExamen") Fecha de examen
+              +ayuda('Día en que se toma la mesa. Es informativa y se muestra a los alumnos; la inscripción se controla con las fechas de apertura y cierre.')
+            input.form-control#crearPeriodoFechaExamen(type="date" name="fechaExamen")
           .row
             .col-6.mb-3
-              label.form-label Fecha Inicio
-              input.form-control(type="date" name="fechaInicio" required)
+              label.form-label(for="crearPeriodoFechaInicio") Fecha Inicio
+                +ayuda('Primer día en que los alumnos pueden inscribirse.')
+              input.form-control#crearPeriodoFechaInicio(type="date" name="fechaInicio" required)
             .col-6.mb-3
-              label.form-label Hora Inicio
-              input.form-control(type="time" name="horaInicio" required)
+              label.form-label(for="crearPeriodoHoraInicio") Hora Inicio
+                +ayuda('Hora del primer día a partir de la cual se abre la inscripción.')
+              input.form-control#crearPeriodoHoraInicio(type="time" name="horaInicio" required)
           .row
             .col-6.mb-3
-              label.form-label Fecha Fin
-              input.form-control(type="date" name="fechaFin" required)
+              label.form-label(for="crearPeriodoFechaFin") Fecha Fin
+                +ayuda('Último día de inscripción. Después de esa fecha y hora el período se cierra solo.')
+              input.form-control#crearPeriodoFechaFin(type="date" name="fechaFin" required)
             .col-6.mb-3
-              label.form-label Hora Fin
-              input.form-control(type="time" name="horaFin" required)
+              label.form-label(for="crearPeriodoHoraFin") Hora Fin
+                +ayuda('Hora del último día en la que se cierra la inscripción.')
+              input.form-control#crearPeriodoHoraFin(type="time" name="horaFin" required)
+          .form-check.form-switch
+            input.form-check-input#crearPeriodoActivo(type="checkbox" name="activo" role="switch")
+            label.form-check-label(for="crearPeriodoActivo") Abrir la inscripción ahora
+              +ayuda('Si no lo tildás, el período se crea cerrado y lo abrís después desde la lista. Para que los alumnos se inscriban tiene que estar abierto Y dentro de sus fechas.')
         .modal-footer.bg-light
           button.btn.btn-secondary(type="button" data-bs-dismiss="modal") Cancelar
-          button.btn.btn-primary(type="submit") Guardar Período
+          button.btn.btn-primary(type="submit" data-ayuda="Crear el período con estas fechas") Guardar Período
 
 .modal.fade#modalEditarPeriodo(tabindex="-1")
   .modal-dialog
     .modal-content
       .modal-header.bg-warning.text-dark
         h5.modal-title Editar Período
-        button.btn-close(type="button" data-bs-dismiss="modal")
+        button.btn-close(type="button" data-bs-dismiss="modal" aria-label="Cerrar")
       form#formEditarPeriodo
         .modal-body
           input(type="hidden" id="editPeriodoId" name="id")
           .mb-3
-            label.form-label Nombre del Llamado
+            label.form-label(for="editPeriodoNombre") Nombre del Llamado
+              +ayuda('Nombre con el que se identifica el período. Ej: Mesa de Diciembre 2026.')
             input.form-control#editPeriodoNombre(type="text" name="nombre" required)
+          .mb-3
+            label.form-label(for="editPeriodoTipo") Tipo de período
+              +ayuda('El tipo solo se puede cambiar mientras el período no tenga inscripciones. Si ya las tiene, creá un período nuevo.')
+            select.form-select#editPeriodoTipo(name="tipo" required)
+              option(value="Cursada") Cursada (inscripción a materias)
+              option(value="Final") Final (inscripción a mesas de examen)
+          #grupoFechaExamenEditar.mb-3.d-none
+            label.form-label(for="editPeriodoFechaExamen") Fecha de examen
+              +ayuda('Día en que se toma la mesa. Es informativa; podés dejarla vacía.')
+            input.form-control#editPeriodoFechaExamen(type="date" name="fechaExamen")
           .row
             .col-6.mb-3
-              label.form-label Fecha Inicio
+              label.form-label(for="editPeriodoFechaInicio") Fecha Inicio
+                +ayuda('Primer día en que los alumnos pueden inscribirse.')
               input.form-control#editPeriodoFechaInicio(type="date" name="fechaInicio" required)
             .col-6.mb-3
-              label.form-label Hora Inicio
+              label.form-label(for="editPeriodoHoraInicio") Hora Inicio
+                +ayuda('Hora del primer día a partir de la cual se abre la inscripción.')
               input.form-control#editPeriodoHoraInicio(type="time" name="horaInicio" required)
           .row
             .col-6.mb-3
-              label.form-label Fecha Fin
+              label.form-label(for="editPeriodoFechaFin") Fecha Fin
+                +ayuda('Último día de inscripción. Después de esa fecha y hora el período se cierra solo.')
               input.form-control#editPeriodoFechaFin(type="date" name="fechaFin" required)
             .col-6.mb-3
-              label.form-label Hora Fin
+              label.form-label(for="editPeriodoHoraFin") Hora Fin
+                +ayuda('Hora del último día en la que se cierra la inscripción.')
               input.form-control#editPeriodoHoraFin(type="time" name="horaFin" required)
         .modal-footer.bg-light
           button.btn.btn-secondary(type="button" data-bs-dismiss="modal") Cancelar
-          button.btn.btn-warning(type="submit") Guardar Cambios
+          button.btn.btn-warning(type="submit" data-ayuda="Guardar los cambios del período") Guardar Cambios
+
+
+// ==========================================
+// MODALES DE PLANES DE ESTUDIO Y EDICIÓN DE COHORTE
+// ==========================================
+.modal.fade#modalEditarCohorte(tabindex="-1")
+  .modal-dialog
+    .modal-content
+      .modal-header.bg-warning.text-dark
+        h5.modal-title Editar Cohorte
+        button.btn-close(type="button" data-bs-dismiss="modal" aria-label="Cerrar")
+      form#formEditarCohorte
+        .modal-body
+          input(type="hidden" id="editCohorteId")
+          .mb-3
+            label.form-label(for="editCohorteNombre") Nombre / Año
+              +ayuda('Cómo se identifica la cohorte, normalmente por el año de ingreso. Ej: 2026.')
+            input.form-control#editCohorteNombre(type="text" name="name" required)
+          .mb-3
+            label.form-label(for="editCohorteInicio") Fecha de Inicio
+              +ayuda('Día en que empieza a cursar la cohorte. Sirve de referencia para el inicio del ciclo.')
+            input.form-control#editCohorteInicio(type="date" name="startDate" required)
+          .mb-3
+            label.form-label(for="editCohortePlan") Plan de estudios
+              +ayuda('El plan solo se puede cambiar mientras la cohorte no tenga alumnos cursando ni inscriptos. Si ya tiene actividad, creá una cohorte nueva con el otro plan.')
+            select.form-select#editCohortePlan(name="plan_id" required)
+        .modal-footer.bg-light
+          button.btn.btn-secondary(type="button" data-bs-dismiss="modal") Cancelar
+          button.btn.btn-warning(type="submit" data-ayuda="Guardar los cambios de la cohorte") Guardar Cambios
+
+.modal.fade#modalPlanes(tabindex="-1")
+  .modal-dialog.modal-xl.modal-dialog-scrollable
+    .modal-content
+      .modal-header.bg-dark.text-white
+        h5.modal-title
+          i.bi.bi-journal-text.me-2
+          | Planes de Estudio y Reglas de Regularidad
+        button.btn-close.btn-close-white(type="button" data-bs-dismiss="modal" aria-label="Cerrar")
+      .modal-body
+        p.small.text-muted.mb-3 Cada carrera tiene su propio plan, con sus materias, correlatividades y reglas de regularidad. Cada cohorte cursa un único plan, que se elige al crearla.
+        #contenedorPlanes.border.rounded.mb-4
+        h6#tituloFormPlan.mb-3 Nuevo plan de estudios
+        form#formPlan
+          input(type="hidden" name="planId" id="planId")
+          .row.g-3
+            .col-md-6
+              label.form-label(for="planNombre") Nombre del plan
+                +ayuda('Nombre de la carrera. Ej: Tecnicatura Superior en Desarrollo de Software.')
+              input.form-control#planNombre(type="text" name="nombre" required maxlength="150" placeholder="Ej: Tecnicatura Superior en Desarrollo de Software")
+            .col-md-6
+              label.form-label(for="planResolucion") Resolución (opcional)
+                +ayuda('Dato informativo: número de resolución que aprueba el plan. Ej: Res. 1234/2020.')
+              input.form-control#planResolucion(type="text" name="resolucion" maxlength="100" placeholder="Ej: Res. 1234/2020")
+            .col-md-3
+              label.form-label(for="planDuracion") Duración (años)
+                +ayuda('Cantidad de años de la carrera. Se usa para avisar si una materia se carga en un año que el plan no tiene.')
+              input.form-control#planDuracion(type="number" name="duracionAnios" required min="1" max="10" value="3")
+            .col-md-3
+              label.form-label(for="planActivo") Estado
+                +ayuda('Un plan inactivo no se ofrece al crear cohortes nuevas, pero las cohortes que ya lo cursan siguen funcionando.')
+              select.form-select#planActivo(name="activo")
+                option(value="true" selected) Activo
+                option(value="false") Inactivo
+          h6.mt-4.mb-1 Reglas de regularidad de este plan
+          p.small.text-muted.mb-3 Dejá un campo vacío para indicar que esa regla no tiene límite. Un cambio acá se aplica enseguida a todos los alumnos del plan, porque los vencimientos se calculan al consultar.
+          .row.g-3
+            .col-md-4
+              label.form-label(for="planVencimiento") Vencimiento de la regularidad (meses)
+                +ayuda('Cuántos meses dura la regularidad de una materia desde que el alumno la regularizó. Pasado ese tiempo ya no puede inscribirse al final y tiene que recursarla; el registro anterior se conserva como historial. Vacío = no vence por tiempo.')
+              input.form-control#planVencimiento(type="number" name="vencimientoRegularidadMeses" min="1" max="240" value="24" placeholder="Sin vencimiento")
+            .col-md-4
+              label.form-label(for="planLlamados") Máximo de llamados consecutivos
+                +ayuda('Cantidad de llamados (períodos de Final) que dura la regularidad desde que se regularizó, el alumno se anote o no. Al consumir el último pierde la regularidad y tiene que recursar. Vacío = sin tope.')
+              input.form-control#planLlamados(type="number" name="maxLlamadosConsecutivos" min="1" max="50" value="8" placeholder="Sin tope")
+            .col-md-4
+              label.form-label(for="planAusentes") Máximo de ausentes a finales
+                +ayuda('Cantidad de veces que el alumno puede figurar Ausente en finales dentro de la misma cursada regular. Al alcanzarla pierde la regularidad. Vacío = sin tope.')
+              input.form-control#planAusentes(type="number" name="maxAusentes" min="1" max="50" placeholder="Sin tope")
+          .d-flex.justify-content-end.gap-2.mt-4
+            button.btn.btn-outline-secondary(type="button" onclick="nuevoPlan()" data-ayuda="Vaciar el formulario para cargar un plan nuevo") Limpiar / Nuevo plan
+            button.btn.btn-primary#btnGuardarPlan(type="submit" data-ayuda="Guardar el plan de estudios con sus reglas de regularidad") Crear plan
+      .modal-footer.bg-light
+        button.btn.btn-secondary(type="button" data-bs-dismiss="modal") Cerrar
+
+// ==========================================
+// MESA DE FINALES Y RESULTADO DE UN FINAL 
+// ==========================================
+//- Inscripción manual a un final (excepción del preceptor): el alumno tuvo un problema con el sistema, pidió una excepción o se pasó de la hora límite
+.modal.fade#modalInscribirFinal(tabindex="-1")
+  .modal-dialog.modal-dialog-scrollable
+    .modal-content
+      .modal-header.bg-danger.text-white
+        h5.modal-title Inscribir a un final
+        button.btn-close.btn-close-white(type="button" data-bs-dismiss="modal" aria-label="Cerrar")
+      form#formInscribirFinal
+        .modal-body
+          #inscFinalDescripcion.alert.alert-light.border.small.py-2
+          .mb-3
+            label.form-label.fw-bold(for="inscFinalPeriodo") Mesa (período de Final)
+              +ayuda('Podés elegir también un período cerrado o fuera de fecha: queda registrado como inscripción por excepción. Las reglas académicas (regularidad vigente, llamados, ausentes y correlatividades con final aprobado) se controlan igual que para el alumno.')
+            select.form-select#inscFinalPeriodo(required)
+              option(value="" disabled selected) Cargando períodos...
+            #avisoInscFinalPeriodo.small.mt-2
+          .mb-0
+            label.form-label.fw-bold Materias
+              +ayuda('Solo se ofrecen las materias que el alumno tiene Regulares. Las que hoy no puede rendir figuran deshabilitadas con el motivo.')
+            #inscFinalMaterias.border.rounded.p-2.bg-white(style="max-height: 300px; overflow-y: auto;")
+              .text-muted.small Cargando materias...
+        .modal-footer.bg-light
+          button.btn.btn-secondary(type="button" data-bs-dismiss="modal") Cancelar
+          button.btn.btn-danger#btnConfirmarInscFinal(type="submit" data-ayuda="Inscribir al alumno en las materias tildadas de esta mesa") Inscribir
+
+.modal.fade#modalMesaFinal(tabindex="-1")
+  .modal-dialog.modal-xl.modal-dialog-scrollable
+    .modal-content
+      .modal-header.bg-dark.text-white
+        div
+          h5.modal-title.mb-0#tituloMesaFinal Mesa de examen
+          small.text-white-50#subtituloMesaFinal
+        button.btn-close.btn-close-white(type="button" data-bs-dismiss="modal" aria-label="Cerrar")
+      .modal-body.bg-light
+        .d-flex.flex-wrap.justify-content-between.align-items-center.gap-2.mb-3
+          #resumenMesaFinal.small
+          .d-flex.align-items-center.gap-2
+            label.form-label.small.mb-0(for="filtroMateriaMesa") Materia
+            select.form-select.form-select-sm.w-auto#filtroMateriaMesa
+              option(value="") Todas
+            +ayuda('Lista de los alumnos inscriptos a cada materia en este llamado. Cargá el resultado de cada uno; también se puede corregir uno ya cargado. Un Desaprobado o un Ausente consumen un llamado de la regularidad del alumno.')
+        #contenedorMesaFinal
+          .p-4.text-center.text-muted Cargando mesa...
+      .modal-footer
+        button.btn.btn-secondary(type="button" data-bs-dismiss="modal") Cerrar
+
+.modal.fade#modalResultadoFinal(tabindex="-1" data-bs-backdrop="static")
+  .modal-dialog.modal-dialog-centered
+    .modal-content
+      .modal-header.bg-danger.text-white
+        h6.modal-title Resultado del final
+        button.btn-close.btn-close-white(type="button" data-bs-dismiss="modal" aria-label="Cerrar")
+      form#formResultadoFinal
+        .modal-body
+          input(type="hidden" id="resFinalId")
+          #resFinalDescripcion.alert.alert-light.border.small.py-2
+          .mb-3
+            label.form-label.small.fw-bold(for="resFinalResultado") Resultado
+              +ayuda('Aprobado: la materia pasa a Aprobada (nota 4 o más, con libro y folio). Desaprobado: consume un llamado. Ausente: no se presentó; consume un llamado y suma una ausencia.')
+            select.form-select.form-select-sm#resFinalResultado(name="resultado" required)
+              option(value="Aprobado") Aprobado
+              option(value="Desaprobado") Desaprobado
+              option(value="Ausente") Ausente
+          .row
+            .col-4.mb-3#grupoResFinalNota
+              label.form-label.small.fw-bold(for="resFinalNota") Nota
+                +ayuda('Entero de 1 a 10. Aprobado: 4 o más. Desaprobado: de 1 a 3 (opcional). Un ausente no lleva nota.')
+              input.form-control.form-control-sm#resFinalNota(type="number" name="nota" min="1" max="10" step="1")
+            .col-4.mb-3
+              label.form-label.small.fw-bold(for="resFinalLibro") Libro
+                +ayuda('Libro de actas del examen. Obligatorio cuando hay nota.')
+              input.form-control.form-control-sm#resFinalLibro(type="text" name="libro" maxlength="30")
+            .col-4.mb-3
+              label.form-label.small.fw-bold(for="resFinalFolio") Folio
+                +ayuda('Folio del libro de actas. Obligatorio cuando hay nota.')
+              input.form-control.form-control-sm#resFinalFolio(type="text" name="folio" maxlength="30")
+          .mb-3
+            label.form-label.small.fw-bold(for="resFinalFecha") Fecha del examen
+              +ayuda('Día en que se rindió. Si la dejás vacía se usa la de la mesa.')
+            input.form-control.form-control-sm#resFinalFecha(type="date" name="fechaExamen")
+          #avisoResFinal.alert.alert-light.border.small.py-2.mb-0
+        .modal-footer.bg-light
+          button.btn.btn-sm.btn-secondary(type="button" data-bs-dismiss="modal") Cancelar
+          button.btn.btn-sm.btn-danger(type="submit" data-ayuda="Guardar el resultado del examen") Guardar resultado

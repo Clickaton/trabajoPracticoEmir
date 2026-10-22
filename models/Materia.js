@@ -13,6 +13,13 @@ const materiaSchema = new mongoose.Schema({
     anio: { 
         type: Number, 
         required: true 
+    },
+    // Plan de estudios al que pertenece la materia (ver models/PlanEstudio.js).
+    // null = todavía sin plan: scripts/migrate-v2.js se lo asigna a las materias existentes.
+    plan_id: {
+        type: Number,
+        default: null,
+        index: true
     }
 }, {
     timestamps: true

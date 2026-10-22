@@ -17,7 +17,9 @@ const cohorteSchema = new mongoose.Schema({
     userList: [{
         type: Number
     }],
-    spreadsheetId: { type: String, default: null }
+    spreadsheetId: { type: String, default: null },
+    // Plan de estudios que cursa la cohorte: define qué materias ven sus alumnos (ver models/PlanEstudio.js)
+    plan_id: { type: Number, default: null, index: true }
 }, {
     timestamps: true
 });

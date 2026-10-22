@@ -1,5 +1,26 @@
 import { google } from 'googleapis';
 
+// Columnas de la planilla de cada cohorte:
+//  - A a D (ID, Nombre, Email, Legajo): se pueden corregir en la planilla y el botón "Sincronizar" las trae al sistema.
+//  - E a H (DNI, Estado, Tipo de ingreso, Instituto de origen): son de consulta. El sistema las escribe pero NO las lee de
+//    vuelta: se cambian desde la ficha del alumno. Las planillas creadas antes solo tienen A a D y siguen funcionando.
+export const ENCABEZADOS_PLANILLA = ['ID', 'Nombre', 'Email', 'Legajo', 'DNI', 'Estado', 'Tipo de ingreso', 'Instituto de origen (pase)'];
+const ULTIMA_COLUMNA = 'H';
+
+export const filaDeAlumno = (alumno) => [
+    alumno.id,
+    alumno.name,
+    alumno.email,
+    alumno.legajo || 'Sin asignar',
+    alumno.dni || '',
+    alumno.activo === false ? 'Inactivo' : 'Activo',
+    alumno.tipoIngreso || 'Inicial',
+    alumno.pase?.esPase ? (alumno.pase.institutoOrigen || 'Sí') : ''
+];
+
+// Los nombres con apóstrofe (O'Brien) rompen la consulta de Drive si no se escapan
+const escaparConsultaDrive = (texto) => String(texto).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+
 // Helper para inicializar el cliente con los tokens del usuario logueado
 const getAuthClient = (tokens) => {
     const oauth2Client = new google.auth.OAuth2(
@@ -43,7 +64,7 @@ export const crearOObtenerPlanilla = async (cohorteNombre, tokens, alumnos = [])
     let spreadsheetId;
     
     const resSheet = await drive.files.list({
-        q: `name='${nombrePlanilla}' and '${folderId}' in parents and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false`,
+        q: `name='${escaparConsultaDrive(nombrePlanilla)}' and '${folderId}' in parents and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false`,
         fields: 'files(id, name)'
     });
 
@@ -63,18 +84,11 @@ export const crearOObtenerPlanilla = async (cohorteNombre, tokens, alumnos = [])
 
         // ESCRITURA DE DATOS AL CREAR EL ARCHIVO
         // Preparamos la matriz de datos. La primera fila son los encabezados.
-        const filasDeDatos = [
-            ['ID', 'Nombre', 'Email', 'Legajo']
-        ];
+        const filasDeDatos = [ENCABEZADOS_PLANILLA];
 
         // Recorremos los alumnos y los agregamos debajo como nuevas filas
         alumnos.forEach(alumno => {
-            filasDeDatos.push([
-                alumno.id,
-                alumno.name,
-                alumno.email,
-                alumno.legajo || 'Sin asignar'
-            ]);
+            filasDeDatos.push(filaDeAlumno(alumno));
         });
 
         // Inyectamos todo el bloque de datos a partir de la celda A1
@@ -132,15 +146,10 @@ export const actualizarAlumnoEnPlanilla = async (spreadsheetId, tokens, alumno) 
     if (filaIndex !== -1) {
         await sheets.spreadsheets.values.update({
             spreadsheetId: spreadsheetId,
-            range: `A${filaIndex}:D${filaIndex}`, 
+            range: `A${filaIndex}:${ULTIMA_COLUMNA}${filaIndex}`,
             valueInputOption: 'USER_ENTERED',
             resource: {
-                values: [[
-                    alumno.id,
-                    alumno.name,
-                    alumno.email,
-                    alumno.legajo || 'Sin asignar'
-                ]]
+                values: [filaDeAlumno(alumno)]
             }
         });
     }

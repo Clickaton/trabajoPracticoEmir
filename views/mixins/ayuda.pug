@@ -1,0 +1,8 @@
+//- Leyenda de ayuda (punto 5 del pedido): un ícono "?" que explica el campo o la operación
+//- al pasar el mouse o al enfocarlo con el teclado. Uso:
+//-   label.form-label Duración
+//-     +ayuda('Cantidad de años de la carrera')
+//- La activación del tooltip la hace activarAyudas() (ver partials/scripts-comun.pug).
+mixin ayuda(texto, lado)
+  span.ayuda.text-info.ms-1(data-bs-toggle="tooltip" data-bs-placement=(lado || 'top') title=texto tabindex="0" role="note" aria-label=texto)
+    i.bi.bi-question-circle-fill

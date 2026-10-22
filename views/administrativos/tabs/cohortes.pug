@@ -1,29 +1,45 @@
 .tab-pane.fade#cohortes-pane(role="tabpanel" aria-labelledby="cohortes-tab")
-  .d-flex.justify-content-between.align-items-center.mb-3
+  .d-flex.flex-wrap.justify-content-between.align-items-center.gap-2.mb-3
     h4.mb-0.text-secondary Gestión de Cohortes
-    button.btn.btn-primary.shadow-sm(data-bs-toggle="modal" data-bs-target="#modalCrearCohorte")
-      i.bi.bi-folder-plus.me-1
-      | Nueva Cohorte
+      +ayuda('Una cohorte es el grupo de alumnos que ingresó junto. Cursa un único plan de estudios, que se elige al crear la cohorte y define sus materias y reglas.')
+    .d-flex.gap-2
+      button.btn.btn-outline-secondary.shadow-sm(type="button" onclick="abrirModalPlanes()" data-ayuda="Ver, crear y editar los planes de estudio y sus reglas de regularidad")
+        i.bi.bi-journal-text.me-1
+        | Planes de Estudio
+      button.btn.btn-primary.shadow-sm(data-bs-toggle="modal" data-bs-target="#modalCrearCohorte" data-ayuda="Crear una cohorte nueva y elegir el plan de estudios que cursa")
+        i.bi.bi-folder-plus.me-1
+        | Nueva Cohorte
   
   .card.shadow-sm.border-0.mb-4
-    .card-header.bg-dark.text-white.d-flex.align-items-center.justify-content-between
+    .card-header.bg-dark.text-white.d-flex.flex-wrap.align-items-center.justify-content-between.gap-2
       .d-flex.align-items-center.gap-3
         span Seleccionar Cohorte:
-        select.form-select.form-select-sm.w-auto#selectorCohorte
+        select.form-select.form-select-sm.w-auto#selectorCohorte(data-ayuda="Elegí la cohorte para ver y gestionar sus alumnos")
           option(selected disabled) Cargando cohortes...
       
-      .d-flex.gap-2
-        button.btn.btn-sm.btn-success.text-white#btnAbrirSheets(disabled)
+      .d-flex.flex-wrap.gap-2
+        button.btn.btn-sm.btn-light#btnEditarCohorte(type="button" disabled title="Cambiar el nombre, la fecha de inicio o el plan de la cohorte")
+          i.bi.bi-pencil-square.me-1
+          | Editar Cohorte
+        button.btn.btn-sm.btn-success.text-white#btnAbrirSheets(disabled data-ayuda="Abre en una pestaña nueva la planilla de Google Sheets de esta cohorte")
           i.bi.bi-file-earmark-spreadsheet.me-1
           | Abrir en Sheets
-        button.btn.btn-sm.btn-warning.text-dark#btnSincronizarSheets(disabled)
+        button.btn.btn-sm.btn-warning.text-dark#btnSincronizarSheets(disabled data-ayuda="Trae los datos de la planilla de Google Sheets de esta cohorte y actualiza la lista de alumnos")
           i.bi.bi-arrow-repeat.me-1
           | Sincronizar Datos de Sheets
-        button.btn.btn-sm.btn-info.text-white#btnAbrirModalAlumno(data-bs-toggle="modal" data-bs-target="#modalCrearAlumno" disabled)
+        button.btn.btn-sm.btn-info.text-white#btnAbrirModalAlumno(data-bs-toggle="modal" data-bs-target="#modalCrearAlumno" disabled data-ayuda="Dar de alta a un alumno nuevo en esta cohorte")
           i.bi.bi-person-plus.me-1
           | Dar de Alta Alumno
+
+    #resumenCohorte.border-bottom.bg-white.px-3.py-2.small.d-none
+
+    #contenedorSemaforoCohorte.border-bottom.bg-white.px-3.py-2.d-none
+      .d-flex.flex-wrap.align-items-center.gap-2
+        span.small.fw-semibold.text-secondary Semáforo de la cohorte
+          +ayuda('Cada alumno tiene el color de su peor materia. Verde: al día. Amarillo: promoción condicional (aprobó la cursada pero debe el final de una correlativa). Rojo: perdió la regularidad de alguna materia y debe volver a cursarla. Gris: todavía no cursó nada. Tocá un color para filtrar la lista.')
+        #barraSemaforoCohorte.d-flex.flex-wrap.gap-1
 
     .card-body.p-0#contenedorAlumnos
       .p-5.text-center.text-muted
         i.bi.bi-people.fs-1.mb-3.d-block
-        h5 Seleccioná una cohorte para ver sus alumnos
+        h5 Seleccioná una cohorte para ver sus alumnos.

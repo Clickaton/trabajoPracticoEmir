@@ -1,0 +1,67 @@
+//- Cliente del chat de soporte con el asistente virtual. Lo usan el panel administrativo y el dashboard del alumno.
+//- La pantalla que lo incluye aporta el HTML: #ventana-chat-flotante, #chat-form, #chat-input y #chat-messages.
+//- El servidor sabe quién escribe por la sesión (cookie): acá solo se envía el texto, y la respuesta vuelve solo a este navegador.
+script(src="/socket.io/socket.io.js")
+script.
+  // Abre / cierra la ventanita del chat
+  function toggleChat() {
+    const ventana = document.getElementById('ventana-chat-flotante');
+    ventana.style.display = ventana.style.display === 'none' ? 'block' : 'none';
+  }
+
+  (function iniciarChat() {
+    const formulario = document.getElementById('chat-form');
+    const entrada = document.getElementById('chat-input');
+    const lista = document.getElementById('chat-messages');
+    if (!formulario || !entrada || !lista || typeof io !== 'function') return;
+
+    // Dibuja un mensajito tipo WhatsApp. El texto (lo que escribe la persona o responde el asistente) se inserta con
+    // textContent: nunca se interpreta como HTML, así que un mensaje con etiquetas no puede ejecutar código en la pantalla.
+    function agregarMensajeVisual(emisor, texto, clasesCaja, clasesTitulo) {
+      const item = document.createElement('li');
+      item.className = 'mb-3 d-flex';
+
+      const caja = document.createElement('div');
+      caja.className = clasesCaja + ' rounded p-2 shadow-sm';
+      caja.style.maxWidth = '85%';
+
+      const titulo = document.createElement('small');
+      titulo.className = 'fw-bold ' + clasesTitulo;
+      titulo.textContent = emisor;
+
+      const cuerpo = document.createElement('small');
+      cuerpo.style.whiteSpace = 'pre-wrap'; // respeta los saltos de línea de las respuestas con pasos o listas
+      cuerpo.textContent = texto;
+
+      caja.append(titulo, document.createElement('br'), cuerpo);
+      item.appendChild(caja);
+      lista.appendChild(item);
+      lista.scrollTop = lista.scrollHeight; // Auto-scroll al final
+    }
+
+    const socket = io();
+    let avisoDeConexionMostrado = false;
+
+    formulario.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const texto = entrada.value.trim();
+      if (!texto) return;
+
+      agregarMensajeVisual('Vos', texto, 'bg-primary text-white ms-auto', 'text-white-50');
+      socket.emit('mensaje', { texto });
+      entrada.value = '';
+    });
+
+    // Respuesta del asistente
+    socket.on('mensaje', (datos) => {
+      agregarMensajeVisual(String((datos && datos.usuario) || 'Asesor Virtual'), String((datos && datos.texto) ?? ''), 'bg-white border border-primary', 'text-primary');
+    });
+
+    // Sesión vencida o sin conexión: se avisa una sola vez (el navegador reintenta solo)
+    socket.on('connect_error', () => {
+      if (avisoDeConexionMostrado) return;
+      avisoDeConexionMostrado = true;
+      agregarMensajeVisual('Sistema', 'No se pudo conectar con el chat. Si tu sesión venció, volvé a iniciar sesión.', 'bg-white border border-danger', 'text-danger');
+    });
+    socket.on('connect', () => { avisoDeConexionMostrado = false; });
+  })();

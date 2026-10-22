@@ -7,8 +7,6 @@ html(lang="es")
   body
     .container.mt-5
       h1.mb-4 Lista de Usuarios
-      a.btn.btn-primary.rounded-pill.px-3.mb-3(href="/registerUser") Registrar Nuevo Usuario
-      br
       table.table.table-striped.table-bordered.shadow-sm
         thead.table-light
           tr
@@ -23,8 +21,8 @@ html(lang="es")
               td.text-center= user.name
               td.text-center= user.email
               td.d-flex.justify-content-center.gap-2
-                a.btn.btn-primary.rounded-pill.px-3(href=`/editUser/${user.id}`) Editar
+                a.btn.btn-primary.rounded-pill.px-3(href=`/editUser/${user.id}` title="Editar los datos de este usuario") Editar
                 form.d-inline(action=`/deleteUser/${user.id}` method="POST" onsubmit="return confirm('¿Estás seguro de eliminar este usuario?');")
-                    button.btn.btn-danger.rounded-pill.px-3(type="submit") Eliminar
+                    button.btn.btn-danger.rounded-pill.px-3(type="submit" title="Eliminar este usuario (pide confirmación)") Eliminar
 
               

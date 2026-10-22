@@ -1,6 +1,7 @@
 import { google } from 'googleapis';
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
+import { rutaInicio, renderSinAcceso } from '../middlewares/authHybrid.js';
 
 // Configuración del cliente oficial de Google
 export const oauth2Client = new google.auth.OAuth2(
@@ -77,22 +78,10 @@ export const googleAuthCallback = async (req, res) => {
             sameSite: 'lax' // antes: 'strict'
         });
 
-        // 🔍 CONSOLE.LOG DE DEPURACIÓN
-        console.log("--- DATOS DEL USUARIO LOGUEADO CON GOOGLE ---");
-        console.log("Nombre:", usuario.name);
-        console.log("Email:", usuario.email);
-        console.log("Rol:", usuario.rol);
-        console.log("TipoPerfil:", usuario.tipoPerfil);
-        console.log("----------------------------------------------");
-
-        // Redirigimos según el tipo de perfil e idéntico al login tradicional
-        if (usuario.tipoPerfil === 'Alumno') {
-            return res.redirect('/dashboard');
-        } else if (usuario.rol === 'Administrativo' || usuario.rol === 'Direccion' || usuario.tipoPerfil === 'Personal') {
-            return res.redirect('/api/administrativos');
-        } else {
-            res.redirect('/getUsers');
-        }
+        // Misma regla que el login con contraseña (rutaInicio): cada perfil a su pantalla, y explicación si no tiene
+        const destino = rutaInicio(usuario);
+        if (!destino) return renderSinAcceso(res, usuario);
+        return res.redirect(destino);
 
     } catch (error) {
         console.error('Error en el callback de Google:', error);

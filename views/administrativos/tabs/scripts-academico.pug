@@ -1,0 +1,353 @@
+script.
+  // ==========================================================================
+  // PLANES DE ESTUDIO, MATERIAS Y CORRELATIVIDADES 
+  // ==========================================================================
+  let materiasActuales = [];     // Materias del plan elegido en la pestaña "Materias y Correlatividades"
+  let planMateriasId = null;     // Plan elegido en esa pestaña
+  const CLAVE_PLAN_MATERIAS = 'planMateriasId';
+
+  // ----- Carga de planes y selectores -----
+  async function cargarPlanes() {
+    const r = await apiFetch('/api/planes');
+    if (!r.ok) {
+      mostrarAviso('No se pudieron cargar los planes de estudio: ' + r.error, 'danger');
+      return false;
+    }
+    planesActuales = r.data.data || [];
+    pintarSelectoresDePlan();
+    pintarListaPlanes();
+    return true;
+  }
+
+  function pintarSelectoresDePlan() {
+    const hayPlanes = planesActuales.length > 0;
+    const activos = planesActuales.filter((p) => p.activo !== false);
+
+    // 1) Selector de la pestaña Materias (todos los planes; recuerda el último elegido)
+    const selectMaterias = document.getElementById('selectorPlanMaterias');
+    if (selectMaterias) {
+      if (!hayPlanes) {
+        planMateriasId = null;
+        selectMaterias.innerHTML = '<option disabled selected>No hay planes: creá uno en "Planes y Reglas"</option>';
+      } else {
+        let guardado = null;
+        try { guardado = Number(localStorage.getItem(CLAVE_PLAN_MATERIAS)); } catch (_) { guardado = null; }
+        const elegido = [planMateriasId, guardado].find((id) => id && planPorId(id))
+          || (activos[0] || planesActuales[0]).id;
+        planMateriasId = elegido;
+        selectMaterias.innerHTML = planesActuales.map((p) => `<option value="${p.id}">${esc(p.nombre)}${p.activo === false ? ' (inactivo)' : ''}</option>`).join('');
+        selectMaterias.value = String(planMateriasId);
+      }
+    }
+
+    // 2) Nueva cohorte: solo planes activos (si hay uno solo, queda elegido)
+    const selectCohorte = document.getElementById('selectPlanCohorte');
+    if (selectCohorte) {
+      if (activos.length === 0) {
+        selectCohorte.innerHTML = '<option value="" disabled selected>No hay planes activos: creá uno en "Planes de Estudio"</option>';
+      } else {
+        selectCohorte.innerHTML = (activos.length > 1 ? '<option value="" disabled selected>Elegir plan...</option>' : '')
+          + activos.map((p) => `<option value="${p.id}">${esc(p.nombre)}</option>`).join('');
+      }
+    }
+  }
+
+  document.getElementById('selectorPlanMaterias')?.addEventListener('change', async (e) => {
+    planMateriasId = Number(e.target.value);
+    try { localStorage.setItem(CLAVE_PLAN_MATERIAS, String(planMateriasId)); } catch (_) { /* sin almacenamiento: no pasa nada */ }
+    await cargarMaterias();
+  });
+
+  // ----- Ventana "Planes de Estudio" -----
+  function abrirModalPlanes() {
+    nuevoPlan();
+    abrirModal('modalPlanes');
+    cargarPlanes();
+  }
+
+  function pintarListaPlanes() {
+    const contenedor = document.getElementById('contenedorPlanes');
+    if (!contenedor) return;
+
+    if (planesActuales.length === 0) {
+      contenedor.innerHTML = '<div class="p-4 text-center text-muted">Todavía no hay planes de estudio. Creá el primero con el formulario de abajo.</div>';
+      return;
+    }
+
+    let html = '<div class="table-responsive"><table class="table table-sm table-hover align-middle mb-0"><thead class="table-light"><tr>'
+      + '<th class="ps-3">Plan</th><th>Duración</th><th>Reglas de regularidad</th><th class="text-center">Materias</th><th class="text-center">Cohortes</th><th>Estado</th><th class="text-center pe-3">Acciones</th></tr></thead><tbody>';
+
+    planesActuales.forEach((p) => {
+      const enUso = p.totalMaterias > 0 || p.totalCohortes > 0;
+      html += `<tr>
+        <td class="ps-3"><span class="fw-semibold">${esc(p.nombre)}</span>${p.resolucion ? `<br><small class="text-muted">${esc(p.resolucion)}</small>` : ''}</td>
+        <td>${p.duracionAnios} años</td>
+        <td><small>${esc(resumenReglasPlan(p))}</small></td>
+        <td class="text-center">${p.totalMaterias}</td>
+        <td class="text-center">${p.totalCohortes}</td>
+        <td>${p.activo === false ? '<span class="badge bg-secondary">Inactivo</span>' : '<span class="badge bg-success">Activo</span>'}</td>
+        <td class="text-center pe-3 text-nowrap">
+          <button type="button" class="btn btn-sm btn-outline-warning me-1" data-bs-toggle="tooltip" title="Editar el plan y sus reglas de regularidad" onclick="editarPlan(${p.id})"><i class="bi bi-pencil"></i></button>
+          <button type="button" class="btn btn-sm btn-outline-secondary me-1" data-bs-toggle="tooltip" title="${p.activo === false ? 'Reactivar: vuelve a ofrecerse al crear cohortes' : 'Dar de baja: deja de ofrecerse al crear cohortes nuevas (las cohortes existentes siguen funcionando)'}" onclick="alternarPlan(${p.id}, ${p.activo === false})"><i class="bi ${p.activo === false ? 'bi-toggle-off' : 'bi-toggle-on'}"></i></button>
+          <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="tooltip" title="${enUso ? 'No se puede eliminar un plan con materias o cohortes: dalo de baja' : 'Eliminar el plan (solo si está vacío)'}" onclick="eliminarPlan(${p.id})"><i class="bi bi-trash"></i></button>
+        </td></tr>`;
+    });
+    contenedor.innerHTML = html + '</tbody></table></div>';
+    activarAyudas(contenedor);
+  }
+
+  function nuevoPlan() {
+    const formulario = document.getElementById('formPlan');
+    if (!formulario) return;
+    formulario.reset(); // vuelve a los valores iniciales definidos en el HTML (3 años, 24 meses, 8 llamados, sin tope de ausentes)
+    document.getElementById('planId').value = '';
+    document.getElementById('tituloFormPlan').textContent = 'Nuevo plan de estudios';
+    document.getElementById('btnGuardarPlan').textContent = 'Crear plan';
+  }
+
+  function editarPlan(id) {
+    const plan = planPorId(id);
+    if (!plan) return;
+    document.getElementById('planId').value = plan.id;
+    document.getElementById('planNombre').value = plan.nombre || '';
+    document.getElementById('planResolucion').value = plan.resolucion || '';
+    document.getElementById('planDuracion').value = plan.duracionAnios ?? 3;
+    document.getElementById('planActivo').value = plan.activo === false ? 'false' : 'true';
+    document.getElementById('planVencimiento').value = plan.vencimientoRegularidadMeses ?? '';
+    document.getElementById('planLlamados').value = plan.maxLlamadosConsecutivos ?? '';
+    document.getElementById('planAusentes').value = plan.maxAusentes ?? '';
+    document.getElementById('tituloFormPlan').textContent = 'Editando: ' + plan.nombre;
+    document.getElementById('btnGuardarPlan').textContent = 'Guardar cambios';
+    document.getElementById('formPlan').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    document.getElementById('planNombre').focus();
+  }
+
+  document.getElementById('formPlan')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const data = Object.fromEntries(new FormData(e.target));
+    const id = data.planId;
+    delete data.planId;
+    data.activo = data.activo === 'true';
+    // Los tres campos de reglas vacíos significan "sin límite" y el servidor los guarda como null
+
+    const r = await apiFetch(id ? `/api/planes/${id}` : '/api/planes', { method: id ? 'PUT' : 'POST', body: data });
+    if (!r.ok) return mostrarAviso(r.error, 'danger');
+
+    mostrarAviso(id ? 'Plan actualizado. Las reglas nuevas ya rigen para todos los alumnos del plan.' : 'Plan creado.');
+    nuevoPlan();
+    await refrescarTodoPorCambioDePlanes();
+  });
+
+  async function alternarPlan(id, activar) {
+    const r = await apiFetch(`/api/planes/${id}`, { method: 'PUT', body: { activo: activar } });
+    if (!r.ok) return mostrarAviso(r.error, 'danger');
+    mostrarAviso(activar ? 'Plan reactivado.' : 'Plan dado de baja.');
+    await refrescarTodoPorCambioDePlanes();
+  }
+
+  async function eliminarPlan(id) {
+    const plan = planPorId(id);
+    if (!plan || !confirm(`¿Eliminar el plan "${plan.nombre}"? Solo se puede si no tiene materias ni cohortes.`)) return;
+    const r = await apiFetch(`/api/planes/${id}`, { method: 'DELETE' });
+    if (!r.ok) return mostrarAviso(r.error, 'danger'); // 409: el plan está en uso
+    mostrarAviso('Plan eliminado.');
+    await refrescarTodoPorCambioDePlanes();
+  }
+
+  // Después de tocar un plan se redibuja lo que depende de él (selectores, resumen de cohorte, materias)
+  async function refrescarTodoPorCambioDePlanes() {
+    await cargarPlanes();
+    await cargarCohortes(cohorteSeleccionadaId);
+    await cargarMaterias();
+  }
+
+  // ----- Materias del plan elegido, agrupadas por año -----
+  function reiniciarPanelReglas() {
+    document.getElementById('contenedorReglas').innerHTML = '<div class="p-5 text-center text-muted"><i class="bi bi-diagram-3 fs-1 mb-3 d-block"></i><h6>Elegí una materia del menú superior</h6></div>';
+    document.getElementById('btnAbrirModalRegla').disabled = true;
+    document.getElementById('hiddenMateriaParaRegla').value = '';
+  }
+
+  async function cargarMaterias() {
+    const contenedor = document.getElementById('contenedorMaterias');
+    const resumen = document.getElementById('resumenPlan');
+    const selectReglas = document.getElementById('selectorMateriaReglas');
+    const botonNueva = document.getElementById('btnNuevaMateria');
+    if (!contenedor) return;
+
+    reiniciarPanelReglas();
+    const plan = planPorId(planMateriasId);
+
+    if (!plan) {
+      materiasActuales = [];
+      botonNueva.disabled = true;
+      resumen.classList.add('d-none');
+      selectReglas.innerHTML = '<option selected disabled>Sin materias</option>';
+      contenedor.innerHTML = '<div class="p-5 text-center text-muted">Primero creá un plan de estudios desde "Planes y Reglas".</div>';
+      return;
+    }
+
+    botonNueva.disabled = false;
+    contenedor.innerHTML = '<div class="p-5 text-center"><div class="spinner-border text-primary" role="status"></div></div>';
+
+    const r = await apiFetch('/api/materias?plan_id=' + plan.id);
+    if (planMateriasId !== plan.id) return; // el usuario cambió de plan mientras cargaba: esta respuesta ya no corresponde
+    if (!r.ok) {
+      contenedor.innerHTML = `<div class="p-5 text-center text-danger"><i class="bi bi-exclamation-triangle fs-3 d-block mb-2"></i>${esc(r.error)}</div>`;
+      return;
+    }
+
+    materiasActuales = r.data.data || [];
+
+    resumen.classList.remove('d-none');
+    resumen.innerHTML = `<b>${esc(plan.nombre)}</b>${plan.resolucion ? ' (' + esc(plan.resolucion) + ')' : ''} · ${plan.duracionAnios} años · ${materiasActuales.length} materia(s) · ${plan.totalCohortes} cohorte(s)`
+      + (plan.activo === false ? ' <span class="badge bg-secondary">Inactivo</span>' : '')
+      + `<br><span class="text-muted">${esc(resumenReglasPlan(plan))}</span>`;
+
+    if (materiasActuales.length === 0) {
+      selectReglas.innerHTML = '<option selected disabled>Sin materias</option>';
+      contenedor.innerHTML = '<div class="p-5 text-center text-muted">Este plan todavía no tiene materias. Usá "Nueva Materia" para cargarlas.</div>';
+      return;
+    }
+
+    const grupos = agruparPorAnio(materiasActuales);
+    let html = '<div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead class="table-light"><tr><th class="ps-4">ID</th><th>Nombre</th><th class="text-center">Acciones</th></tr></thead>';
+    grupos.forEach((grupo) => {
+      html += `<tbody><tr class="table-secondary"><th colspan="3" class="ps-4">${etiquetaAnio(grupo.anio)} <span class="badge bg-dark ms-2">${grupo.items.length}</span>`
+        + (grupo.anio > plan.duracionAnios ? ' <span class="badge bg-warning text-dark" data-bs-toggle="tooltip" title="Este año supera la duración configurada del plan">supera la duración del plan</span>' : '')
+        + '</th></tr>';
+      grupo.items.forEach((m) => {
+        html += `<tr><td class="ps-4 text-muted">#${m.id}</td><td class="fw-medium">${esc(m.nombre)}</td>`
+          + `<td class="text-center text-nowrap"><button type="button" class="btn btn-sm btn-outline-warning me-1" data-bs-toggle="tooltip" title="Editar nombre o año de la materia" onclick="abrirModalEditarMateria(${m.id})"><i class="bi bi-pencil"></i></button>`
+          + `<button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="tooltip" title="Eliminar la materia (solo si nadie la cursó y no tiene correlatividades)" onclick="eliminarMateria(${m.id})"><i class="bi bi-trash"></i></button></td></tr>`;
+      });
+      html += '</tbody>';
+    });
+    contenedor.innerHTML = html + '</table></div>';
+    activarAyudas(contenedor);
+
+    selectReglas.innerHTML = '<option value="" selected disabled>Elegir materia...</option>'
+      + grupos.map((g) => `<optgroup label="${etiquetaAnio(g.anio)}">` + g.items.map((m) => `<option value="${m.id}">${esc(m.nombre)}</option>`).join('') + '</optgroup>').join('');
+  }
+
+  // ----- Nueva materia -----
+  function abrirModalNuevaMateria() {
+    document.getElementById('formCrearMateria').reset();
+    const select = document.getElementById('selectPlanMateria');
+    const activos = planesActuales.filter((p) => p.activo !== false || p.id === planMateriasId);
+    select.innerHTML = activos.map((p) => `<option value="${p.id}">${esc(p.nombre)}${p.activo === false ? ' (inactivo)' : ''}</option>`).join('');
+    if (planMateriasId && planPorId(planMateriasId)) select.value = String(planMateriasId);
+    abrirModal('modalCrearMateria');
+  }
+
+  document.getElementById('formCrearMateria')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const data = Object.fromEntries(new FormData(e.target)); // id vacío = el sistema asigna el siguiente número libre
+    const r = await apiFetch('/api/materias', { method: 'POST', body: data });
+    if (!r.ok) return mostrarAviso(r.error, 'danger');
+
+    cerrarModal('modalCrearMateria');
+    mostrarAviso('Materia creada.');
+    if (Number(data.plan_id) !== planMateriasId) {
+      planMateriasId = Number(data.plan_id);
+      try { localStorage.setItem(CLAVE_PLAN_MATERIAS, String(planMateriasId)); } catch (_) { /* opcional */ }
+      document.getElementById('selectorPlanMaterias').value = String(planMateriasId);
+    }
+    await cargarPlanes();
+    await cargarMaterias();
+  });
+
+  // ----- Editar / eliminar materia -----
+  function abrirModalEditarMateria(materiaId) {
+    const m = materiasActuales.find((x) => x.id === materiaId);
+    if (!m) return;
+    const plan = planPorId(m.plan_id);
+    document.getElementById('editMateriaId').value = m.id;
+    document.getElementById('editMateriaPlan').value = plan ? plan.nombre : 'Plan ' + m.plan_id;
+    document.getElementById('editMateriaNombre').value = m.nombre;
+    document.getElementById('editMateriaAnio').value = m.anio;
+    abrirModal('modalEditarMateria');
+  }
+
+  document.getElementById('formEditarMateria')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const id = document.getElementById('editMateriaId').value;
+    const data = Object.fromEntries(new FormData(e.target)); // el plan va deshabilitado: no viaja, una materia no cambia de plan
+    delete data.id;
+    const r = await apiFetch(`/api/materias/${id}`, { method: 'PUT', body: data });
+    if (!r.ok) return mostrarAviso(r.error, 'danger');
+    cerrarModal('modalEditarMateria');
+    mostrarAviso('Materia actualizada.');
+    await cargarMaterias();
+  });
+
+  async function eliminarMateria(id) {
+    const m = materiasActuales.find((x) => x.id === id);
+    const nombre = m ? `"${m.nombre}"` : 'esta materia';
+    if (!confirm(`¿Eliminar ${nombre}? Solo se puede eliminar si nadie la cursó, no tiene inscripciones y no tiene correlatividades: sirve para corregir un error de carga.`)) return;
+    const r = await apiFetch(`/api/materias/${id}`, { method: 'DELETE' });
+    if (!r.ok) return mostrarAviso(r.error, 'danger');
+    mostrarAviso('Materia eliminada.');
+    await cargarPlanes();
+    await cargarMaterias();
+  }
+
+  // ----- Correlatividades (solo entre materias del mismo plan) -----
+  document.getElementById('selectorMateriaReglas')?.addEventListener('change', async (e) => {
+    const id = e.target.value;
+    document.getElementById('btnAbrirModalRegla').disabled = false;
+    document.getElementById('hiddenMateriaParaRegla').value = id;
+    document.getElementById('textoAvisoMateriaRegla').innerHTML = `Agregando requisito para: <b>${esc(e.target.options[e.target.selectedIndex].text)}</b>`;
+    await dibujarTablaReglas(id);
+  });
+
+  // Al abrir "Agregar Requisito" se ofrecen las materias del mismo plan, menos la propia
+  document.getElementById('modalCrearRegla')?.addEventListener('show.bs.modal', () => {
+    const propia = Number(document.getElementById('hiddenMateriaParaRegla').value);
+    const candidatas = materiasActuales.filter((m) => m.id !== propia);
+    document.getElementById('selectMateriaRequisito').innerHTML = '<option value="" selected disabled>Elegir materia requisito...</option>'
+      + agruparPorAnio(candidatas).map((g) => `<optgroup label="${etiquetaAnio(g.anio)}">` + g.items.map((m) => `<option value="${m.id}">${esc(m.nombre)}</option>`).join('') + '</optgroup>').join('');
+  });
+
+  async function dibujarTablaReglas(materiaId) {
+    const contenedor = document.getElementById('contenedorReglas');
+    const r = await apiFetch(`/api/correlatividades/materia/${materiaId}`);
+    if (!r.ok) {
+      contenedor.innerHTML = `<div class="p-4 text-center text-danger">${esc(r.error)}</div>`;
+      return;
+    }
+
+    const reglas = r.data.data || [];
+    if (reglas.length === 0) {
+      contenedor.innerHTML = '<div class="p-4 text-center text-muted small"><i class="bi bi-check2-circle fs-3 d-block mb-2 text-success"></i>Sin requisitos.</div>';
+      return;
+    }
+
+    let html = '<table class="table table-sm table-borderless mb-0"><thead class="table-light"><tr><th class="ps-3">Debe tener...</th><th>Condición</th><th class="text-end pe-3">Quitar</th></tr></thead><tbody>';
+    reglas.forEach((regla) => {
+      const aprobada = regla.condicion === 'Aprobada';
+      html += `<tr><td class="ps-3 pt-2">${esc(regla.requisito)}${regla.requisito_anio ? ` <small class="text-muted">(${etiquetaAnio(regla.requisito_anio)})</small>` : ''}</td>`
+        + `<td class="pt-2"><span class="badge ${aprobada ? 'bg-success' : 'bg-primary'}" data-bs-toggle="tooltip" title="${aprobada ? 'Para cursar hace falta tenerla aprobada (final aprobado)' : 'Para cursar alcanza con tenerla regular'}">${esc(regla.condicion)}</span></td>`
+        + `<td class="text-end pe-3"><button type="button" class="btn btn-sm text-danger p-0" data-bs-toggle="tooltip" title="Quitar este requisito" onclick="eliminarRegla(${regla.id_regla}, ${materiaId})"><i class="bi bi-x-circle-fill fs-5"></i></button></td></tr>`;
+    });
+    contenedor.innerHTML = html + '</tbody></table>';
+    activarAyudas(contenedor);
+  }
+
+  document.getElementById('formCrearRegla')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const data = Object.fromEntries(new FormData(e.target)); // la regla recibe su número automáticamente
+    const r = await apiFetch('/api/correlatividades', { method: 'POST', body: data });
+    if (!r.ok) return mostrarAviso(r.error, 'danger'); // mismo plan, duplicada, etc.
+    e.target.reset();
+    cerrarModal('modalCrearRegla');
+    mostrarAviso('Requisito agregado.');
+    await dibujarTablaReglas(data.materia_id);
+  });
+
+  async function eliminarRegla(idRegla, materiaId) {
+    if (!confirm('¿Quitar este requisito?')) return;
+    const r = await apiFetch(`/api/correlatividades/${idRegla}`, { method: 'DELETE' });
+    if (!r.ok) return mostrarAviso(r.error, 'danger');
+    await dibujarTablaReglas(materiaId);
+  }

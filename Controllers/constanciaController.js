@@ -1,13 +1,15 @@
 import Constancia from '../models/Constancia.js';
 import Alumno from '../models/Alumno.js';
-import Materia from '../models/Materia.js'; // 
-import HistorialAcademico from '../models/HistorialAcademico.js'; // 
+import { cargarContextoAcademico } from '../services/contextoAcademicoService.js';
+import { estadoAcademicoDelAlumno } from '../services/reglasAcademicasService.js';
 import PDFDocument from 'pdfkit-table';
 import crypto from 'crypto';
 import fs from 'fs'; 
 import QRCode from 'qrcode';
 
-const baseUrl =
+// URL pública para el QR de validación. Se calcula por pedido: antes `req` se usaba a nivel de módulo
+// (donde no existe) y el servidor fallaba al arrancar si no estaban definidas APP_URL / RENDER_EXTERNAL_URL.
+const getBaseUrl = (req) =>
     process.env.APP_URL ||
     process.env.RENDER_EXTERNAL_URL ||
     `${req.protocol}://${req.get('host')}`;
@@ -57,7 +59,7 @@ export const generarConstanciaPDF = async (req, res) => {
         // ==========================================
 
 
-        const urlValidacion = `${baseUrl}/validar/${codigoValidacion}`;
+        const urlValidacion = `${getBaseUrl(req)}/validar/${codigoValidacion}`;
         
         const qrBuffer = await QRCode.toBuffer(urlValidacion, { 
             margin: 1,
@@ -229,12 +231,12 @@ export const generarPorcentajePDF = async (req, res) => {
         if (!alumno.activo) return res.status(403).json({ error: "No te encuentras activo." });
 
         // Datos académicos
-        const materias = await Materia.find().sort({ anio: 1 }).lean();
-        const historial = await HistorialAcademico.find({ alumno_id: alumno.id }).lean();
-        
-        const totalMaterias = materias.length;
-        const materiasAprobadas = historial.filter(h => h.estado === "Aprobada").length;
-        const porcentaje = totalMaterias > 0 ? Math.round((materiasAprobadas / totalMaterias) * 100) : 0;
+        // Solo cuentan las materias del plan de su cohorte (ordenadas por año y nombre) y, si recursó, el intento vigente
+        // Cuenta como aprobada la materia Aprobada y la Promocionada que ya no debe el final de ninguna correlativa
+        // (una promoción condicional todavía no suma al porcentaje)
+        const { materias, ctx } = await cargarContextoAcademico(alumno);
+        const estadoAcademico = estadoAcademicoDelAlumno(materias, ctx);
+        const { totalMaterias, materiasAprobadas, porcentaje } = estadoAcademico;
 
         // Base de Datos
         const fechaEmision = new Date();
@@ -256,7 +258,7 @@ export const generarPorcentajePDF = async (req, res) => {
         });
 
         // QR
-        const urlValidacion = `${baseUrl}/validar/${codigoValidacion}`;
+        const urlValidacion = `${getBaseUrl(req)}/validar/${codigoValidacion}`;
         const qrBuffer = await QRCode.toBuffer(urlValidacion, { margin: 1 });
 
         // PDF
@@ -292,16 +294,12 @@ export const generarPorcentajePDF = async (req, res) => {
                 { label: "Estado", property: 'estado', width: 100 },
                 { label: "Nota", property: 'nota', width: 80 }
             ],
-            datas: materias.map(mat => {
-                const registro = historial.find(h => h.materia_id === mat.id);
-                const estado = registro ? registro.estado : 'Pendiente';
-                return {
-                    materia: mat.nombre,
-                    anio: `${mat.anio}º`,
-                    estado: estado === 'Pendiente' ? '-----' : estado,
-                    nota: (estado === 'Aprobada' && registro.nota) ? registro.nota.toString() : '-----'
-                };
-            })
+            datas: estadoAcademico.materias.map(m => ({
+                materia: m.nombre,
+                anio: `${m.anio}º`,
+                estado: m.estado === 'Pendiente' ? '-----' : (m.condicional ? 'Prom. condicional' : m.estado),
+                nota: ((m.estado === 'Aprobada' || m.estado === 'Promocionada') && m.nota) ? m.nota.toString() : '-----'
+            }))
         };
 
         await doc.table(tableArray, {

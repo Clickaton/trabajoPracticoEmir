@@ -13,13 +13,16 @@ html(lang="es")
             .mb-3
               label.form-label.fw-bold(for="name") Nombre:
               input.form-control(type="text" name="name" id="name" value=user.name required)
+              .form-text Nombre y apellido de la persona.
             .mb-3
               label.form-label.fw-bold(for="email") Email:
               input.form-control(type="email" name="email" id="email" value=user.email required)
+              .form-text Correo con el que la persona ingresa al sistema.
             .mb-3
               label.form-label.fw-bold(for="password") Contraseña:
-              input.form-control(type="password" name="password" id="password" value=user.password required)
-            button.btn.btn-primary.w-100(type="submit") Actualizar Usuario
+              input.form-control(type="password" name="password" id="password" autocomplete="new-password" placeholder="Dejar vacío para mantener la actual")
+              .form-text Dejá este campo vacío para conservar la contraseña actual. Escribí una nueva solo si querés cambiarla.
+            button.btn.btn-primary.w-100(type="submit" title="Guardar los cambios del usuario") Actualizar Usuario
           
           .text-center.mt-3
-            a.text-decoration-none(href="/getUsers") ← Volver a la lista
+            a.text-decoration-none(href="/getUsers" title="Volver a la lista de usuarios sin guardar") ← Volver a la lista

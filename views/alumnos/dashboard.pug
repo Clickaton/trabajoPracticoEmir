@@ -1,50 +1,112 @@
 extends ../layout
 
 block contenido
+  include ../mixins/ayuda
   .container.mt-4
     .row
       .col-12
         ul.nav.nav-tabs.nav-tabs-custom#dashboardTabs(role='tablist')
           li.nav-item
-            button.nav-link.active(type='button' data-bs-toggle='tab' data-bs-target='#tabInscripciones' aria-controls='tabInscripciones' aria-selected='true') Inscripciones
+            button.nav-link.active(type='button' data-bs-toggle='tab' data-bs-target='#tabInscripciones' title='Inscribite a cursadas y a finales y mirá tus inscripciones' aria-controls='tabInscripciones' aria-selected='true') Inscripciones
           li.nav-item
-            button.nav-link(type='button' data-bs-toggle='tab' data-bs-target='#tabHistorial' aria-controls='tabHistorial' aria-selected='false') Historial Académico
+            button.nav-link(type='button' data-bs-toggle='tab' data-bs-target='#tabHistorial' title='Tus materias con nota, regularidad y semáforo' aria-controls='tabHistorial' aria-selected='false') Historial Académico
           li.nav-item
-            button.nav-link(type='button' data-bs-toggle='tab' data-bs-target='#tabConstancias' aria-controls='tabConstancias' aria-selected='false') Constancia de Alumno Regular
+            button.nav-link(type='button' data-bs-toggle='tab' data-bs-target='#tabConstancias' title='Pedí una constancia de alumno regular en PDF' aria-controls='tabConstancias' aria-selected='false') Constancia de Alumno Regular
           li.nav-item
-            button.nav-link(type='button' data-bs-toggle='tab' data-bs-target='#tabPorcentaje' aria-controls='tabPorcentaje' aria-selected='false') Constancia de Porcentaje de Materias
+            button.nav-link(type='button' data-bs-toggle='tab' data-bs-target='#tabPorcentaje' title='Pedí un certificado en PDF con tu porcentaje de materias aprobadas' aria-controls='tabPorcentaje' aria-selected='false') Constancia de Porcentaje de Materias
 
     .tab-content.mt-3
       .tab-pane.fade.show.active#tabInscripciones
-        .row
-          .col-md-4
-            .card.mb-4
+        -
+          const fmtFecha = (valor) => {
+            if (!valor) return '';
+            const p = new Date(valor).toISOString().slice(0, 10).split('-');
+            return `${p[2]}/${p[1]}/${p[0]}`;
+          };
+          const gruposCursada = [];
+          materias.forEach((m) => {
+            let grupo = gruposCursada[gruposCursada.length - 1];
+            if (!grupo || grupo.anio !== m.anio) {
+              grupo = { anio: m.anio, items: [] };
+              gruposCursada.push(grupo);
+            }
+            grupo.items.push(m);
+          });
+        .row.g-3
+          .col-lg-4
+            .card.shadow-sm.mb-3
               .card-body
-                h4= alumno.name
+                h4.mb-2= alumno.name
                 p.mb-1.text-muted= `Legajo: ${alumno.legajo || 'N/A'}`
-                p.mb-1.text-muted= `Cohorte: ${alumno.cohorte_id || 'Sin cohorte'}`
-          .col-md-8
-            h3 Materias disponibles
-            if materias.length
-              table.table.table-hover
-                thead
-                  tr
-                    th Nombre
-                    th Año
-                    th Acciones
-                tbody
-                  each mat in materias
-                    tr
-                      td= mat.nombre
-                      td= mat.anio
-                      td
-                        button.btn.btn-sm.btn-primary(type='button' data-materia=mat.id) Inscribirme
-            else
-              p.text-muted No hay Períodos de Inscripción o Materias cargadas en este momento.
+                p.mb-1.text-muted= `Cohorte: ${cohorte ? cohorte.name : 'Sin cohorte'}`
+                p.mb-1.text-muted
+                  | Plan: 
+                  span#datoPlan Cargando...
+                if alumno.tipoIngreso
+                  p.mb-1.text-muted
+                    = `Ingreso: ${alumno.tipoIngreso}`
+                    if alumno.pase && alumno.pase.esPase
+                      = ` (pase desde ${alumno.pase.institutoOrigen})`
+                .mt-3
+                  span.fw-semibold Tu situación
+                  +ayuda('Semáforo de tu carrera: verde = estás al día; amarillo = promocionaste una materia pero te falta el final de una correlativa; rojo = perdiste la regularidad de alguna materia y tenés que recursarla.')
+                  div.mt-1#semaforoGeneral
+                    span.text-muted Cargando...
+          .col-lg-8
+            .card.shadow-sm.mb-4#cardCursada
+              .card-header.bg-white
+                h5.mb-0
+                  | Inscripción a cursada
+                  +ayuda('Materias del plan que podés cursar hoy. Si perdiste la regularidad de una materia aparece como "Recursada": tu cursada anterior queda guardada en el historial. Las materias que tenés Regulares se rinden en la inscripción a finales.')
+                if periodoCursada
+                  p.small.text-muted.mb-0.mt-1
+                    = `Período abierto: ${periodoCursada.nombre}`
+                    if periodoCursada.fechaFin
+                      = ` · cierra el ${fmtFecha(periodoCursada.fechaFin)}`
+                      if periodoCursada.horaFin
+                        = ` a las ${periodoCursada.horaFin}`
+              .card-body
+                if materias.length
+                  .table-responsive
+                    table.table.table-hover.align-middle.mb-0
+                      thead
+                        tr
+                          th Materia
+                          th.text-end Acciones
+                      tbody
+                        each grupo in gruposCursada
+                          tr.table-light
+                            th(colspan='2')= `${grupo.anio}° Año`
+                          each mat in grupo.items
+                            tr
+                              td
+                                = mat.nombre + ' '
+                                if mat.recursada
+                                  span.badge.bg-warning.text-dark.ms-2(data-bs-toggle='tooltip' title='Perdiste la regularidad de esta materia: volvés a cursarla y tu cursada anterior queda guardada en el historial.')= `Recursada · intento ${mat.proximoIntento}`
+                              td.text-end
+                                button.btn.btn-sm.btn-primary(type='button' data-materia=mat.id data-ayuda='Anotarte a cursar esta materia') Inscribirme
+                else if periodoCursada
+                  p.text-muted.mb-0 No tenés materias para cursar en este momento: ya las estás cursando, las aprobaste o las tenés Regulares (esas se rinden en la inscripción a finales).
+                else
+                  p.text-muted.mb-0 No hay un período de inscripción a cursada abierto en este momento.
+            .card.shadow-sm.mb-4#cardFinales
+              .card-header.bg-white
+                h5.mb-0
+                  | Inscripción a finales
+                  +ayuda('Te podés anotar al final de las materias que tenés Regulares con la regularidad vigente. Al anotarte se controla que no hayas agotado los llamados o ausentes que permite tu plan y que tengas aprobado el final de las correlativas.')
+              .card-body#contenidoFinales
+                .text-muted Cargando finales...
+            .card.shadow-sm.mb-4#cardMisFinales
+              .card-header.bg-white
+                h5.mb-0
+                  | Mis inscripciones a finales
+                  +ayuda('Tus inscripciones y sus resultados, con el libro y folio del acta. Podés anular una inscripción mientras el período de inscripción esté abierto y el examen todavía no se haya rendido.')
+              .card-body.p-0#contenidoMisFinales
+                .p-3.text-muted Cargando...
       .tab-pane.fade#tabHistorial
-        .row.mb-3
+        .row.g-3.mb-3
           .col-md-6
-            .card.mb-3
+            .card.h-100
               .card-body
                 h5.card-title Datos del Alumno
                 p.mb-1
@@ -55,39 +117,63 @@ block contenido
                   span.ms-1= alumno.legajo || 'N/A'
                 p.mb-1
                   strong Cohorte:
-                  span.ms-1= alumno.cohorte_id || 'Sin cohorte'
+                  span.ms-1= cohorte ? cohorte.name : 'Sin cohorte'
                 p.mb-1
                   strong Email:
                   span.ms-1= alumno.email || 'No disponible'
           .col-md-6
-            .card.mb-3
+            .card.h-100
               .card-body
-                h5.card-title Progreso de Carrera
+                h5.card-title
+                  | Progreso de Carrera
+                  +ayuda('Porcentaje de las materias de tu plan que ya aprobaste. Una promoción condicional (te falta el final de una correlativa) todavía no se suma.')
                 p.mb-1 Porcentaje completado:
-                  strong#porcentajeCarrera Cargando...
-                p.mb-1
-                  small.text-muted Los datos se calculan desde tu historial académico.
+                  strong.ms-1#porcentajeCarrera Cargando...
+                .progress.mb-2(style='height: 10px;')
+                  .progress-bar#barraPorcentaje(role='progressbar' style='width: 0%' aria-valuemin='0' aria-valuemax='100' aria-valuenow='0')
+                p.mb-1.small.text-muted#detalleProgreso
+                p.mb-0.small.text-muted#reglasDelPlan
+        #alertasAcademicas.mb-3
         .card
           .card-body
-            h5.card-title Historial Académico
-            div#historialFeedback.mb-3
+            h5.card-title
+              | Historial Académico
+              +ayuda('Todas las materias de tu plan, ordenadas por año. La regularidad indica hasta cuándo podés rendir el final y cuántos llamados te quedan; si la perdés, tenés que recursar la materia.')
+            .d-flex.flex-wrap.gap-3.small.mb-3
+              span
+                span.badge.bg-success Al día
+                |  Cursada y finales en regla.
+              span
+                span.badge.bg-warning.text-dark Condicional
+                |  Promocionaste, pero te falta el final de una correlativa.
+              span
+                span.badge.bg-danger Regularidad vencida
+                |  Perdiste la regularidad: tenés que recursar.
+              span
+                span.badge.bg-secondary Sin cursar
+                |  Todavía no la cursaste.
+            div#historialFeedback.mb-2
               p.text-muted Cargando historial...
             .table-responsive
-              table.table.table-striped.table-hover#historialTable
+              table.table.table-hover.align-middle#historialTable
                 thead
                   tr
                     th Materia
-                    th Año
                     th Condición
                     th Nota
+                    th Acta
+                    th Regularidad
+                    th Situación
                 tbody
                   tr
-                    td(colspan='4').text-center Cargando...
+                    td.text-center(colspan='6') Cargando...
       // NUEVO TAB DE CONSTANCIAS DE ALUMNO REGULAR
       .tab-pane.fade#tabConstancias
         .d-flex.justify-content-between.align-items-center.mb-3
-          h3.mb-0 Listado de solicitudes
-          button.btn.btn-info.text-white.shadow-sm(data-bs-toggle="modal" data-bs-target="#modalConstancia")
+          h3.mb-0
+          | Listado de solicitudes
+          +ayuda('Las constancias de alumno regular que pediste. Pasan a Vencida cuando termina su validez.')
+          button.btn.btn-info.text-white.shadow-sm(data-bs-toggle="modal" data-bs-target="#modalConstancia" data-ayuda="Pedir una constancia de alumno regular en PDF")
             i.bi.bi-file-earmark-pdf.me-1
             | Nueva solicitud
         .card.shadow-sm.border-0
@@ -107,8 +193,10 @@ block contenido
       // NUEVO TAB DE PORCENTAJE DE MATERIAS
       .tab-pane.fade#tabPorcentaje
         .d-flex.justify-content-between.align-items-center.mb-3
-          h3.mb-0 Certificados de Porcentaje
-          button.btn.btn-primary.text-white.shadow-sm(data-bs-toggle="modal" data-bs-target="#modalPorcentaje")
+          h3.mb-0
+          | Certificados de Porcentaje
+          +ayuda('Los certificados de porcentaje de materias aprobadas que pediste. Pasan a Vencido cuando termina su validez.')
+          button.btn.btn-primary.text-white.shadow-sm(data-bs-toggle="modal" data-bs-target="#modalPorcentaje" data-ayuda="Pedir un certificado en PDF con tu porcentaje de materias aprobadas")
             i.bi.bi-file-earmark-bar-graph.me-1
             | Solicitar Certificado
         .card.shadow-sm.border-0
@@ -138,20 +226,24 @@ block contenido
             .row
             .mb-3
               label.form-label Nombre Completo
+                +ayuda('Tu nombre tal como figura en el instituto.')
               input.form-control#editAlumnoName(type='text' name='name' required)
             .row
               .col-6.mb-3
                 label.form-label Email
+                  +ayuda('Tu correo de contacto en el instituto.')
                 input.form-control#editAlumnoEmail(type='email' name='email' required)
               .col-6.mb-3
                 label.form-label Nueva Contraseña
+                  +ayuda('Completalo solo si querés cambiar tu contraseña; si lo dejás vacío no se modifica.')
                 input.form-control#editAlumnoPassword(type='password' name='password')
               .col-6.mb-3
                 label.form-label Fecha de Inscripción
+                  +ayuda('Fecha en la que te inscribiste al instituto. No se puede modificar.')
                 input.form-control#editAlumnoFecha(type='date' name='fecha_inscripcion' readonly)
           .modal-footer.bg-light
             button.btn.btn-secondary(type='button' data-bs-dismiss='modal') Cancelar
-            button.btn.btn-primary(type='submit') Guardar Cambios
+            button.btn.btn-primary(type='submit' data-ayuda='Guardar los cambios de tu perfil') Guardar Cambios
 
   .modal.fade#modalMensaje(tabindex='-1' aria-hidden='true')
     .modal-dialog
@@ -177,16 +269,19 @@ block contenido
               | Por seguridad, debés confirmar tu DNI para generar este documento.
             .mb-3
               label.form-label Tu DNI (Sin puntos)
+                +ayuda('Por seguridad confirmamos que sos vos: tiene que coincidir con el DNI que tiene registrado el instituto.')
               input.form-control#inputDniConstancia(type='text' name='dni' required placeholder='Ej: 35123456')
             .mb-3
               label.form-label Presentar a:
+                +ayuda('Organismo o persona ante quien vas a presentar el documento. Figura en la constancia.')
               input.form-control(type='text' name='presentar_a' required placeholder='Ej: Obra Social, Empleador, etc.')
             .mb-3
               label.form-label Observaciones (Opcional):
+                +ayuda('Cualquier aclaración adicional. Podés dejarlo vacío.')
               textarea.form-control(name='observaciones' rows="2" placeholder='Algún detalle adicional...')
           .modal-footer.bg-light
             button.btn.btn-secondary(type='button' data-bs-dismiss='modal') Cancelar
-            button.btn.btn-info.text-white(type='submit') 
+            button.btn.btn-info.text-white(type='submit' data-ayuda='Genera la constancia y descarga el PDF') 
               i.bi.bi-download.me-1
               | Generar y Descargar PDF
 
@@ -204,21 +299,24 @@ block contenido
               | Este documento calculará automáticamente tu porcentaje en base a las materias aprobadas en tu historial.
             .mb-3
               label.form-label Tu DNI (Sin puntos)
+                +ayuda('Por seguridad confirmamos que sos vos: tiene que coincidir con el DNI que tiene registrado el instituto.')
               input.form-control#inputDniPorcentaje(type='text' name='dni' required placeholder='Ej: 35123456')
             .mb-3
               label.form-label Presentar a:
+                +ayuda('Organismo o persona ante quien vas a presentar el documento. Figura en la constancia.')
               input.form-control(type='text' name='presentar_a' required placeholder='Ej: Universidad, Trabajo, etc.')
             .mb-3
               label.form-label Observaciones (Opcional):
+                +ayuda('Cualquier aclaración adicional. Podés dejarlo vacío.')
               textarea.form-control(name='observaciones' rows="2" placeholder='Algún detalle adicional...')
           .modal-footer.bg-light
             button.btn.btn-secondary(type='button' data-bs-dismiss='modal') Cancelar
-            button.btn.btn-primary.text-white(type='submit') 
+            button.btn.btn-primary.text-white(type='submit' data-ayuda='Genera el certificado y descarga el PDF') 
               i.bi.bi-download.me-1
               | Generar y Descargar PDF
 
   // Globo flotante para abrir el chat
-  button.btn.btn-primary.rounded-circle.shadow-lg#btn-chat-flotante(type='button' style='position: fixed; bottom: 30px; right: 30px; width: 60px; height: 60px; z-index: 1050;' onclick='toggleChat()')
+  button.btn.btn-primary.rounded-circle.shadow-lg#btn-chat-flotante(type='button' style='position: fixed; bottom: 30px; right: 30px; width: 60px; height: 60px; z-index: 1050;' onclick='toggleChat()' data-ayuda='Abrir el chat de soporte con el asistente virtual' data-bs-placement='left')
     i.bi.bi-chat-dots-fill.fs-3
 
   .card.shadow-lg#ventana-chat-flotante(style='position: fixed; bottom: 100px; right: 30px; width: 350px; display: none; z-index: 1050; border-radius: 15px; overflow: hidden;')
@@ -226,7 +324,7 @@ block contenido
       h6.mb-0
         i.bi.bi-robot.me-2
         | Soporte IA
-      button.btn-close.btn-close-white.btn-sm(type='button' onclick='toggleChat()')
+      button.btn-close.btn-close-white.btn-sm(type='button' onclick='toggleChat()' title='Cerrar el chat' aria-label='Cerrar el chat')
     .card-body.bg-light.p-3
       ul#chat-messages.list-unstyled(style='height: 300px; overflow-y: auto; margin-bottom: 0;')
         li.mb-3
@@ -236,18 +334,16 @@ block contenido
             small ¡Hola! Soy tu asistente de soporte. Escribí tu duda y con gusto te ayudaremos.
     .card-footer.bg-white.p-2
       form#chat-form.d-flex
-        input#chat-input.form-control.form-control-sm.me-2(type='text' placeholder='Escribí acá...' autocomplete='off' required)
-        button.btn.btn-sm.btn-primary(type='submit')
+        input#chat-input.form-control.form-control-sm.me-2(type='text' placeholder='Escribí acá...' autocomplete='off' required title='Escribí tu duda y enviala')
+        button.btn.btn-sm.btn-primary(type='submit' title='Enviar la consulta')
           i.bi.bi-send-fill
 
 block scripts
-  script(src='/socket.io/socket.io.js')
+  //- Utilidades comunes del panel (esc, apiFetch, badges de estado y semáforo, textoRegularidad...)
+  include ../partials/scripts-comun
+  //- Chat de soporte con el asistente (cliente compartido con el panel administrativo)
+  include ../partials/chat-cliente
   script.
-    function toggleChat() {
-      const ventana = document.getElementById('ventana-chat-flotante');
-      ventana.style.display = ventana.style.display === 'none' ? 'block' : 'none';
-    }
-
     function mostrarModalMensaje(titulo, mensaje) {
       const modalTitulo = document.getElementById('modalMensajeTitulo');
       const modalTexto = document.getElementById('modalMensajeTexto');
@@ -264,49 +360,264 @@ block scripts
       return { 'Content-Type': 'application/json' };
     }
 
+    // ==========================================================================
+    // situación académica, semáforo e inscripción a finales del alumno
+    // Usa las utilidades comunes del panel (views/partials/scripts-comun.pug): esc, apiFetch, badgeEstado, badgeSemaforo, textoRegularidad, etc.
+    // ==========================================================================
+    const ALUMNO_ID = #{alumno.id};
+    let misFinales = [];            // Inscripciones a finales del alumno (para anular y repintar)
+    let periodosFinalAbiertos = []; // Períodos de Final abiertos hoy
+
+    const SEMAFORO_DESCRIPCION = {
+      verde: 'Estás al día con tus materias.',
+      amarillo: 'Tenés una promoción condicional: te falta aprobar el final de una materia correlativa.',
+      rojo: 'Perdiste la regularidad de alguna materia: tenés que recursarla.',
+      gris: 'Todavía no cursaste ninguna materia.'
+    };
+
+    const ESTADO_DESCRIPCION = {
+      Pendiente: 'Todavía no la cursaste.',
+      Cursando: 'Estás cursando esta materia.',
+      Regular: 'Cursada aprobada: podés rendir el final mientras tu regularidad esté vigente.',
+      Promocionada: 'Aprobada por promoción (sin final).',
+      Aprobada: 'Aprobaste el final.',
+      Vencida: 'Perdiste la regularidad: tenés que volver a cursarla.'
+    };
+
+    const ESTADO_FINAL_DESCRIPCION = {
+      Inscripto: 'Estás anotado: todavía no se cargó el resultado.',
+      Aprobado: 'Aprobaste este final.',
+      Desaprobado: 'Desaprobaste este final: cuenta como un llamado usado.',
+      Ausente: 'No te presentaste: cuenta como un llamado usado.',
+      Anulada: 'La inscripción fue anulada.'
+    };
+
+    const avisoError = (mensaje) => `<div class="alert alert-danger mb-0">${esc(mensaje)}</div>`;
+    const tituloAnio = (anio) => (anio ? etiquetaAnio(anio) : 'Otras materias');
+
+    // ----- Situación académica (pestañas Inscripciones e Historial) -----
     async function cargarHistorialAcademico() {
-      const alumnoId = #{alumno.id};
+      const r = await apiFetch(`/api/estado-academico/${ALUMNO_ID}`);
+      if (!r.ok) {
+        document.getElementById('datoPlan').textContent = 'No disponible';
+        document.getElementById('semaforoGeneral').innerHTML = '<span class="text-muted">No disponible</span>';
+        document.getElementById('porcentajeCarrera').textContent = '—';
+        document.getElementById('historialTable').querySelector('tbody').innerHTML = '<tr><td colspan="6" class="text-center text-danger">Error cargando el historial.</td></tr>';
+        document.getElementById('historialFeedback').innerHTML = avisoError(r.error);
+        return;
+      }
+      pintarEstadoAcademico(r.data);
+    }
+
+    function pintarEstadoAcademico(d) {
+      // Resumen de la pestaña Inscripciones
+      document.getElementById('datoPlan').textContent = d.plan ? d.plan.nombre : 'Sin plan asignado';
+      const semaforo = d.semaforo || { color: 'gris', conteo: {} };
+      const conteo = semaforo.conteo || {};
+      document.getElementById('semaforoGeneral').innerHTML = badgeSemaforo(semaforo.color, SEMAFORO_DESCRIPCION[semaforo.color])
+        + `<div class="small text-muted mt-1">${esc(conteo.verde || 0)} al día · ${esc(conteo.amarillo || 0)} condicional(es) · ${esc(conteo.rojo || 0)} con regularidad vencida</div>`;
+
+      // Progreso de la pestaña Historial
+      const porcentaje = parseInt(d.porcentaje_carrera, 10) || 0;
+      document.getElementById('porcentajeCarrera').textContent = d.porcentaje_carrera || '0%';
+      const barra = document.getElementById('barraPorcentaje');
+      barra.style.width = porcentaje + '%';
+      barra.setAttribute('aria-valuenow', porcentaje);
+      document.getElementById('detalleProgreso').textContent = `${d.materiasAprobadas || 0} de ${d.totalMaterias || 0} materias aprobadas`;
+      document.getElementById('reglasDelPlan').textContent = d.plan && d.reglas ? 'Reglas de tu plan: ' + resumenReglasPlan(d.reglas) + '.' : '';
+
+      // Alertas: materias en amarillo o rojo
+      const alertas = d.alertas || [];
+      document.getElementById('alertasAcademicas').innerHTML = alertas.length
+        ? '<div class="card border-warning"><div class="card-header bg-warning-subtle fw-semibold">Materias que requieren tu atención</div><ul class="list-group list-group-flush">'
+          + alertas.map((a) => `<li class="list-group-item d-flex flex-wrap align-items-center gap-2">${badgeSemaforo(a.color)}<span class="fw-semibold">${esc(a.nombre)}</span><span class="text-muted small">(${esc(tituloAnio(a.anio))})</span><span class="small">${esc(a.mensaje)}</span></li>`).join('')
+          + '</ul></div>'
+        : (semaforo.color === 'verde' ? '<div class="alert alert-success mb-0">No tenés materias con alertas: estás al día.</div>' : '');
+
+      // Tabla de materias agrupada por año
+      const tbody = document.getElementById('historialTable').querySelector('tbody');
       const feedback = document.getElementById('historialFeedback');
-      const porcentaje = document.getElementById('porcentajeCarrera');
-      const tabla = document.getElementById('historialTable');
+      if (!d.materias || d.materias.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">Tu plan todavía no tiene materias cargadas.</td></tr>';
+        feedback.innerHTML = '';
+        return;
+      }
+      tbody.innerHTML = agruparPorAnio(d.materias).map((grupo) =>
+        `<tr class="table-light"><th colspan="6">${esc(tituloAnio(grupo.anio))}</th></tr>` + grupo.items.map(filaHistorial).join('')
+      ).join('');
+      feedback.innerHTML = '<p class="text-muted mb-0">Se muestran todas las materias del plan ordenadas por año.</p>';
+      activarAyudas(document.getElementById('tabHistorial'));
+    }
 
-      if (!tabla || !porcentaje || !feedback) return;
+    function filaHistorial(m) {
+      const semaforo = m.semaforo || { color: 'gris', mensaje: '' };
+      const recursada = m.intento > 1 ? `<div class="small text-muted">Recursada · intento ${esc(m.intento)}</div>` : '';
+      const aclaracion = ['amarillo', 'rojo'].includes(semaforo.color) ? `<div class="small text-muted mt-1">${esc(semaforo.mensaje)}</div>` : '';
+      const nota = m.nota !== null && m.nota !== undefined ? esc(m.nota) : '—';
+      return `<tr>
+        <td>${esc(m.nombre)}${recursada}</td>
+        <td>${badgeEstado(m.estado, ESTADO_DESCRIPCION[m.estado])}</td>
+        <td>${nota}</td>
+        <td class="small">${textoActa(m.libro, m.folio) || '<span class="text-muted">—</span>'}</td>
+        <td class="small">${textoRegularidad(m.regularidad)}</td>
+        <td>${badgeSemaforo(semaforo.color, semaforo.mensaje)}${aclaracion}</td>
+      </tr>`;
+    }
 
-      try {
-        const respuesta = await fetch(`/api/estado-academico/${alumnoId}`, {
-          headers: getAuthHeaders()
-        });
-        if (!respuesta.ok) {
-          throw new Error('No se pudo cargar el historial académico');
-        }
-        const data = await respuesta.json();
-        porcentaje.innerText = data.porcentaje_carrera || '0%';
+    // ----- Inscripción a finales -----
+    async function cargarFinales() {
+      const [disponibles, propios] = await Promise.all([
+        apiFetch(`/api/inscripciones-final/disponibles/${ALUMNO_ID}`),
+        apiFetch(`/api/inscripciones-final/alumno/${ALUMNO_ID}`)
+      ]);
+      if (disponibles.ok) pintarFinalesDisponibles(disponibles.data);
+      else document.getElementById('contenidoFinales').innerHTML = avisoError(disponibles.error);
 
-        if (!data.materias || !data.materias.length) {
-          tabla.querySelector('tbody').innerHTML = '<tr><td colspan="4" class="text-center text-muted">No hay materias en el historial.</td></tr>';
-          feedback.innerHTML = '<p class="text-muted">No se encontraron materias en el historial académico.</p>';
-          return;
-        }
-
-        const filas = data.materias.map(m => {
-          const nota = m.nota !== null && m.nota !== undefined ? m.nota : '-';
-          return `
-            <tr>
-              <td>${m.nombre}</td>
-              <td>${m.anio || '-'}</td>
-              <td>${m.estado || '-'}</td>
-              <td>${nota}</td>
-            </tr>
-          `;
-        }).join('');
-
-        tabla.querySelector('tbody').innerHTML = filas;
-        feedback.innerHTML = '<p class="text-muted">Se muestran todas las materias del plan ordenadas por año.</p>';
-      } catch (error) {
-        tabla.querySelector('tbody').innerHTML = '<tr><td colspan="4" class="text-center text-danger">Error cargando el historial.</td></tr>';
-        feedback.innerHTML = `<p class="text-danger">${error.message}</p>`;
+      if (propios.ok) {
+        misFinales = propios.data.data || [];
+        pintarMisFinales();
+      } else {
+        document.getElementById('contenidoMisFinales').innerHTML = `<div class="p-3">${avisoError(propios.error)}</div>`;
       }
     }
+
+    function textoCierre(periodo) {
+      if (!periodo.fechaFin) return '';
+      return ` · cierra el ${fechaCalendarioLocal(periodo.fechaFin)}${periodo.horaFin ? ' a las ' + periodo.horaFin : ''}`;
+    }
+
+    function pintarFinalesDisponibles(d) {
+      periodosFinalAbiertos = d.periodos || [];
+      const abierto = periodosFinalAbiertos.length > 0;
+      // Solo importan las materias que tiene Regulares (o en las que ya está anotado)
+      const materias = (d.data || []).filter((m) => m.estado === 'Regular' || m.yaInscripto);
+      let html = '';
+
+      if (!abierto) {
+        html += '<div class="alert alert-secondary"><i class="bi bi-calendar-x me-1"></i>No hay un período de inscripción a finales abierto en este momento. Mientras tanto podés ver hasta cuándo tenés vigente cada regularidad.</div>';
+      } else if (periodosFinalAbiertos.length === 1) {
+        const p = periodosFinalAbiertos[0];
+        html += `<div class="alert alert-success"><i class="bi bi-calendar-check me-1"></i>Inscripción abierta: <b>${esc(p.nombre)}</b>${p.fechaExamen ? ' · examen el ' + esc(fechaCalendarioLocal(p.fechaExamen)) : ''}${esc(textoCierre(p))}</div>`;
+      } else {
+        html += '<div class="mb-3"><label class="form-label fw-semibold" for="selectPeriodoFinal">Mesa en la que te querés anotar</label>'
+          + '<select class="form-select" id="selectPeriodoFinal"><option value="" disabled selected>Elegí la mesa...</option>'
+          + periodosFinalAbiertos.map((p) => `<option value="${esc(p.id)}">${esc(p.nombre)}${p.fechaExamen ? ' · examen el ' + esc(fechaCalendarioLocal(p.fechaExamen)) : ''}${esc(textoCierre(p))}</option>`).join('')
+          + '</select></div>';
+      }
+
+      if (materias.length === 0) {
+        html += '<p class="text-muted mb-0">No tenés materias Regulares para rendir por ahora.</p>';
+        document.getElementById('contenidoFinales').innerHTML = html;
+        return;
+      }
+
+      html += agruparPorAnio(materias).map((grupo) =>
+        `<div class="fw-semibold small text-secondary bg-light px-2 py-1 mt-2">${esc(tituloAnio(grupo.anio))}</div>` + grupo.items.map((m) => filaFinalDisponible(m, abierto)).join('')
+      ).join('');
+
+      if (abierto && materias.some((m) => m.puede)) {
+        html += '<div class="mt-3"><button type="button" class="btn btn-primary" id="btnInscribirFinales" onclick="inscribirseAFinales()" data-bs-toggle="tooltip" title="Anotarte a los finales de las materias tildadas"><i class="bi bi-pencil-square me-1"></i>Inscribirme a los finales seleccionados</button></div>';
+      }
+      document.getElementById('contenidoFinales').innerHTML = html;
+      activarAyudas(document.getElementById('contenidoFinales'));
+    }
+
+    function filaFinalDisponible(m, abierto) {
+      const motivos = (m.motivos || []).map((x) => x.mensaje).join(' · ');
+      let situacion;
+      if (m.yaInscripto) situacion = '<span class="badge bg-warning text-dark">Ya estás inscripto</span>';
+      else if (!m.puede) situacion = `<div class="small text-danger">${esc(motivos || 'Hoy no podés rendir este final.')}</div>`;
+      else if (!abierto) situacion = '<span class="badge bg-success">Habilitada para rendir</span>';
+      else situacion = '';
+      const habilitada = abierto && m.puede;
+      // Si ya se explica por qué no puede rendir (motivos), no se repite el texto de la regularidad perdida
+      const regularidad = m.regularidad && !m.regularidad.vigente && motivos ? '' : textoRegularidad(m.regularidad);
+      return `<div class="d-flex align-items-start gap-2 border-bottom py-2">
+        <input class="form-check-input mt-1 check-final" type="checkbox" value="${esc(m.materia_id)}" id="finalMat_${esc(m.materia_id)}"${habilitada ? '' : ' disabled'}>
+        <label class="flex-grow-1${habilitada || m.yaInscripto ? '' : ' text-muted'}" for="finalMat_${esc(m.materia_id)}">
+          <div class="fw-semibold">${esc(m.nombre)} ${situacion}</div>
+          ${regularidad ? `<div class="small text-muted">${regularidad}</div>` : ''}
+        </label>
+      </div>`;
+    }
+
+    async function inscribirseAFinales() {
+      const materias = Array.from(document.querySelectorAll('.check-final:checked')).map((c) => Number(c.value));
+      if (materias.length === 0) return mostrarModalMensaje('Inscripción a finales', 'Seleccioná al menos una materia.');
+
+      let periodoId = periodosFinalAbiertos.length === 1 ? periodosFinalAbiertos[0].id : Number(document.getElementById('selectPeriodoFinal')?.value);
+      if (!periodoId) return mostrarModalMensaje('Inscripción a finales', 'Elegí la mesa en la que querés anotarte.');
+
+      const boton = document.getElementById('btnInscribirFinales');
+      const textoOriginal = boton.innerHTML;
+      boton.disabled = true; // evita un doble clic mientras responde el servidor
+      boton.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Inscribiendo...';
+
+      const r = await apiFetch('/api/inscripciones-final', { method: 'POST', body: { alumno_id: ALUMNO_ID, periodo_id: periodoId, materias_ids: materias } });
+      if (!r.ok) {
+        boton.disabled = false;
+        boton.innerHTML = textoOriginal;
+        const detalle = r.data.detalleErrores && r.data.detalleErrores.length ? '\n' + r.data.detalleErrores.join('\n') : '';
+        return mostrarModalMensaje('No se pudo completar la inscripción', r.error + detalle);
+      }
+
+      const omitidas = r.data.errores && r.data.errores.length ? '\n\nNo se pudo anotar:\n' + r.data.errores.join('\n') : '';
+      mostrarModalMensaje(omitidas ? 'Inscripción parcial' : 'Inscripción exitosa', (r.data.message || 'Te anotaste correctamente.') + omitidas);
+      await cargarFinales();
+    }
+
+    function filaMiFinal(f) {
+      const examen = f.fechaExamen ? esc(fechaCalendarioLocal(f.fechaExamen)) : '<span class="text-muted">A confirmar</span>';
+      const nota = f.nota !== null && f.nota !== undefined ? esc(f.nota) : '—';
+      // El alumno solo puede anular mientras el período de inscripción de esa mesa siga abierto
+      const periodoAbierto = periodosFinalAbiertos.some((p) => p.id === f.periodo_id);
+      let anular = '';
+      if (f.estado === 'Inscripto') {
+        anular = periodoAbierto
+          ? `<button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="tooltip" title="Anular esta inscripción (solo mientras el período de inscripción esté abierto)" onclick="anularFinal(${Number(f.id)})"><i class="bi bi-x-circle me-1"></i>Anular</button>`
+          : '<span class="small text-muted" data-bs-toggle="tooltip" title="El período de inscripción de esta mesa ya cerró. Para anularla consultá en Secretaría.">Período cerrado</span>';
+      }
+      return `<tr>
+        <td>${esc(f.materia)}</td>
+        <td>${esc(f.periodo)}</td>
+        <td>${examen}</td>
+        <td>${badgeEstado(f.estado, ESTADO_FINAL_DESCRIPCION[f.estado])}</td>
+        <td>${nota}</td>
+        <td class="small text-nowrap">${textoActa(f.libro, f.folio) || '<span class="text-muted">—</span>'}</td>
+        <td class="text-end text-nowrap">${anular}</td>
+      </tr>`;
+    }
+
+    function pintarMisFinales() {
+      const contenedor = document.getElementById('contenidoMisFinales');
+      if (misFinales.length === 0) {
+        contenedor.innerHTML = '<div class="p-3 text-muted">Todavía no te anotaste a ningún final.</div>';
+        return;
+      }
+      contenedor.innerHTML = '<div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead><tr><th>Materia</th><th>Mesa</th><th>Fecha de examen</th><th>Estado</th><th>Nota</th><th>Acta</th><th class="text-end">Acciones</th></tr></thead><tbody>'
+        + agruparPorAnio(misFinales).map((grupo) => `<tr class="table-light"><th colspan="7">${esc(tituloAnio(grupo.anio))}</th></tr>` + grupo.items.map(filaMiFinal).join('')).join('')
+        + '</tbody></table></div>';
+      activarAyudas(contenedor);
+    }
+
+    async function anularFinal(id) {
+      const final = misFinales.find((f) => f.id === id);
+      if (!final) return;
+      if (!confirm(`¿Anular tu inscripción al final de "${final.materia}"?`)) return;
+      const r = await apiFetch(`/api/inscripciones-final/${id}`, { method: 'DELETE' });
+      if (!r.ok) return mostrarModalMensaje('No se pudo anular la inscripción', r.error);
+      mostrarAviso('Inscripción anulada.', 'success');
+      await cargarFinales();
+    }
+
+    document.addEventListener('shown.bs.tab', (evento) => {
+      if (evento.target && evento.target.getAttribute('data-bs-target') === '#tabInscripciones') cargarFinales();
+    });
+
+    document.addEventListener('DOMContentLoaded', () => {
+      cargarHistorialAcademico();
+      cargarFinales();
+    });
 
     document.addEventListener('click', async (e) => {
       // Buscamos el botón de inscripción más cercano
@@ -323,27 +634,22 @@ block scripts
         const cohorteId = #{alumno.cohorte_id || 'null'};
 
         try {
-          const resp = await fetch('/api/inscripciones', {
+          // apiFetch nunca lanza por una respuesta que no es JSON (por ejemplo, la página de login si venció la sesión)
+          const r = await apiFetch('/api/inscripciones', {
             method: 'POST',
-            headers: getAuthHeaders(),
-            body: JSON.stringify({ 
-                alumno_id: alumnoId, 
-                cohorte_id: cohorteId, 
-                materias_ids: [parseInt(materiaId)] 
-            })
+            body: { alumno_id: alumnoId, cohorte_id: cohorteId, materias_ids: [parseInt(materiaId)] },
+            errorHtml: 'No se pudo procesar la inscripción. Intentá de nuevo.'
           });
-          
-          const json = await resp.json();
-          
+
           // Si el backend devuelve un error (ej. falta correlatividad)
-          if (!resp.ok) {
-            let errorMsg = json.error || 'No se pudo procesar la inscripción.';
-            if (json.detalleErrores && json.detalleErrores.length > 0) {
-              errorMsg = "Motivo del rechazo:\n" + json.detalleErrores.join('\n');
+          if (!r.ok) {
+            let errorMsg = r.error || 'No se pudo procesar la inscripción.';
+            if (r.data.detalleErrores && r.data.detalleErrores.length > 0) {
+              errorMsg = "Motivo del rechazo:\n" + r.data.detalleErrores.join('\n');
             }
             throw new Error(errorMsg);
           }
-          
+
           // 2. ÉXITO: Cambiamos a verde, ponemos "Inscripto" y dejamos el botón bloqueado (disabled = true) para que no se pueda volver a clickear
           boton.classList.remove('btn-primary');
           boton.classList.add('btn-success');
@@ -351,6 +657,7 @@ block scripts
           boton.disabled = true; 
           
           mostrarModalMensaje('Inscripción exitosa', 'Se completó la inscripción correctamente.');
+          cargarHistorialAcademico();
           
         } catch (err) {
           // Si falló por correlatividad, devolvemos el botón a su estado original para que pueda reintentar
@@ -364,51 +671,6 @@ block scripts
     document.addEventListener('shown.bs.tab', function (event) {
       if (event.target && event.target.getAttribute('data-bs-target') === '#tabHistorial') {
         cargarHistorialAcademico();
-      }
-    });
-
-    const socket = io();
-    const chatForm = document.getElementById('chat-form');
-    const chatInput = document.getElementById('chat-input');
-    const chatMessages = document.getElementById('chat-messages');
-
-    function agregarMensajeVisual(emisor, texto, clasesCaja, clasesTitulo) {
-      const li = document.createElement('li');
-      li.classList.add('mb-3', 'd-flex');
-      li.innerHTML = `
-        <div class="${clasesCaja} rounded p-2 shadow-sm" style="max-width: 85%;">
-          <small class="fw-bold ${clasesTitulo}">${emisor}</small><br>
-          <small>${texto}</small>
-        </div>
-      `;
-      chatMessages.appendChild(li);
-      chatMessages.scrollTop = chatMessages.scrollHeight;
-    }
-
-    if (chatForm) {
-      chatForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-        const texto = chatInput.value.trim();
-        if (!texto) return;
-
-        agregarMensajeVisual('Vos', texto, 'bg-primary text-white ms-auto', 'text-white-50');
-
-        socket.emit('mensaje', {
-          usuario: currentUser?.name || 'Alumno',
-          texto,
-          usuarioLogueado: currentUser || null
-        });
-        chatInput.value = '';
-      });
-    }
-
-    socket.on('mensaje', (datos) => {
-      const nombreUsuario = currentUser?.name || 'Alumno';
-      if (datos.usuario !== nombreUsuario) {
-        const esIA = datos.usuario === 'Asesor Virtual';
-        const clasesCaja = esIA ? 'bg-white border border-primary' : 'bg-secondary text-white';
-        const clasesTitulo = esIA ? 'text-primary' : 'text-white-50';
-        agregarMensajeVisual(datos.usuario, datos.texto, clasesCaja, clasesTitulo);
       }
     });
 
@@ -441,9 +703,9 @@ block scripts
 
             html += `
               <tr>
-                <td class="ps-4 fw-medium text-primary">${c.tipo_constancia || 'Alumno Regular'}</td>
+                <td class="ps-4 fw-medium text-primary">${esc(c.tipo_constancia || 'Alumno Regular')}</td>
                 <td>${fechaReq}</td>
-                <td>${c.presentar_a}</td>
+                <td>${esc(c.presentar_a)}</td>
                 <td>${badgeEstado}</td>
                 <td>${fechaVenc}</td>
               </tr>
@@ -489,9 +751,9 @@ block scripts
 
             html += `
               <tr>
-                <td class="ps-4 fw-medium text-primary">${c.tipo_constancia}</td>
+                <td class="ps-4 fw-medium text-primary">${esc(c.tipo_constancia)}</td>
                 <td>${fechaReq}</td>
-                <td>${c.presentar_a}</td>
+                <td>${esc(c.presentar_a)}</td>
                 <td>${badgeEstado}</td>
                 <td>${fechaVenc}</td>
               </tr>

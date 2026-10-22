@@ -1,7 +1,8 @@
 .tab-pane.fade.show.active#admin-pane(role="tabpanel" aria-labelledby="admin-tab")
   .d-flex.justify-content-between.align-items-center.mb-3
     h4.mb-0.text-secondary Gestión de Personal
-    button.btn.btn-info.text-white.shadow-sm(data-bs-toggle="modal" data-bs-target="#modalCrear")
+      +ayuda('Personas que pueden entrar al panel administrativo. Cada una tiene un área y un rol que define qué puede hacer.')
+    button.btn.btn-info.text-white.shadow-sm(data-bs-toggle="modal" data-bs-target="#modalCrear" data-ayuda="Dar de alta a una persona del personal con su área, rol y contraseña inicial")
       i.bi.bi-plus-lg.me-1
       | Nuevo Administrativo
 
@@ -26,11 +27,11 @@
                   td
                     span.badge.bg-secondary= admin.rol
                   td.text-center
-                    button.btn.btn-sm.btn-outline-primary.me-2(onclick=`abrirModalEditar(${JSON.stringify(admin)})`)
+                    button.btn.btn-sm.btn-outline-primary.me-2(onclick=`abrirModalEditar(${JSON.stringify(admin)})` data-ayuda="Editar nombre, correo, área o rol, o cambiar la contraseña")
                       i.bi.bi-pencil-square
                       |  Editar
                     form.d-inline(action=`/api/administrativos/eliminar/${admin.id}` method="POST")
-                      button.btn.btn-sm.btn-outline-danger(type="submit" onclick="return confirm('¿Seguro que querés eliminar este usuario?');")
+                      button.btn.btn-sm.btn-outline-danger(type="submit" onclick="return confirm('¿Seguro que querés eliminar este usuario?');" data-ayuda="Eliminar a esta persona del personal (pide confirmación)")
                         i.bi.bi-trash
             else
               tr

@@ -1,0 +1,154 @@
+script.
+  // ==========================================================================
+  // COHORTES (con plan de estudios) 
+  // ==========================================================================
+  let cohortesActuales = [];
+  let cohorteSeleccionadaId = null;
+
+  function cohortePorId(id) {
+    return cohortesActuales.find((c) => c.id === Number(id)) || null;
+  }
+
+  // Carga las cohortes en el selector. Si llega `seleccionarId`, la deja elegida y muestra sus alumnos.
+  async function cargarCohortes(seleccionarId) {
+    const select = document.getElementById('selectorCohorte');
+    const r = await apiFetch('/getCohortes');
+    if (!r.ok) {
+      select.innerHTML = '<option disabled selected>No se pudieron cargar las cohortes</option>';
+      mostrarAviso('No se pudieron cargar las cohortes: ' + r.error, 'danger');
+      return;
+    }
+
+    cohortesActuales = r.data.data || [];
+    if (cohortesActuales.length === 0) {
+      select.innerHTML = '<option disabled selected>No hay cohortes creadas</option>';
+      return;
+    }
+
+    select.innerHTML = '<option value="" disabled selected>Elegir cohorte...</option>' + cohortesActuales.map((c) => {
+      const plan = planPorId(c.plan_id);
+      return `<option value="${c.id}">${esc(c.name)} · ${esc(plan ? plan.nombre : 'sin plan')}</option>`;
+    }).join('');
+
+    if (seleccionarId && cohortePorId(seleccionarId)) {
+      select.value = String(seleccionarId);
+      await seleccionarCohorte(seleccionarId);
+    }
+  }
+
+  function pintarResumenCohorte(cohorte) {
+    const contenedor = document.getElementById('resumenCohorte');
+    const plan = planPorId(cohorte.plan_id);
+    contenedor.classList.remove('d-none');
+
+    if (!plan) {
+      contenedor.innerHTML = '<span class="text-danger"><i class="bi bi-exclamation-triangle me-1"></i>Esta cohorte no tiene plan de estudios asignado. Usá "Editar Cohorte" para asignarle uno.</span>';
+      return;
+    }
+
+    contenedor.innerHTML =
+      '<span class="me-3"><i class="bi bi-journal-text me-1"></i><b>' + esc(plan.nombre) + '</b>'
+      + (plan.resolucion ? ' <span class="text-muted">(' + esc(plan.resolucion) + ')</span>' : '')
+      + (plan.activo === false ? ' <span class="badge bg-secondary">Plan inactivo</span>' : '') + '</span>'
+      + '<span class="me-3 text-muted"><i class="bi bi-hourglass-split me-1"></i>' + esc(resumenReglasPlan(plan)) + '</span>'
+      + '<span class="text-muted"><i class="bi bi-calendar-event me-1"></i>Inicio: ' + fechaCalendarioLocal(cohorte.startDate) + '</span>';
+  }
+
+  // Se ejecuta al elegir una cohorte en el selector
+  async function seleccionarCohorte(cohorteId) {
+    const cohorte = cohortePorId(cohorteId);
+    if (!cohorte) return;
+    cohorteSeleccionadaId = cohorte.id;
+
+    document.getElementById('btnAbrirModalAlumno').disabled = false;
+    document.getElementById('btnEditarCohorte').disabled = false;
+
+    const btnSheets = document.getElementById('btnAbrirSheets');
+    if (btnSheets) {
+      btnSheets.disabled = false;
+      // Al hacer clic, abre el endpoint en una pestaña nueva
+      btnSheets.onclick = () => window.open(`/api/sheets/abrir-cohorte/${cohorte.id}`, '_blank');
+    }
+
+    // Sincronizador con Google Sheets
+    const btnSync = document.getElementById('btnSincronizarSheets');
+    if (btnSync) {
+      btnSync.disabled = false;
+      btnSync.onclick = async () => {
+        const textoOriginal = btnSync.innerHTML;
+        btnSync.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Sincronizando...';
+        btnSync.disabled = true;
+        const r = await apiFetch(`/api/sheets/sync/${cohorte.id}`);
+        if (r.ok) {
+          await dibujarTablaAlumnos(cohorte.id);
+          // Lo que se omitió (email repetido o inválido, legajo repetido, alumno de otra cohorte) se muestra para poder corregirlo en la planilla
+          const omitidos = Array.isArray(r.data.omitidos) ? r.data.omitidos : [];
+          const detalle = omitidos.length ? '\nNo se pudo aplicar:\n' + omitidos.slice(0, 5).join('\n') + (omitidos.length > 5 ? '\n…y ' + (omitidos.length - 5) + ' más.' : '') : '';
+          mostrarAviso((r.data.message || 'Datos sincronizados con Google Sheets.') + detalle, omitidos.length ? 'warning' : 'success');
+        } else {
+          mostrarAviso('No se pudo sincronizar con Google Sheets: ' + r.error, 'danger');
+        }
+        btnSync.innerHTML = textoOriginal;
+        btnSync.disabled = false;
+      };
+    }
+
+    pintarResumenCohorte(cohorte);
+    document.getElementById('hiddenCohorteId').value = cohorte.id;
+    document.getElementById('textoAvisoCohorte').innerHTML = `El alumno será inscripto automáticamente en la cohorte: <b>${esc(cohorte.name)}</b>`;
+    await dibujarTablaAlumnos(cohorte.id);
+  }
+
+  document.getElementById('selectorCohorte').addEventListener('change', (e) => seleccionarCohorte(e.target.value));
+
+  // ----- Nueva cohorte -----
+  document.getElementById('modalCrearCohorte')?.addEventListener('show.bs.modal', () => {
+    document.getElementById('formCrearCohorte').reset();
+    pintarSelectoresDePlan();
+  });
+
+  document.getElementById('formCrearCohorte')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const data = Object.fromEntries(new FormData(e.target));
+    const r = await apiFetch('/crearCohorte', { method: 'POST', body: data });
+    if (!r.ok) return mostrarAviso(r.error, 'danger');
+
+    cerrarModal('modalCrearCohorte');
+    mostrarAviso('Cohorte creada.');
+    await cargarPlanes(); // actualiza los contadores de cohortes de cada plan
+    await cargarCohortes(r.data.cohorte ? r.data.cohorte.id : null);
+  });
+
+  // ----- Editar cohorte (nombre, inicio y plan) -----
+  document.getElementById('btnEditarCohorte')?.addEventListener('click', () => {
+    const cohorte = cohortePorId(cohorteSeleccionadaId);
+    if (!cohorte) return;
+
+    document.getElementById('editCohorteId').value = cohorte.id;
+    document.getElementById('editCohorteNombre').value = cohorte.name || '';
+    document.getElementById('editCohorteInicio').value = soloFecha(cohorte.startDate);
+
+    // Planes activos + el actual de la cohorte (aunque esté inactivo, para que no desaparezca de la lista)
+    const selectPlan = document.getElementById('editCohortePlan');
+    const opciones = planesActuales.filter((p) => p.activo !== false || p.id === cohorte.plan_id);
+    selectPlan.innerHTML = (cohorte.plan_id ? '' : '<option value="" disabled selected>Elegir plan...</option>')
+      + opciones.map((p) => `<option value="${p.id}">${esc(p.nombre)}${p.activo === false ? ' (inactivo)' : ''}</option>`).join('');
+    if (cohorte.plan_id) selectPlan.value = String(cohorte.plan_id);
+
+    abrirModal('modalEditarCohorte');
+  });
+
+  document.getElementById('formEditarCohorte')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const id = document.getElementById('editCohorteId').value;
+    const data = Object.fromEntries(new FormData(e.target));
+    delete data.id;
+
+    const r = await apiFetch(`/updateCohorte/${id}`, { method: 'PUT', body: data });
+    if (!r.ok) return mostrarAviso(r.error, 'danger'); // incluye el 409 "la cohorte ya tiene alumnos cursando o inscriptos"
+
+    cerrarModal('modalEditarCohorte');
+    mostrarAviso('Cohorte actualizada.');
+    await cargarPlanes();
+    await cargarCohortes(Number(id));
+  });

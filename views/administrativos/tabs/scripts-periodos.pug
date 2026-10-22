@@ -1,0 +1,237 @@
+script.
+  // ==========================================================================
+  // PERÍODOS DE INSCRIPCIÓN (Cursada y Final) E INSCRIPCIÓN MANUAL A CURSADA 
+  // ==========================================================================
+  let periodosActuales = [];
+  let filtroTipoPeriodo = '';
+
+  const tipoDelPeriodo = (p) => p.tipo || 'Cursada'; // los períodos viejos no tienen tipo guardado: eran de cursada
+
+  function fechaYHora(fecha, hora) {
+    const [anio, mes, dia] = soloFecha(fecha).split('-').map(Number);
+    const [hh, mm] = String(hora || '0:0').split(':').map(Number);
+    if (!anio) return null;
+    return new Date(anio, mes - 1, dia, hh || 0, mm || 0);
+  }
+
+  // Misma regla que el servidor: activo + reloj entre inicio y fin
+  function periodoVigenteAhora(p) {
+    if (!p.activo) return false;
+    const inicio = fechaYHora(p.fechaInicio, p.horaInicio);
+    const fin = fechaYHora(p.fechaFin, p.horaFin);
+    const ahora = new Date();
+    return Boolean(inicio && fin && ahora >= inicio && ahora <= fin);
+  }
+
+  async function cargarPeriodos() {
+    const contenedor = document.getElementById('contenedorPeriodos');
+    if (!contenedor) return;
+
+    const r = await apiFetch('/api/periodos-inscripcion');
+    if (!r.ok) {
+      contenedor.innerHTML = `<div class="p-5 text-center text-danger">${esc(r.error)}</div>`;
+      return;
+    }
+
+    // Más recientes primero
+    periodosActuales = (r.data.data || []).slice().sort((a, b) => soloFecha(b.fechaInicio).localeCompare(soloFecha(a.fechaInicio)) || b.id - a.id);
+    pintarPeriodos();
+  }
+
+  function pintarPeriodos() {
+    const contenedor = document.getElementById('contenedorPeriodos');
+    const lista = periodosActuales.filter((p) => !filtroTipoPeriodo || tipoDelPeriodo(p) === filtroTipoPeriodo);
+
+    if (lista.length === 0) {
+      contenedor.innerHTML = '<div class="p-5 text-center text-muted">' + (periodosActuales.length === 0 ? 'Aún no hay períodos creados.' : 'No hay períodos de este tipo.') + '</div>';
+      return;
+    }
+
+    let html = '<div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead class="table-light"><tr>'
+      + '<th class="ps-4">Nombre</th><th>Tipo</th><th>Apertura</th><th>Cierre</th><th>Fecha de examen</th><th>Estado</th><th class="text-center">Acciones</th></tr></thead><tbody>';
+
+    lista.forEach((p) => {
+      const esFinal = tipoDelPeriodo(p) === 'Final';
+      const vigente = periodoVigenteAhora(p);
+
+      let estado;
+      if (p.activo && vigente) {
+        estado = `<button type="button" class="btn btn-sm btn-success" data-bs-toggle="tooltip" title="Los alumnos pueden inscribirse ahora. Clic para cerrarlo." onclick="alternarPeriodo(${p.id}, false)">ABIERTO</button>`;
+      } else if (p.activo) {
+        estado = `<button type="button" class="btn btn-sm btn-warning" data-bs-toggle="tooltip" title="Está activado pero hoy no está entre las fechas de apertura y cierre, así que los alumnos NO pueden inscribirse. Clic para cerrarlo." onclick="alternarPeriodo(${p.id}, false)">ACTIVO · fuera de fecha</button>`;
+      } else {
+        estado = `<button type="button" class="btn btn-sm btn-secondary" data-bs-toggle="tooltip" title="Cerrado: los alumnos no pueden inscribirse. Clic para abrirlo (dentro de sus fechas)." onclick="alternarPeriodo(${p.id}, true)">CERRADO</button>`;
+      }
+
+      html += `<tr>
+        <td class="ps-4 fw-medium">${esc(p.nombre)}</td>
+        <td><span class="badge ${esFinal ? 'bg-danger' : 'bg-primary'}">${esFinal ? 'Final' : 'Cursada'}</span></td>
+        <td><small>${fechaCalendarioLocal(p.fechaInicio)} ${esc(p.horaInicio)}</small></td>
+        <td><small>${fechaCalendarioLocal(p.fechaFin)} ${esc(p.horaFin)}</small></td>
+        <td><small>${esFinal ? (p.fechaExamen ? fechaCalendarioLocal(p.fechaExamen) : '<span class="text-muted">sin definir</span>') : '<span class="text-muted">—</span>'}</small></td>
+        <td>${estado}</td>
+        <td class="text-center text-nowrap">
+          ${esFinal ? `<button type="button" class="btn btn-sm btn-outline-dark me-1" data-bs-toggle="tooltip" title="Ver los alumnos inscriptos a esta mesa y cargar los resultados" onclick="abrirMesaFinal(${p.id})"><i class="bi bi-list-check"></i> Mesa</button>` : ''}
+          <button type="button" class="btn btn-sm btn-outline-warning me-1" data-bs-toggle="tooltip" title="Editar fechas, tipo o fecha de examen" onclick="abrirModalEditarPeriodo(${p.id})"><i class="bi bi-pencil"></i></button>
+          <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="tooltip" title="Eliminar el período" onclick="eliminarPeriodo(${p.id})"><i class="bi bi-trash"></i></button>
+        </td>
+      </tr>`;
+    });
+    contenedor.innerHTML = html + '</tbody></table></div>';
+    activarAyudas(contenedor);
+  }
+
+  document.querySelectorAll('#filtroTipoPeriodo button').forEach((boton) => {
+    boton.addEventListener('click', () => {
+      filtroTipoPeriodo = boton.dataset.tipo || '';
+      document.querySelectorAll('#filtroTipoPeriodo button').forEach((b) => b.classList.toggle('active', b === boton));
+      pintarPeriodos();
+    });
+  });
+
+  // La fecha de examen solo existe en los períodos de Final
+  function conectarTipoConFechaExamen(idSelectTipo, idGrupoFecha) {
+    const select = document.getElementById(idSelectTipo);
+    const grupo = document.getElementById(idGrupoFecha);
+    if (!select || !grupo) return;
+    const actualizar = () => {
+      const esFinal = select.value === 'Final';
+      grupo.classList.toggle('d-none', !esFinal);
+      grupo.querySelectorAll('input').forEach((input) => { input.disabled = !esFinal; });
+    };
+    select.addEventListener('change', actualizar);
+    actualizar();
+    return actualizar;
+  }
+  const actualizarFechaExamenCrear = conectarTipoConFechaExamen('crearPeriodoTipo', 'grupoFechaExamenCrear');
+  const actualizarFechaExamenEditar = conectarTipoConFechaExamen('editPeriodoTipo', 'grupoFechaExamenEditar');
+
+  document.getElementById('modalCrearPeriodo')?.addEventListener('show.bs.modal', () => {
+    document.getElementById('formCrearPeriodo').reset();
+    if (actualizarFechaExamenCrear) actualizarFechaExamenCrear();
+  });
+
+  document.getElementById('formCrearPeriodo')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const data = Object.fromEntries(new FormData(e.target)); // sin id: el sistema asigna el siguiente; "activo" llega como "on" si se tildó
+    data.activo = data.activo === 'on';
+    const r = await apiFetch('/api/periodos-inscripcion', { method: 'POST', body: data });
+    if (!r.ok) return mostrarAviso(r.error, 'danger');
+    cerrarModal('modalCrearPeriodo');
+    mostrarAviso('Período creado.');
+    await cargarPeriodos();
+  });
+
+  function abrirModalEditarPeriodo(id) {
+    const p = periodosActuales.find((x) => x.id === id);
+    if (!p) return;
+    document.getElementById('editPeriodoId').value = p.id;
+    document.getElementById('editPeriodoNombre').value = p.nombre;
+    document.getElementById('editPeriodoTipo').value = tipoDelPeriodo(p);
+    document.getElementById('editPeriodoFechaInicio').value = soloFecha(p.fechaInicio);
+    document.getElementById('editPeriodoHoraInicio').value = p.horaInicio;
+    document.getElementById('editPeriodoFechaFin').value = soloFecha(p.fechaFin);
+    document.getElementById('editPeriodoHoraFin').value = p.horaFin;
+    document.getElementById('editPeriodoFechaExamen').value = soloFecha(p.fechaExamen);
+    if (actualizarFechaExamenEditar) actualizarFechaExamenEditar();
+    abrirModal('modalEditarPeriodo');
+  }
+
+  document.getElementById('formEditarPeriodo')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const id = document.getElementById('editPeriodoId').value;
+    const data = Object.fromEntries(new FormData(e.target));
+    delete data.id;
+    const r = await apiFetch(`/api/periodos-inscripcion/${id}`, { method: 'PUT', body: data });
+    if (!r.ok) return mostrarAviso(r.error, 'danger'); // incluye el 409 al cambiar el tipo de un período con inscripciones
+    cerrarModal('modalEditarPeriodo');
+    mostrarAviso('Período actualizado.');
+    await cargarPeriodos();
+  });
+
+  async function eliminarPeriodo(id) {
+    if (!confirm('¿Seguro que querés borrar este período? Las inscripciones ya hechas no se borran.')) return;
+    const r = await apiFetch(`/api/periodos-inscripcion/${id}`, { method: 'DELETE' });
+    if (!r.ok) return mostrarAviso(r.error, 'danger');
+    mostrarAviso('Período eliminado.');
+    await cargarPeriodos();
+  }
+
+  async function alternarPeriodo(id, nuevoEstado) {
+    const r = await apiFetch(`/api/periodos-inscripcion/${id}`, { method: 'PUT', body: { activo: nuevoEstado } });
+    if (!r.ok) return mostrarAviso('No se pudo cambiar el estado del período: ' + r.error, 'danger');
+    await cargarPeriodos();
+  }
+
+  // ==========================================================================
+  // INSCRIPCIÓN MANUAL DEL ADMINISTRATIVO A MATERIAS (solo períodos de Cursada, materias del plan del alumno)
+  // ==========================================================================
+  async function abrirModalInscripcion(alumnoId, cohorteId) {
+    document.getElementById('hiddenAlumnoIdInscripcion').value = alumnoId;
+    document.getElementById('hiddenCohorteIdInscripcion').value = cohorteId;
+
+    const cohorte = cohortePorId(cohorteId);
+    const plan = cohorte ? planPorId(cohorte.plan_id) : null;
+    const containerMaterias = document.getElementById('checkboxesMateriasInscripcion');
+    const selectPeriodo = document.getElementById('selectPeriodosInscripcion');
+    const aviso = document.getElementById('avisoPlanInscripcion');
+
+    containerMaterias.innerHTML = '<span class="text-muted small">Cargando materias...</span>';
+    selectPeriodo.innerHTML = '<option disabled selected>Cargando períodos...</option>';
+    aviso.innerHTML = plan
+      ? `Materias del plan <b>${esc(plan.nombre)}</b> (el plan de la cohorte del alumno).`
+      : '<span class="text-danger">La cohorte del alumno no tiene plan asignado: asignale uno con "Editar Cohorte" antes de inscribirlo.</span>';
+    abrirModal('modalInscribirManual');
+
+    if (!plan) {
+      containerMaterias.innerHTML = '<span class="text-muted small">Sin plan de estudios no hay materias para ofrecer.</span>';
+      selectPeriodo.innerHTML = '<option disabled selected>—</option>';
+      return;
+    }
+
+    const [resMaterias, resPeriodos] = await Promise.all([
+      apiFetch('/api/materias?plan_id=' + plan.id),
+      apiFetch('/api/periodos-inscripcion/activos?tipo=Cursada')
+    ]);
+
+    if (resMaterias.ok && (resMaterias.data.data || []).length > 0) {
+      containerMaterias.innerHTML = agruparPorAnio(resMaterias.data.data).map((grupo) =>
+        `<div class="fw-semibold small text-secondary bg-light px-2 py-1 mt-1">${etiquetaAnio(grupo.anio)}</div>`
+        + grupo.items.map((m) => `
+          <div class="form-check border-bottom py-1">
+            <input class="form-check-input check-materia" type="checkbox" value="${m.id}" id="mat_${m.id}">
+            <label class="form-check-label w-100" style="cursor:pointer;" for="mat_${m.id}">${esc(m.nombre)}</label>
+          </div>`).join('')
+      ).join('');
+    } else {
+      containerMaterias.innerHTML = '<span class="text-muted small">' + esc(resMaterias.ok ? 'El plan no tiene materias cargadas.' : resMaterias.error) + '</span>';
+    }
+
+    const periodos = resPeriodos.ok ? (resPeriodos.data.data || []) : [];
+    selectPeriodo.innerHTML = periodos.length > 0
+      ? periodos.map((p) => `<option value="${p.id}">${esc(p.nombre)}</option>`).join('')
+      : '<option value="" disabled selected>No hay períodos de Cursada abiertos</option>';
+    if (!resPeriodos.ok) mostrarAviso('No se pudieron cargar los períodos: ' + resPeriodos.error, 'danger');
+  }
+
+  document.getElementById('formInscribirManual')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const alumno_id = document.getElementById('hiddenAlumnoIdInscripcion').value;
+    const cohorte_id = document.getElementById('hiddenCohorteIdInscripcion').value;
+    const periodo_id = document.getElementById('selectPeriodosInscripcion').value;
+    const materias_ids = Array.from(document.querySelectorAll('.check-materia:checked')).map((cb) => cb.value);
+
+    if (!periodo_id) return mostrarAviso('No hay un período de Cursada abierto: abrí uno en la pestaña "Períodos de Inscripción".', 'warning');
+    if (materias_ids.length === 0) return mostrarAviso('Seleccioná al menos una materia.', 'warning');
+
+    const r = await apiFetch('/api/inscripciones', { method: 'POST', body: { alumno_id, cohorte_id, periodo_id, materias_ids } });
+    if (!r.ok) {
+      const detalle = r.data.detalleErrores && r.data.detalleErrores.length ? '\n- ' + r.data.detalleErrores.join('\n- ') : '';
+      return mostrarAviso(r.error + detalle, 'danger');
+    }
+
+    cerrarModal('modalInscribirManual');
+    const omitidas = r.data.errores && r.data.errores.length ? '\n\nOmitidas:\n- ' + r.data.errores.join('\n- ') : '';
+    mostrarAviso((r.data.message || 'Inscripción exitosa') + omitidas, omitidas ? 'warning' : 'success');
+  });

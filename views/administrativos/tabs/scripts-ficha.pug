@@ -1,0 +1,621 @@
+script.
+  // ==========================================================================
+  // FICHA DEL ALUMNO: estado por materia con semáforo y regularidad, cursadas, finales, historial y actas 
+  // ==========================================================================
+  let fichaAlumnoId = null;
+  let fichaMaterias = [];    // materias del plan con su estado (viene de /api/estado-academico)
+  let fichaHistorial = [];   // registros del historial del alumno
+  let fichaFinales = [];     // inscripciones a finales del alumno
+
+  const textoCargando = (texto) => `<div class="p-4 text-center text-muted small"><div class="spinner-border spinner-border-sm me-2"></div>${texto}</div>`;
+  const textoVacio = (icono, texto) => `<div class="p-4 text-center text-muted small"><i class="bi ${icono} fs-3 d-block mb-2"></i>${texto}</div>`;
+  const textoError = (texto) => `<div class="p-4 text-center text-danger small"><i class="bi bi-exclamation-triangle fs-3 d-block mb-2"></i>${esc(texto)}</div>`;
+
+  function abrirFichaAlumno(alumnoId) {
+    fichaAlumnoId = alumnoId;
+    const alumno = alumnosActuales.find((a) => a.id === alumnoId);
+
+    document.getElementById('tituloFichaAlumno').textContent = `Expediente Académico: ${alumno ? alumno.name : 'Alumno'} (ID: ${alumnoId})`;
+    document.getElementById('subtituloFichaAlumno').textContent = alumno ? `DNI ${alumno.dni || '-'} · Legajo ${alumno.legajo || '-'}` : '';
+
+    // Se limpia todo para que no se vea nada del alumno anterior
+    document.getElementById('fichaSemaforo').innerHTML = '';
+    document.getElementById('fichaSemaforoConteo').textContent = '';
+    document.getElementById('fichaProgresoTexto').textContent = '';
+    document.getElementById('fichaPlanIngreso').innerHTML = '';
+    document.getElementById('alertasFichaAlumno').innerHTML = '';
+    document.getElementById('contenedorFichaEstado').innerHTML = textoCargando('Cargando estado...');
+    document.getElementById('contenedorFichaInscripciones').innerHTML = textoCargando('Cargando inscripciones...');
+    document.getElementById('contenedorFichaFinales').innerHTML = textoCargando('Cargando finales...');
+    document.getElementById('contenedorFichaHistorial').innerHTML = textoCargando('Cargando historial...');
+    const barra = document.getElementById('barraProgresoCarrera');
+    barra.style.width = '0%';
+    barra.textContent = '0%';
+    fichaMaterias = [];
+    fichaHistorial = [];
+    fichaFinales = [];
+
+    abrirModal('modalFichaAlumno');
+    refrescarFicha();
+  }
+
+  async function refrescarFicha() {
+    const id = fichaAlumnoId;
+    if (!id) return;
+    await Promise.all([cargarEstadoAcademico(id), cargarInscripcionesAlumno(id), cargarFinalesAlumno(id), cargarHistorialAlumno(id)]);
+  }
+
+  // Después de cambiar algo se refresca la ficha y también el semáforo de la lista de alumnos que está detrás
+  async function refrescarFichaYLista() {
+    await refrescarFicha();
+    if (cohorteSeleccionadaId) await dibujarTablaAlumnos(cohorteSeleccionadaId);
+  }
+
+  // ----- Estado por materia -----
+  function pintarResumenFicha(json) {
+    const color = json.semaforo ? json.semaforo.color : 'gris';
+    const conteo = (json.semaforo && json.semaforo.conteo) || { verde: 0, amarillo: 0, rojo: 0 };
+    document.getElementById('fichaSemaforo').innerHTML = `<div class="fs-5">${badgeSemaforo(color)}</div>`;
+    document.getElementById('fichaSemaforoConteo').textContent = `${conteo.rojo || 0} en rojo · ${conteo.amarillo || 0} en amarillo · ${conteo.verde || 0} en verde`;
+
+    const barra = document.getElementById('barraProgresoCarrera');
+    barra.style.width = json.porcentaje_carrera;
+    barra.setAttribute('aria-valuenow', parseInt(json.porcentaje_carrera, 10) || 0);
+    barra.textContent = json.porcentaje_carrera;
+    document.getElementById('fichaProgresoTexto').textContent = `${json.materiasAprobadas} de ${json.totalMaterias} materias aprobadas`;
+
+    const alumno = alumnosActuales.find((a) => a.id === fichaAlumnoId) || {};
+    const tipo = { Inicial: 'Inicial (1er año)', 'Ingreso a 2do': 'Ingresa a 2do año', 'Ingreso a 3ro': 'Ingresa a 3er año' }[alumno.tipoIngreso || 'Inicial'] || alumno.tipoIngreso;
+    const pase = alumno.pase && alumno.pase.esPase ? alumno.pase : null;
+
+    let html = json.plan
+      ? `<div><b>Plan:</b> ${esc(json.plan.nombre)}</div><div class="text-muted">${esc(resumenReglasPlan(json.reglas))}</div>`
+      : '<div class="text-danger">Sin plan de estudios: el alumno no tiene cohorte o su cohorte no tiene plan.</div>';
+    html += `<div class="mt-1"><b>Ingreso:</b> ${esc(tipo)}</div>`;
+    if (pase) {
+      html += `<div><b>Pase de:</b> ${esc(pase.institutoOrigen)}${pase.fechaPase ? ' (' + fechaCalendarioLocal(pase.fechaPase) + ')' : ''}</div>`;
+      if (pase.observaciones) html += `<div class="text-muted">${esc(pase.observaciones)}</div>`;
+    }
+    document.getElementById('fichaPlanIngreso').innerHTML = html;
+  }
+
+  function pintarAlertasFicha(alertas) {
+    const contenedor = document.getElementById('alertasFichaAlumno');
+    const ordenadas = [...alertas].sort((a, b) => (a.color === 'rojo' ? 0 : 1) - (b.color === 'rojo' ? 0 : 1) || a.anio - b.anio);
+    contenedor.innerHTML = ordenadas.map((a) =>
+      `<div class="alert alert-${a.color === 'rojo' ? 'danger' : 'warning'} py-2 mb-2 small"><b>${esc(a.nombre)}</b> (${etiquetaAnio(a.anio)}): ${esc(a.mensaje)}</div>`
+    ).join('');
+  }
+
+  async function cargarEstadoAcademico(alumnoId) {
+    const contenedor = document.getElementById('contenedorFichaEstado');
+    // Los motivos por los que no puede rendir un final vienen de otra consulta; si falla, la tabla se muestra igual
+    const [r, rDisponibles] = await Promise.all([
+      apiFetch(`/api/estado-academico/${alumnoId}`),
+      apiFetch(`/api/inscripciones-final/disponibles/${alumnoId}`)
+    ]);
+    if (alumnoId !== fichaAlumnoId) return;
+    if (!r.ok) {
+      contenedor.innerHTML = textoError(r.error);
+      return;
+    }
+
+    const json = r.data;
+    fichaMaterias = json.materias || [];
+    pintarResumenFicha(json);
+    pintarAlertasFicha(json.alertas || []);
+
+    const motivosPorMateria = new Map();
+    if (rDisponibles.ok) (rDisponibles.data.data || []).forEach((d) => motivosPorMateria.set(d.materia_id, d.motivos || []));
+
+    if (fichaMaterias.length === 0) {
+      contenedor.innerHTML = textoVacio('bi-journal-x', 'No hay materias para mostrar: el alumno no tiene un plan de estudios asignado.');
+      return;
+    }
+
+    let html = '<div class="table-responsive"><table class="table table-sm align-middle mb-0"><thead class="table-light"><tr>'
+      + '<th class="ps-3">Materia</th><th>Estado</th><th>Nota y acta</th><th>Regularidad</th><th>Final</th></tr></thead>';
+
+    agruparPorAnio(fichaMaterias).forEach((grupo) => {
+      html += `<tbody><tr class="table-secondary"><th colspan="5" class="ps-3">${etiquetaAnio(grupo.anio)}</th></tr>`;
+      grupo.items.forEach((m) => {
+        const registrado = m.estadoRegistrado || m.estado;
+        const semaforoMensaje = m.semaforo ? m.semaforo.mensaje : '';
+
+        let estado = badgeEstado(m.estado, semaforoMensaje);
+        if (registrado !== m.estado) estado += `<small class="d-block text-muted">figura ${esc(registrado)} en el registro</small>`;
+        if (m.condicional) estado += ` <span class="badge bg-warning text-dark" data-bs-toggle="tooltip" title="${esc(semaforoMensaje)}">Condicional</span>`;
+        if (m.intento && m.intento > 1) estado += `<small class="d-block text-muted">Intento ${m.intento}</small>`;
+
+        const acta = textoActa(m.libro, m.folio);
+        const nota = `<span class="fw-bold">${m.nota ?? '—'}</span>${acta ? `<small class="d-block text-muted">${acta}</small>` : ''}`;
+
+        let final = '<span class="text-muted">—</span>';
+        if (m.aprobada) {
+          final = '<span class="text-success"><i class="bi bi-check-circle me-1"></i>Aprobada</span>';
+        } else if (m.puedeRendirFinal) {
+          final = '<span class="badge bg-success">Puede rendir</span>';
+        } else if (registrado === 'Regular') {
+          const motivos = (motivosPorMateria.get(m.materia_id) || []).map((x) => x.mensaje).join(' · ');
+          final = `<span class="badge bg-secondary"${motivos ? ` data-bs-toggle="tooltip" title="${esc(motivos)}"` : ''}>No puede rendir</span>`;
+        }
+
+        html += `<tr><td class="ps-3 fw-medium">${esc(m.nombre)}</td><td>${estado}</td><td>${nota}</td>`
+          + `<td class="small">${registrado === 'Regular' ? textoRegularidad(m.regularidad) : '<span class="text-muted">—</span>'}</td><td>${final}</td></tr>`;
+      });
+      html += '</tbody>';
+    });
+    contenedor.innerHTML = html + '</table></div>';
+    activarAyudas(contenedor);
+  }
+
+  // ----- Cursadas actuales (inscripciones a materias) -----
+  async function cargarInscripcionesAlumno(alumnoId) {
+    const contenedor = document.getElementById('contenedorFichaInscripciones');
+    const r = await apiFetch(`/api/inscripciones/alumno/${alumnoId}`);
+    if (alumnoId !== fichaAlumnoId) return;
+    if (!r.ok) {
+      contenedor.innerHTML = textoError(r.error);
+      return;
+    }
+
+    const lista = r.data.data || [];
+    if (lista.length === 0) {
+      contenedor.innerHTML = textoVacio('bi-calendar-x', 'El alumno no tiene cursadas activas.');
+      return;
+    }
+
+    let html = '<div class="table-responsive"><table class="table table-sm table-borderless table-hover mb-0"><thead class="table-light"><tr><th class="ps-3">Materia</th><th>Período</th><th class="text-end pe-3">Acción</th></tr></thead><tbody>';
+    lista.forEach((ins) => {
+      html += `<tr><td class="ps-3 pt-2 fw-medium text-primary">${esc(ins.materia)}${ins.anio ? ` <small class="text-muted">(${etiquetaAnio(ins.anio)})</small>` : ''}</td>`
+        + `<td class="pt-2"><small>${esc(ins.periodo)}</small></td>`
+        + `<td class="text-end pe-3"><button type="button" class="btn btn-sm btn-outline-danger p-1" data-bs-toggle="tooltip" title="Dar de baja esta inscripción a cursar" onclick="anularInscripcion(${ins.id}, ${alumnoId})"><i class="bi bi-x-circle"></i> Baja</button></td></tr>`;
+    });
+    contenedor.innerHTML = html + '</tbody></table></div>';
+    activarAyudas(contenedor);
+  }
+
+  async function anularInscripcion(inscripcionId, alumnoId) {
+    if (!confirm('¿Dar de baja esta inscripción?')) return;
+    const r = await apiFetch(`/api/inscripciones/${inscripcionId}`, { method: 'DELETE' });
+    if (!r.ok) return mostrarAviso(r.error, 'danger');
+    mostrarAviso('Inscripción dada de baja.');
+    await refrescarFicha();
+  }
+
+  // ----- Finales del alumno -----
+  async function cargarFinalesAlumno(alumnoId) {
+    const contenedor = document.getElementById('contenedorFichaFinales');
+    const r = await apiFetch(`/api/inscripciones-final/alumno/${alumnoId}`);
+    if (alumnoId !== fichaAlumnoId) return;
+    if (!r.ok) {
+      contenedor.innerHTML = textoError(r.error);
+      return;
+    }
+
+    fichaFinales = r.data.data || [];
+    if (fichaFinales.length === 0) {
+      contenedor.innerHTML = textoVacio('bi-journal-check', 'El alumno todavía no se inscribió a finales.');
+      return;
+    }
+
+    let html = '<div class="table-responsive"><table class="table table-sm align-middle mb-0"><thead class="table-light"><tr>'
+      + '<th class="ps-3">Materia</th><th>Mesa</th><th>Estado</th><th>Nota y acta</th><th class="text-center pe-3">Acciones</th></tr></thead><tbody>';
+    fichaFinales.forEach((f) => {
+      const acta = textoActa(f.libro, f.folio);
+      const acciones = f.estado === 'Anulada' ? '<span class="text-muted">—</span>'
+        : `<button type="button" class="btn btn-sm btn-outline-primary py-0 px-2 me-1" data-bs-toggle="tooltip" title="${f.estado === 'Inscripto' ? 'Cargar el resultado del final' : 'Corregir el resultado cargado'}" onclick="abrirResultadoDesdeFicha(${f.id})"><i class="bi bi-clipboard-check"></i></button>`
+          + (f.estado === 'Inscripto' ? `<button type="button" class="btn btn-sm btn-outline-danger py-0 px-2" data-bs-toggle="tooltip" title="Anular la inscripción a este final" onclick="anularInscripcionFinal(${f.id})"><i class="bi bi-x-circle"></i></button>` : '');
+      html += `<tr${f.estado === 'Anulada' ? ' class="text-muted"' : ''}>`
+        + `<td class="ps-3"><small>${esc(f.materia)}</small></td>`
+        + `<td><small>${esc(f.periodo)}${f.fechaExamen ? `<br>${fechaCalendarioLocal(f.fechaExamen)}` : ''}</small></td>`
+        + `<td>${badgeEstado(f.estado)}</td>`
+        + `<td><span class="fw-bold">${f.nota ?? '—'}</span>${acta ? `<small class="d-block text-muted">${acta}</small>` : ''}</td>`
+        + `<td class="text-center pe-3 text-nowrap">${acciones}</td></tr>`;
+    });
+    contenedor.innerHTML = html + '</tbody></table></div>';
+    activarAyudas(contenedor);
+  }
+
+  async function anularInscripcionFinal(id) {
+    if (!confirm('¿Anular la inscripción a este final?')) return;
+    const r = await apiFetch(`/api/inscripciones-final/${id}`, { method: 'DELETE' });
+    if (!r.ok) return mostrarAviso(r.error, 'danger');
+    mostrarAviso('Inscripción a final anulada.');
+    await refrescarFichaYLista();
+  }
+
+  function abrirResultadoDesdeFicha(id) {
+    const f = fichaFinales.find((x) => x.id === id);
+    if (!f) return;
+    const alumno = alumnosActuales.find((a) => a.id === fichaAlumnoId);
+    abrirModalResultado({
+      id: f.id,
+      descripcion: `${alumno ? alumno.name : 'Alumno'} · ${f.materia} · ${f.periodo}`,
+      estado: f.estado, nota: f.nota, libro: f.libro, folio: f.folio, fechaExamen: f.fechaExamen,
+      alTerminar: refrescarFichaYLista
+    });
+  }
+
+  // ----- Historial académico -----
+  async function cargarHistorialAlumno(alumnoId) {
+    const contenedor = document.getElementById('contenedorFichaHistorial');
+    const r = await apiFetch(`/api/historial/alumno/${alumnoId}`);
+    if (alumnoId !== fichaAlumnoId) return;
+
+    // 404 = todavía no tiene ningún registro (no es un error)
+    if (r.status === 404 || (r.ok && (r.data.data || []).length === 0)) {
+      fichaHistorial = [];
+      contenedor.innerHTML = textoVacio('bi-inbox', 'El alumno no registra antecedentes en el historial. Usá "Cargar registro" para ingresar su historial anterior.');
+      return;
+    }
+    if (!r.ok) {
+      contenedor.innerHTML = textoError(r.error);
+      return;
+    }
+
+    fichaHistorial = r.data.data || [];
+    let html = '<div class="table-responsive"><table class="table table-sm table-striped mb-0 align-middle"><thead class="table-light"><tr>'
+      + '<th class="ps-3">Materia</th><th>Estado</th><th>Nota</th><th>Acta</th><th>Regularizó</th><th class="text-center pe-3">Acciones</th></tr></thead><tbody>';
+
+    fichaHistorial.forEach((h) => {
+      const acta = textoActa(h.libro, h.folio);
+      const fechaActa = h.fechaActa ? ' · ' + fechaCalendarioLocal(h.fechaActa) : '';
+      const sinActa = h.nota !== null && h.nota !== undefined && !h.libro && !h.folio
+        ? '<span class="text-warning" data-bs-toggle="tooltip" title="Registro con nota pero sin libro ni folio (cargado antes de que fueran obligatorios). Podés completarlo con el lápiz.">sin libro/folio</span>' : '';
+      const motivo = h.estado === 'Vencida' && h.motivoVencimiento ? `Motivo: ${h.motivoVencimiento}` : '';
+
+      html += `<tr${h.vigente ? '' : ' class="text-muted"'}>
+        <td class="ps-3"><small>${esc(h.materia)}</small>${h.anio ? `<small class="text-muted"> · ${h.anio}°</small>` : ''}${h.intento > 1 ? `<small class="text-muted"> · intento ${h.intento}</small>` : ''}</td>
+        <td>${badgeEstado(h.estado, motivo)}${h.vigente ? '' : ' <span class="badge bg-light text-dark border" data-bs-toggle="tooltip" title="Intento anterior de una materia que se volvió a cursar: se conserva como historia y no se modifica">Historia</span>'}</td>
+        <td class="fw-bold">${h.nota ?? '-'}</td>
+        <td><small>${acta ? acta + fechaActa : (sinActa || '<span class="text-muted">—</span>')}</small></td>
+        <td><small>${h.fechaRegularizacion ? fechaCalendarioLocal(h.fechaRegularizacion) : '—'}</small></td>
+        <td class="text-center pe-3 text-nowrap">
+          ${h.vigente ? `<button type="button" class="btn btn-sm btn-outline-primary py-0 px-2 me-1" data-bs-toggle="tooltip" title="Editar estado, nota y acta" onclick="abrirModalEditarActa(${h.id_registro})"><i class="bi bi-pencil"></i></button>` : ''}
+          <button type="button" class="btn btn-sm btn-outline-danger py-0 px-2" data-bs-toggle="tooltip" title="Eliminar este registro del historial" onclick="eliminarHistorial(${h.id_registro})"><i class="bi bi-trash"></i></button>
+        </td></tr>`;
+    });
+    contenedor.innerHTML = html + '</tbody></table></div>';
+    activarAyudas(contenedor);
+  }
+
+  async function eliminarHistorial(registroId) {
+    if (!confirm('¿Seguro que querés borrar este registro del historial? Esta acción no se puede deshacer.')) return;
+
+    let r = await apiFetch(`/api/historial/${registroId}`, { method: 'DELETE' });
+    // 409: tiene inscripciones a finales con resultados. Solo se borra si se confirma de nuevo.
+    if (!r.ok && r.status === 409 && r.data.finalesAsociados) {
+      if (!confirm(`${r.error}\n\n¿Querés borrar el registro Y esas inscripciones a finales?`)) return;
+      r = await apiFetch(`/api/historial/${registroId}?eliminarFinales=true`, { method: 'DELETE' });
+    }
+    if (!r.ok) return mostrarAviso(r.error, 'danger');
+
+    mostrarAviso('Registro eliminado del historial.');
+    await refrescarFichaYLista();
+  }
+
+  // ----- Alta y edición de un registro (acta) -----
+  // Qué campos corresponden a cada estado
+  const CAMPOS_ACTA = {
+    Cursando:     { fechaReg: false, acta: false, motivo: false },
+    Regular:      { fechaReg: true,  acta: true,  motivo: false },
+    Promocionada: { fechaReg: false, acta: true,  motivo: false },
+    Aprobada:     { fechaReg: true,  acta: true,  motivo: false },
+    Vencida:      { fechaReg: true,  acta: false, motivo: true }
+  };
+  const AYUDA_ESTADO_ACTA = {
+    Cursando: 'Está cursando la materia: todavía no lleva nota ni acta.',
+    Regular: 'Aprobó la cursada: queda habilitado para rendir el final mientras la regularidad esté vigente (plazo y llamados del plan). Si se carga una nota de cursada, completá libro y folio.',
+    Promocionada: 'Aprobó la materia sin final (nota 4 o más). Si debe el final de una correlativa figura en amarillo (condicional) hasta que lo apruebe.',
+    Aprobada: 'Final aprobado: nota (4 o más), libro, folio y fecha del acta.',
+    Vencida: 'Perdió la regularidad. Podrá volver a cursar la materia; este registro queda como historia.'
+  };
+  let actaModo = 'crear';
+  let actaRegistroOriginal = null;
+
+  function hoyISO() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+
+  function abrirModalNuevoRegistro() {
+    if (fichaMaterias.length === 0) return mostrarAviso('El alumno no tiene un plan de estudios con materias: asignale una cohorte con plan antes de cargar su historial.', 'warning');
+    actaModo = 'crear';
+    actaRegistroOriginal = null;
+
+    document.getElementById('tituloActa').textContent = 'Cargar registro del historial';
+    document.getElementById('formEditarActa').reset();
+    document.getElementById('editActaRegistroId').value = '';
+    document.getElementById('editActaAlumnoId').value = fichaAlumnoId;
+
+    const select = document.getElementById('editActaMateria');
+    select.classList.remove('d-none');
+    select.disabled = false;
+    select.required = true;
+    document.getElementById('editActaMateriaTexto').classList.add('d-none');
+    select.innerHTML = '<option value="" selected disabled>Elegir materia...</option>' + agruparPorAnio(fichaMaterias).map((g) =>
+      `<optgroup label="${etiquetaAnio(g.anio)}">` + g.items.map((m) => `<option value="${m.materia_id}">${esc(m.nombre)} — ${esc(m.estado)}</option>`).join('') + '</optgroup>'
+    ).join('');
+
+    document.getElementById('editActaEstado').value = 'Aprobada';
+    actualizarCamposActa();
+    abrirModal('modalEditarActa');
+  }
+
+  function abrirModalEditarActa(registroId) {
+    const h = fichaHistorial.find((x) => x.id_registro === registroId);
+    if (!h) return;
+    actaModo = 'editar';
+    actaRegistroOriginal = h;
+
+    document.getElementById('tituloActa').textContent = 'Editar registro del historial';
+    document.getElementById('formEditarActa').reset();
+    document.getElementById('editActaRegistroId').value = h.id_registro;
+    document.getElementById('editActaAlumnoId').value = fichaAlumnoId;
+
+    const select = document.getElementById('editActaMateria');
+    select.classList.add('d-none');
+    select.disabled = true;
+    select.required = false;
+    const texto = document.getElementById('editActaMateriaTexto');
+    texto.classList.remove('d-none');
+    texto.value = `${h.materia}${h.anio ? ' (' + etiquetaAnio(h.anio) + ')' : ''}`;
+
+    document.getElementById('editActaEstado').value = h.estado;
+    document.getElementById('editActaFechaReg').value = soloFecha(h.fechaRegularizacion);
+    document.getElementById('editActaNota').value = h.nota ?? '';
+    document.getElementById('editActaLibro').value = h.libro || '';
+    document.getElementById('editActaFolio').value = h.folio || '';
+    document.getElementById('editActaFechaActa').value = soloFecha(h.fechaActa);
+    document.getElementById('editActaMotivo').value = h.motivoVencimiento || 'Manual';
+    actualizarCamposActa();
+    abrirModal('modalEditarActa');
+  }
+
+  // Muestra solo los campos del estado elegido y marca como obligatorios los que corresponden
+  function actualizarCamposActa() {
+    const estado = document.getElementById('editActaEstado').value;
+    const campos = CAMPOS_ACTA[estado] || CAMPOS_ACTA.Cursando;
+    const original = actaRegistroOriginal ? actaRegistroOriginal.estado : null;
+
+    const mostrar = (id, visible) => {
+      const grupo = document.getElementById(id);
+      grupo.classList.toggle('d-none', !visible);
+      grupo.querySelectorAll('input, select').forEach((campo) => { campo.disabled = !visible; });
+    };
+    mostrar('grupoActaFechaReg', campos.fechaReg);
+    mostrar('filaActaNota', campos.acta);
+    mostrar('grupoActaFechaActa', campos.acta);
+    mostrar('grupoActaMotivo', campos.motivo);
+
+    // La fecha de regularización se exige al cargar historial nuevo o al pasar a Regular: así no se toma "hoy" sin querer
+    document.getElementById('editActaFechaReg').required = campos.fechaReg && estado === 'Regular' && (actaModo === 'crear' || original !== 'Regular');
+    document.getElementById('editActaNota').required = estado === 'Aprobada';
+    document.getElementById('editActaNota').min = (estado === 'Aprobada' || estado === 'Promocionada') ? 4 : 1;
+    document.getElementById('editActaFechaActa').required = estado === 'Aprobada';
+    document.getElementById('editActaFechaReg').max = hoyISO();
+    document.getElementById('editActaFechaActa').max = hoyISO();
+    actualizarRequeridosActa();
+
+    document.getElementById('avisoActa').innerHTML = esc(AYUDA_ESTADO_ACTA[estado] || '')
+      + (actaModo === 'crear' ? '<div class="mt-1 text-muted">Es historial: al cargarlo no se controlan las correlatividades. Cargá lo que figura en las actas.</div>' : '');
+  }
+
+  // Si hay nota, el libro y el folio son obligatorios (punto 9). Una excepción, igual que en el servidor: un registro VIEJO que tiene
+  // nota pero no libro ni folio se puede seguir corrigiendo (fechas, motivo) mientras no se toque la nota ni el estado.
+  function exigeActa(estado, nota, libro, folio) {
+    if (!(CAMPOS_ACTA[estado] || {}).acta) return false;
+    if (estado === 'Aprobada') return true;
+    if (nota === '' || nota === null || nota === undefined) return false;
+    const o = actaModo === 'editar' ? actaRegistroOriginal : null;
+    const registroViejoSinTocar = o && o.estado === estado && String(o.nota ?? '') === String(nota) && !o.libro && !o.folio && !libro && !folio;
+    return !registroViejoSinTocar;
+  }
+
+  function actualizarRequeridosActa() {
+    const exige = exigeActa(
+      document.getElementById('editActaEstado').value,
+      document.getElementById('editActaNota').value,
+      document.getElementById('editActaLibro').value.trim(),
+      document.getElementById('editActaFolio').value.trim()
+    );
+    document.getElementById('editActaLibro').required = exige;
+    document.getElementById('editActaFolio').required = exige;
+  }
+
+  // Al elegir otro estado al EDITAR: el acta de un final no es la de la cursada, así que al pasar a Aprobada (o al dejar de estarlo)
+  // se parte de nota, libro, folio y fecha vacíos; si se vuelve al estado original, se restituyen sus datos.
+  function alCambiarEstadoActa() {
+    const o = actaRegistroOriginal;
+    if (actaModo === 'editar' && o) {
+      const estado = document.getElementById('editActaEstado').value;
+      const conservar = estado === o.estado || !(estado === 'Aprobada' || o.estado === 'Aprobada');
+      document.getElementById('editActaNota').value = conservar ? (o.nota ?? '') : '';
+      document.getElementById('editActaLibro').value = conservar ? (o.libro || '') : '';
+      document.getElementById('editActaFolio').value = conservar ? (o.folio || '') : '';
+      document.getElementById('editActaFechaActa').value = conservar ? soloFecha(o.fechaActa) : '';
+    }
+    actualizarCamposActa();
+  }
+
+  document.getElementById('editActaEstado')?.addEventListener('change', alCambiarEstadoActa);
+  ['editActaNota', 'editActaLibro', 'editActaFolio'].forEach((id) => document.getElementById(id)?.addEventListener('input', actualizarRequeridosActa));
+
+  // Revisa en pantalla lo mismo que revisa el servidor, para avisar enseguida y con claridad
+  function validarActaCliente(payload) {
+    const estado = payload.estado;
+    const nota = payload.nota === undefined || payload.nota === '' ? null : Number(payload.nota);
+    if (nota !== null && (!Number.isInteger(nota) || nota < 1 || nota > 10)) return 'La nota debe ser un número entero entre 1 y 10.';
+    if (estado === 'Aprobada' && nota === null) return 'Para dar la materia por aprobada cargá la nota del examen final.';
+    if ((estado === 'Aprobada' || estado === 'Promocionada') && nota !== null && nota < 4) return 'La nota mínima para aprobar o promocionar es 4.';
+    if (exigeActa(estado, nota === null ? '' : String(nota), payload.libro || '', payload.folio || '') && (!payload.libro || !payload.folio)) return 'Al cargar una nota tenés que indicar también el libro y el folio del acta.';
+    const hoy = hoyISO();
+    if (payload.fechaRegularizacion && payload.fechaRegularizacion > hoy) return 'La fecha de regularización no puede ser futura.';
+    if (payload.fechaActa && payload.fechaActa > hoy) return 'La fecha del acta no puede ser futura.';
+    if (estado === 'Aprobada' && payload.fechaRegularizacion && payload.fechaActa && payload.fechaActa < payload.fechaRegularizacion) return 'La fecha del acta no puede ser anterior a la fecha de regularización.';
+    return null;
+  }
+
+  document.getElementById('formEditarActa')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const crear = actaModo === 'crear';
+    const estado = document.getElementById('editActaEstado').value;
+    const campos = CAMPOS_ACTA[estado];
+    const original = actaRegistroOriginal;
+    const valor = (id) => document.getElementById(id).value.trim();
+
+    const payload = { estado };
+    // Un campo vacío solo se envía al editar cuando se lo está BORRANDO a propósito (tenía dato y el estado no cambió);
+    // si no, se omite para que el servidor conserve o restituya lo que corresponde
+    const agregar = (campo, id, campoOriginal) => {
+      const texto = valor(id);
+      const teniaDato = original && original[campoOriginal] !== null && original[campoOriginal] !== undefined && original[campoOriginal] !== '';
+      if (texto !== '') payload[campo] = texto;
+      else if (!crear && teniaDato && original.estado === estado) payload[campo] = '';
+    };
+    if (campos.fechaReg) agregar('fechaRegularizacion', 'editActaFechaReg', 'fechaRegularizacion');
+    if (campos.acta) {
+      agregar('nota', 'editActaNota', 'nota');
+      agregar('libro', 'editActaLibro', 'libro');
+      agregar('folio', 'editActaFolio', 'folio');
+      agregar('fechaActa', 'editActaFechaActa', 'fechaActa');
+    }
+    if (campos.motivo) payload.motivoVencimiento = document.getElementById('editActaMotivo').value;
+
+    const problema = validarActaCliente(payload);
+    if (problema) return mostrarAviso(problema, 'warning');
+
+    let r;
+    if (crear) {
+      payload.alumno_id = Number(document.getElementById('editActaAlumnoId').value);
+      payload.materia_id = Number(document.getElementById('editActaMateria').value);
+      r = await apiFetch('/api/historial', { method: 'POST', body: payload });
+    } else {
+      r = await apiFetch(`/api/historial/${document.getElementById('editActaRegistroId').value}`, { method: 'PUT', body: payload });
+    }
+    if (!r.ok) return mostrarAviso(r.error, 'danger');
+
+    cerrarModal('modalEditarActa');
+    mostrarAviso(crear ? 'Registro cargado en el historial.' : 'Registro actualizado.');
+    if (r.data.recursada) mostrarAviso('Se abrió una nueva cursada (recursada): el intento anterior quedó en el historial.', 'info');
+    if (r.data.aviso) mostrarAviso(r.data.aviso, 'warning');
+    await refrescarFichaYLista();
+  });
+
+  // ----- Inscripción manual a un final (excepción del preceptor) -----
+  function situacionDelPeriodoFinal(p) {
+    if (periodoVigenteAhora(p)) return { abierto: true, texto: 'abierto' };
+    if (!p.activo) return { abierto: false, texto: 'cerrado' };
+    const inicio = fechaYHora(p.fechaInicio, p.horaInicio);
+    return { abierto: false, texto: inicio && new Date() < inicio ? 'todavía no abre' : 'ya cerró' };
+  }
+
+  function textoPeriodoFinal(p) {
+    const s = situacionDelPeriodoFinal(p);
+    return `${p.nombre} · ${s.texto}${p.fechaExamen ? ' · examen ' + fechaCalendarioLocal(p.fechaExamen) : ''}`;
+  }
+
+  async function abrirModalInscripcionFinal() {
+    const alumnoId = fichaAlumnoId;
+    if (!alumnoId) return;
+    const alumno = alumnosActuales.find((a) => a.id === alumnoId);
+
+    document.getElementById('formInscribirFinal').dataset.alumnoId = alumnoId;
+    document.getElementById('inscFinalDescripcion').innerHTML = `Alumno: <b>${esc(alumno ? alumno.name : 'ID ' + alumnoId)}</b>. Inscripción manual del preceptor: sirve para una excepción o para cuando el alumno no pudo anotarse a tiempo.`;
+    document.getElementById('inscFinalPeriodo').innerHTML = '<option value="" disabled selected>Cargando períodos...</option>';
+    document.getElementById('avisoInscFinalPeriodo').innerHTML = '';
+    document.getElementById('inscFinalMaterias').innerHTML = '<div class="text-muted small">Cargando materias...</div>';
+    document.getElementById('btnConfirmarInscFinal').disabled = false;
+    abrirModal('modalInscribirFinal');
+
+    const [rPeriodos, rDisponibles] = await Promise.all([
+      apiFetch('/api/periodos-inscripcion'),
+      apiFetch(`/api/inscripciones-final/disponibles/${alumnoId}`)
+    ]);
+    if (document.getElementById('formInscribirFinal').dataset.alumnoId !== String(alumnoId)) return;
+
+    // Períodos de Final: los abiertos primero y después los más recientes
+    const select = document.getElementById('inscFinalPeriodo');
+    const finales = rPeriodos.ok
+      ? (rPeriodos.data.data || []).filter((p) => tipoDelPeriodo(p) === 'Final')
+          .sort((a, b) => Number(periodoVigenteAhora(b)) - Number(periodoVigenteAhora(a)) || soloFecha(b.fechaInicio).localeCompare(soloFecha(a.fechaInicio)))
+      : [];
+    periodosFinalDelModal = finales;
+    if (!rPeriodos.ok) {
+      mostrarAviso('No se pudieron cargar los períodos: ' + rPeriodos.error, 'danger');
+      select.innerHTML = '<option value="" disabled selected>No se pudieron cargar</option>';
+    } else if (finales.length === 0) {
+      select.innerHTML = '<option value="" disabled selected>No hay períodos de Final: creá uno en "Períodos de Inscripción"</option>';
+    } else {
+      const abiertos = finales.filter(periodoVigenteAhora);
+      select.innerHTML = '<option value="" disabled' + (abiertos.length === 1 ? '' : ' selected') + '>Elegir mesa...</option>'
+        + finales.map((p) => `<option value="${p.id}"${abiertos.length === 1 && abiertos[0].id === p.id ? ' selected' : ''}>${esc(textoPeriodoFinal(p))}</option>`).join('');
+    }
+    avisarPeriodoFinalElegido();
+
+    // Materias: solo las Regulares (o ya inscriptas), por año; las que hoy no puede rendir quedan deshabilitadas con el motivo
+    const contenedor = document.getElementById('inscFinalMaterias');
+    if (!rDisponibles.ok) {
+      contenedor.innerHTML = textoError(rDisponibles.error);
+      return;
+    }
+    const relevantes = (rDisponibles.data.data || []).filter((m) => m.estado === 'Regular' || m.yaInscripto);
+    if (relevantes.length === 0) {
+      contenedor.innerHTML = '<div class="text-muted small p-2">El alumno no tiene materias Regulares para rendir.</div>';
+      return;
+    }
+    contenedor.innerHTML = agruparPorAnio(relevantes).map((grupo) =>
+      `<div class="fw-semibold small text-secondary bg-light px-2 py-1 mt-1">${etiquetaAnio(grupo.anio)}</div>`
+      + grupo.items.map((m) => {
+        const motivos = (m.motivos || []).map((x) => x.mensaje).join(' · ');
+        const deshabilitada = !m.puede;
+        const nota = m.yaInscripto ? '<span class="badge bg-warning text-dark ms-2">Ya inscripto</span>'
+          : (deshabilitada ? `<div class="small text-muted ms-4">${esc(motivos || 'Hoy no puede rendir este final.')}</div>` : '');
+        return `<div class="form-check border-bottom py-1">
+          <input class="form-check-input check-materia-final" type="checkbox" value="${m.materia_id}" id="inscFinalMat_${m.materia_id}"${deshabilitada ? ' disabled' : ''}>
+          <label class="form-check-label w-100${deshabilitada ? ' text-muted' : ''}" for="inscFinalMat_${m.materia_id}">${esc(m.nombre)}${m.yaInscripto ? nota : ''}</label>
+          ${m.yaInscripto ? '' : nota}
+        </div>`;
+      }).join('')
+    ).join('');
+  }
+
+  let periodosFinalDelModal = [];
+
+  // Avisa si la mesa elegida no está abierta para los alumnos (queda como inscripción por excepción) o si su examen ya pasó
+  function avisarPeriodoFinalElegido() {
+    const aviso = document.getElementById('avisoInscFinalPeriodo');
+    const p = periodosFinalDelModal.find((x) => String(x.id) === document.getElementById('inscFinalPeriodo').value);
+    if (!p) { aviso.innerHTML = ''; return; }
+    const s = situacionDelPeriodoFinal(p);
+    const partes = [];
+    if (!s.abierto) partes.push(`Esta mesa está <b>${s.texto}</b> para los alumnos: la inscripción queda registrada como <b>excepción</b>.`);
+    if (p.fechaExamen && soloFecha(p.fechaExamen) < hoyISO()) partes.push('La fecha de examen de esta mesa <b>ya pasó</b>.');
+    aviso.innerHTML = partes.length ? `<div class="alert alert-warning py-2 mb-0">${partes.join('<br>')}</div>` : '';
+  }
+
+  document.getElementById('inscFinalPeriodo')?.addEventListener('change', avisarPeriodoFinalElegido);
+
+  document.getElementById('formInscribirFinal')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const alumnoId = Number(e.target.dataset.alumnoId);
+    const periodoId = Number(document.getElementById('inscFinalPeriodo').value);
+    const materias = Array.from(document.querySelectorAll('.check-materia-final:checked')).map((c) => Number(c.value));
+    if (!periodoId) return mostrarAviso('Elegí la mesa en la que querés inscribirlo.', 'warning');
+    if (materias.length === 0) return mostrarAviso('Seleccioná al menos una materia.', 'warning');
+
+    const boton = document.getElementById('btnConfirmarInscFinal');
+    boton.disabled = true; // evita un doble clic mientras responde el servidor
+    const r = await apiFetch('/api/inscripciones-final', { method: 'POST', body: { alumno_id: alumnoId, periodo_id: periodoId, materias_ids: materias } });
+    boton.disabled = false;
+
+    if (!r.ok) {
+      const detalle = r.data.detalleErrores && r.data.detalleErrores.length ? '\n- ' + r.data.detalleErrores.join('\n- ') : '';
+      return mostrarAviso(r.error + detalle, 'danger');
+    }
+    cerrarModal('modalInscribirFinal');
+    const omitidas = r.data.errores && r.data.errores.length ? '\n\nNo se pudieron anotar:\n- ' + r.data.errores.join('\n- ') : '';
+    mostrarAviso((r.data.message || 'Inscripción a final registrada.') + omitidas, omitidas || r.data.porExcepcion ? 'warning' : 'success');
+    await refrescarFichaYLista();
+  });

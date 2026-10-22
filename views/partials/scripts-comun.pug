@@ -1,0 +1,202 @@
+script.
+  // ==========================================================================
+  // UTILIDADES COMUNES: las usan el panel administrativo y el dashboard del alumno.
+  // Se cargan antes que el resto de los scripts de cada pantalla.
+  // ==========================================================================
+  let planesActuales = [];   // Planes de estudio (con totalMaterias / totalCohortes), los carga cargarPlanes()
+
+  function planPorId(id) {
+    return planesActuales.find((p) => p.id === Number(id)) || null;
+  }
+
+  // Escapa texto antes de meterlo en un innerHTML (nombres con comillas, apóstrofes o < > no rompen la pantalla)
+  const ESCAPES_HTML = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+  function esc(valor) {
+    return String(valor ?? '').replace(/[&<>"']/g, (c) => ESCAPES_HTML[c]);
+  }
+
+  // fetch seguro: nunca lanza por una respuesta que no es JSON (por ejemplo, la página de login cuando vence la sesión).
+  // Devuelve siempre { ok, status, data, error }.
+  // opciones.errorHtml: mensaje para mostrar si el servidor responde con una página de error en vez de JSON
+  async function apiFetch(url, opciones = {}) {
+    const { errorHtml, ...resto } = opciones;
+    const config = { credentials: 'same-origin', ...resto, headers: { Accept: 'application/json', ...(resto.headers || {}) } };
+    if (config.body !== undefined && typeof config.body !== 'string') {
+      config.body = JSON.stringify(config.body);
+      config.headers['Content-Type'] = 'application/json';
+    }
+
+    let respuesta;
+    try {
+      respuesta = await fetch(url, config);
+    } catch (errorDeRed) {
+      return { ok: false, status: 0, data: {}, error: 'No hay conexión con el servidor. Revisá tu internet e intentá de nuevo.' };
+    }
+
+    const texto = await respuesta.text();
+    let data = {};
+    try {
+      data = texto ? JSON.parse(texto) : {};
+    } catch (noEsJson) {
+      const sesionVencida = respuesta.redirected || /login/i.test(respuesta.url || '');
+      let mensaje = 'El servidor respondió algo inesperado (código ' + respuesta.status + '). Si se repite, avisá a sistemas.';
+      if (sesionVencida) mensaje = 'Tu sesión venció. Volvé a iniciar sesión.';
+      else if (errorHtml && respuesta.status >= 400 && respuesta.status < 500) mensaje = errorHtml;
+      return { ok: false, status: respuesta.status, data: {}, error: mensaje };
+    }
+
+    return {
+      ok: respuesta.ok,
+      status: respuesta.status,
+      data,
+      error: respuesta.ok ? null : (data.error || data.message || 'Error ' + respuesta.status)
+    };
+  }
+
+  // Aviso flotante (reemplaza a los alert() del panel)
+  function mostrarAviso(mensaje, tipo = 'success') {
+    let contenedor = document.getElementById('contenedorAvisos');
+    if (!contenedor) {
+      contenedor = document.createElement('div');
+      contenedor.id = 'contenedorAvisos';
+      contenedor.className = 'toast-container position-fixed top-0 end-0 p-3';
+      document.body.appendChild(contenedor);
+    }
+    const estilos = { success: 'text-bg-success', danger: 'text-bg-danger', warning: 'text-bg-warning', info: 'text-bg-info' };
+    const oscuro = tipo === 'success' || tipo === 'danger';
+    const aviso = document.createElement('div');
+    aviso.className = 'toast align-items-center border-0 ' + (estilos[tipo] || estilos.info);
+    aviso.setAttribute('role', tipo === 'danger' ? 'alert' : 'status');
+    aviso.innerHTML = '<div class="d-flex"><div class="toast-body" style="white-space: pre-line;"></div>'
+      + '<button type="button" class="btn-close ' + (oscuro ? 'btn-close-white ' : '') + 'me-2 m-auto" data-bs-dismiss="toast" aria-label="Cerrar"></button></div>';
+    aviso.querySelector('.toast-body').textContent = mensaje;
+    contenedor.appendChild(aviso);
+    aviso.addEventListener('hidden.bs.toast', () => aviso.remove());
+    new bootstrap.Toast(aviso, { delay: tipo === 'danger' ? 9000 : 4500 }).show();
+  }
+
+  function abrirModal(id) {
+    const elemento = document.getElementById(id);
+    if (elemento) bootstrap.Modal.getOrCreateInstance(elemento).show();
+  }
+
+  function cerrarModal(id) {
+    const elemento = document.getElementById(id);
+    if (elemento) bootstrap.Modal.getOrCreateInstance(elemento).hide();
+  }
+
+  // Activa los tooltips de ayuda (+ayuda y botones con data-bs-toggle="tooltip"). Se llama de nuevo después de dibujar tablas.
+  function activarAyudas(raiz) {
+    // Si una tabla se redibuja con el mouse sobre un botón, su tooltip quedaría "colgado" en pantalla: se limpian los huérfanos
+    document.querySelectorAll('.tooltip[role="tooltip"]').forEach((tip) => {
+      if (!document.querySelector('[aria-describedby="' + tip.id + '"]')) tip.remove();
+    });
+    // Atajo data-ayuda="texto": da leyenda a botones que ya usan data-bs-toggle="modal" (o ninguno).
+    // No usarlo en pestañas (data-bs-toggle="tab") ni menús desplegables: Bootstrap no admite dos componentes en el mismo elemento; ahí va un title nativo.
+    (raiz || document).querySelectorAll('[data-ayuda]').forEach((elemento) => {
+      if (!elemento.getAttribute('title') && !bootstrap.Tooltip.getInstance(elemento)) elemento.setAttribute('title', elemento.dataset.ayuda);
+    });
+    (raiz || document).querySelectorAll('[data-bs-toggle="tooltip"], [data-ayuda]').forEach((elemento) => {
+      if (!bootstrap.Tooltip.getInstance(elemento)) {
+        new bootstrap.Tooltip(elemento, { trigger: 'hover focus', container: 'body' });
+      }
+    });
+  }
+  document.addEventListener('DOMContentLoaded', () => activarAyudas());
+
+  // Al hacer clic en un botón o enlace con leyenda, se oculta su tooltip (la acción suele redibujar la fila)
+  document.addEventListener('click', (evento) => {
+    const boton = evento.target.closest('button[data-bs-toggle="tooltip"], a[data-bs-toggle="tooltip"], [data-ayuda]');
+    const tooltip = boton ? bootstrap.Tooltip.getInstance(boton) : null;
+    if (tooltip) tooltip.hide();
+  });
+
+  // ----- Formato y agrupación -----
+  function etiquetaAnio(anio) {
+    return anio + '° Año';
+  }
+
+  // Agrupa una lista de materias por año (año ascendente; dentro de cada año respeta el orden por nombre que ya trae el servidor)
+  function agruparPorAnio(lista) {
+    const ordenada = [...lista].sort((a, b) => a.anio - b.anio);
+    const grupos = [];
+    ordenada.forEach((item) => {
+      let grupo = grupos[grupos.length - 1];
+      if (!grupo || grupo.anio !== item.anio) {
+        grupo = { anio: item.anio, items: [] };
+        grupos.push(grupo);
+      }
+      grupo.items.push(item);
+    });
+    return grupos;
+  }
+
+  function soloFecha(valor) {
+    return valor ? String(valor).slice(0, 10) : '';
+  }
+
+  function resumenReglasPlan(plan) {
+    const vencimiento = plan.vencimientoRegularidadMeses ? plan.vencimientoRegularidadMeses + ' meses de regularidad' : 'regularidad sin vencimiento por tiempo';
+    const llamados = plan.maxLlamadosConsecutivos ? plan.maxLlamadosConsecutivos + ' llamados' : 'sin tope de llamados';
+    const ausentes = plan.maxAusentes ? 'máx. ' + plan.maxAusentes + ' ausentes' : 'sin tope de ausentes';
+    return vencimiento + ' · ' + llamados + ' · ' + ausentes;
+  }
+
+  // Con un modal sobre otro, al cerrar el de arriba Bootstrap quita el bloqueo de scroll del de abajo: se lo devolvemos
+  document.addEventListener('hidden.bs.modal', () => {
+    if (document.querySelector('.modal.show')) document.body.classList.add('modal-open');
+  });
+
+  // ----- Fechas -----
+  function fechaCalendarioLocal(valor) {
+    if (!valor) return '';
+    const partes = String(valor).slice(0, 10).split('-');
+    if (partes.length !== 3) return '';
+    return `${partes[2]}/${partes[1]}/${partes[0]}`;
+  }
+
+  // ----- Estados y semáforo (ficha, mesa de finales y lista de alumnos) -----
+  const CLASE_ESTADO = {
+    Aprobada: 'bg-success', Promocionada: 'bg-info text-dark', Regular: 'bg-primary', Cursando: 'bg-warning text-dark',
+    Vencida: 'bg-danger', Pendiente: 'bg-secondary',
+    Inscripto: 'bg-warning text-dark', Aprobado: 'bg-success', Desaprobado: 'bg-danger', Ausente: 'bg-dark', Anulada: 'bg-secondary'
+  };
+
+  function badgeEstado(estado, titulo) {
+    const tooltip = titulo ? ` data-bs-toggle="tooltip" title="${esc(titulo)}"` : '';
+    return `<span class="badge ${CLASE_ESTADO[estado] || 'bg-secondary'}"${tooltip}>${esc(estado)}</span>`;
+  }
+
+  const SEMAFORO = {
+    verde: { clase: 'bg-success', etiqueta: 'Al día' },
+    amarillo: { clase: 'bg-warning text-dark', etiqueta: 'Condicional' },
+    rojo: { clase: 'bg-danger', etiqueta: 'Regularidad vencida' },
+    gris: { clase: 'bg-secondary', etiqueta: 'Sin cursar' }
+  };
+
+  // `titulo` es el texto del tooltip; con html = true puede llevar <br> y <b> (el contenido que viene de datos se escapa antes)
+  function badgeSemaforo(color, titulo, html) {
+    const s = SEMAFORO[color] || SEMAFORO.gris;
+    const tooltip = titulo ? ` data-bs-toggle="tooltip"${html ? ' data-bs-html="true"' : ''} title="${esc(titulo)}"` : '';
+    return `<span class="badge ${s.clase}"${tooltip}>${s.etiqueta}</span>`;
+  }
+
+  // Regularidad de una cursada (viene de la API como `regularidad`): cuándo vence y cuántos llamados y ausentes quedan
+  function textoRegularidad(r) {
+    if (!r) return '<span class="text-muted">—</span>';
+    if (!r.vigente) {
+      const motivo = { Tiempo: 'por vencimiento del plazo', Llamados: 'por agotar los llamados', Ausentes: 'por exceso de ausentes' }[r.motivoPerdida] || '';
+      return `<span class="text-danger fw-semibold">Perdida ${motivo}</span>`;
+    }
+    const lineas = [r.vence ? 'Vence el ' + fechaCalendarioLocal(r.vence) : 'Sin vencimiento por tiempo'];
+    let llamados = r.maxLlamados ? `Llamados: ${r.llamadosUsados}/${r.maxLlamados} (quedan ${r.llamadosRestantes})` : `Llamados usados: ${r.llamadosUsados}`;
+    if (r.llamadosSinAnotarse) llamados += ` · ${r.llamadosSinAnotarse} sin anotarse`;
+    lineas.push(llamados);
+    if (r.maxAusentes) lineas.push(`Ausentes: ${r.ausentes}/${r.maxAusentes}`);
+    else if (r.ausentes) lineas.push(`Ausentes: ${r.ausentes}`);
+    return lineas.map((l) => `<div>${esc(l)}</div>`).join('');
+  }
+
+  function textoActa(libro, folio) {
+    return libro || folio ? `Libro ${esc(libro || '—')} · Folio ${esc(folio || '—')}` : '';
+  }

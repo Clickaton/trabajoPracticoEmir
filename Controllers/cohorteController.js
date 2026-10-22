@@ -1,6 +1,9 @@
 import Cohorte from '../models/Cohorte.js';
 import Alumno from '../models/Alumno.js'; // Importamos Alumno para poder cruzar los datos
+import HistorialAcademico from '../models/HistorialAcademico.js';
+import Inscripcion from '../models/Inscripcion.js';
 import { parseLocalDate } from '../utils/dateUtils.js';
+import { resolverPlanId } from '../services/planService.js';
 
 // Helper para limpiar la contraseña al devolver los datos del alumno
 const omitPassword = (alumnoObj) => {
@@ -47,34 +50,65 @@ export const getCohorteById = async (req, res) => {
 
 export const createCohorte = async (req, res) => {
     try {
-        const { name, startDate, userList = [] } = req.body; 
+        const { name, startDate, userList = [], plan_id } = req.body; 
 
         if (!name || !startDate) { 
             return res.status(400).json({ error: "Faltan datos obligatorios" });
         }
 
+        // Toda cohorte cursa un plan de estudios. Si hay un único plan y no se indica, se usa ese.
+        const { plan, error } = await resolverPlanId(plan_id);
+        if (error) return res.status(400).json({ error });
+        if (plan.activo === false) {
+            return res.status(400).json({ error: `El plan "${plan.nombre}" está dado de baja y no admite nuevas cohortes` });
+        }
+
         const nuevoCohorte = await Cohorte.create({
             name,
             startDate: parseLocalDate(startDate),
-            userList
+            userList,
+            plan_id: plan.id
         });
 
         res.status(201).json({ message: 'Cohorte creado exitosamente', cohorte: nuevoCohorte });
     } catch (error) {
-        error.status = 500;
-        error.message = "Error creando la cohorte";
-        next(error);
+        // Antes se llamaba a un `next` inexistente y la petición quedaba colgada / devolvía HTML
+        res.status(500).json({ error: "Error creando la cohorte" });
     }
 };
 
 export const updateCohorte = async (req, res) => {
     try {
         const { id } = req.params;
-        const { name, startDate } = req.body;
+        const { name, startDate, plan_id } = req.body;
 
         const datosAActualizar = {};
         if (name) datosAActualizar.name = name;
         if (startDate) datosAActualizar.startDate = parseLocalDate(startDate);
+
+        if (plan_id !== undefined && plan_id !== null && plan_id !== '') {
+            const actual = await Cohorte.findOne({ id: parseInt(id) }).lean();
+            if (!actual) return res.status(404).json({ error: "Cohorte no encontrado" });
+
+            if (Number(plan_id) !== actual.plan_id) {
+                const { plan, error } = await resolverPlanId(plan_id);
+                if (error) return res.status(400).json({ error });
+                if (plan.activo === false) {
+                    return res.status(400).json({ error: `El plan "${plan.nombre}" está dado de baja` });
+                }
+
+                // Cambiar el plan de una cohorte que ya tiene cursadas o inscripciones dejaría el historial
+                // apuntando a materias de otro plan. Solo se permite mientras todavía no hay actividad.
+                if (actual.plan_id !== null && actual.plan_id !== undefined) {
+                    const conHistorial = await HistorialAcademico.exists({ alumno_id: { $in: actual.userList } });
+                    const conInscripciones = await Inscripcion.exists({ cohorte_id: actual.id });
+                    if (conHistorial || conInscripciones) {
+                        return res.status(409).json({ error: "No se puede cambiar el plan de una cohorte que ya tiene alumnos cursando o inscriptos. Creá una cohorte nueva con el otro plan." });
+                    }
+                }
+                datosAActualizar.plan_id = plan.id;
+            }
+        }
 
         const cohorteActualizado = await Cohorte.findOneAndUpdate(
             { id: parseInt(id) },
@@ -118,6 +152,16 @@ export const addUserToCohorte = async (req, res) => {
 
         if (cohorte.userList.includes(parseInt(alumnoId))) {
             return res.status(400).json({ error: "El alumno ya pertenece a este cohorte" });
+        }
+
+        // Pasar a un alumno con historial a una cohorte de OTRO plan mezclaría materias de dos planes
+        if (alumno.cohorte_id && alumno.cohorte_id !== cohorte.id) {
+            const anterior = await Cohorte.findOne({ id: alumno.cohorte_id }).lean();
+            const planAnterior = anterior?.plan_id ?? null;
+            if (planAnterior !== null && planAnterior !== (cohorte.plan_id ?? null)
+                && await HistorialAcademico.exists({ alumno_id: alumno.id })) {
+                return res.status(409).json({ error: "El alumno ya tiene historial en otro plan de estudios y no puede pasar a una cohorte de un plan distinto." });
+            }
         }
 
         // 1. Agregamos el alumno a la cohorte

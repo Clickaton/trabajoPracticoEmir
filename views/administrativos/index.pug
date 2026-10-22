@@ -1,6 +1,8 @@
 extends ../layout
 
 block contenido
+  include ../mixins/ayuda.pug
+  include ../mixins/ingreso.pug
   // Sub-menú tipo pestañas FUNCIONALES (Bootstrap Tabs)
   .nav-tabs-custom.shadow-sm.mb-4
     .container-fluid.px-4
@@ -30,4 +32,11 @@ block contenido
   include tabs/modales.pug
 
 block scripts
+  include ../partials/scripts-comun.pug
   include tabs/scripts.pug
+  include tabs/scripts-cohortes.pug
+  include tabs/scripts-academico.pug
+  include tabs/scripts-periodos.pug
+  include tabs/scripts-alumnos.pug
+  include tabs/scripts-ficha.pug
+  include tabs/scripts-mesa.pug

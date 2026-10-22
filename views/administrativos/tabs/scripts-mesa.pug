@@ -1,0 +1,184 @@
+script.
+  // ==========================================================================
+  // MESA DE FINALES + MODAL DE RESULTADO 
+  // El modal de resultado lo usan la mesa y la ficha del alumno.
+  // ==========================================================================
+  let mesaPeriodoId = null;
+  let mesaGrupos = [];       // grupos por materia: { materia_id, materia, anio, plan_id, inscriptos: [...] }
+  let mesaPeriodo = null;
+  let resultadoAlTerminar = null;
+
+  // ----- Modal de resultado de un final -----
+  // datos: { id, descripcion, estado, nota, libro, folio, fechaExamen, alTerminar }
+  function abrirModalResultado(datos) {
+    document.getElementById('formResultadoFinal').reset();
+    document.getElementById('resFinalId').value = datos.id;
+    document.getElementById('resFinalDescripcion').textContent = datos.descripcion;
+    document.getElementById('resFinalResultado').value = ['Aprobado', 'Desaprobado', 'Ausente'].includes(datos.estado) ? datos.estado : 'Aprobado';
+    document.getElementById('resFinalNota').value = datos.nota ?? '';
+    document.getElementById('resFinalLibro').value = datos.libro || '';
+    document.getElementById('resFinalFolio').value = datos.folio || '';
+    document.getElementById('resFinalFecha').value = soloFecha(datos.fechaExamen);
+    resultadoAlTerminar = datos.alTerminar || null;
+    actualizarCamposResultado();
+    abrirModal('modalResultadoFinal');
+  }
+
+  const AYUDA_RESULTADO = {
+    Aprobado: 'La materia pasa a Aprobada. Nota de 4 a 10, con libro y folio del acta.',
+    Desaprobado: 'Consume un llamado de la regularidad. La nota es opcional (de 1 a 3); si la cargás, indicá libro y folio.',
+    Ausente: 'No se presentó: consume un llamado y suma una ausencia. No lleva nota.'
+  };
+
+  function actualizarCamposResultado() {
+    const resultado = document.getElementById('resFinalResultado').value;
+    const ausente = resultado === 'Ausente';
+    const nota = document.getElementById('resFinalNota');
+
+    document.getElementById('grupoResFinalNota').classList.toggle('d-none', ausente);
+    nota.disabled = ausente;
+    if (ausente) nota.value = '';
+    nota.required = resultado === 'Aprobado';
+    nota.min = resultado === 'Aprobado' ? 4 : 1;
+    nota.max = resultado === 'Desaprobado' ? 3 : 10;
+
+    const conNota = !ausente && (resultado === 'Aprobado' || nota.value !== '');
+    document.getElementById('resFinalLibro').required = conNota;
+    document.getElementById('resFinalFolio').required = conNota;
+    document.getElementById('avisoResFinal').textContent = AYUDA_RESULTADO[resultado] || '';
+  }
+
+  document.getElementById('resFinalResultado')?.addEventListener('change', actualizarCamposResultado);
+  document.getElementById('resFinalNota')?.addEventListener('input', actualizarCamposResultado);
+
+  function validarResultadoCliente(p) {
+    const nota = p.nota === undefined || p.nota === '' ? null : Number(p.nota);
+    if (p.resultado === 'Ausente') return nota !== null ? 'Un ausente no lleva nota.' : null;
+    if (nota !== null && (!Number.isInteger(nota) || nota < 1 || nota > 10)) return 'La nota debe ser un número entero entre 1 y 10.';
+    if (p.resultado === 'Aprobado' && nota === null) return 'Cargá la nota del examen.';
+    if (p.resultado === 'Aprobado' && nota < 4) return 'Para aprobar el final la nota debe ser 4 o más.';
+    if (p.resultado === 'Desaprobado' && nota !== null && nota >= 4) return `Con nota ${nota} el final está aprobado: marcá el resultado como Aprobado.`;
+    if (nota !== null && (!p.libro || !p.folio)) return 'Al cargar una nota tenés que indicar también el libro y el folio del acta.';
+    return null;
+  }
+
+  document.getElementById('formResultadoFinal')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const valor = (id) => document.getElementById(id).value.trim();
+    const payload = { resultado: document.getElementById('resFinalResultado').value };
+    if (payload.resultado !== 'Ausente' && valor('resFinalNota') !== '') payload.nota = valor('resFinalNota');
+    if (valor('resFinalLibro')) payload.libro = valor('resFinalLibro');
+    if (valor('resFinalFolio')) payload.folio = valor('resFinalFolio');
+    if (valor('resFinalFecha')) payload.fechaExamen = valor('resFinalFecha');
+
+    const problema = validarResultadoCliente(payload);
+    if (problema) return mostrarAviso(problema, 'warning');
+
+    const r = await apiFetch(`/api/inscripciones-final/${document.getElementById('resFinalId').value}/resultado`, { method: 'PUT', body: payload });
+    if (!r.ok) return mostrarAviso(r.error, 'danger');
+
+    cerrarModal('modalResultadoFinal');
+    mostrarAviso('Resultado cargado.');
+    // Si con este resultado el alumno perdió la regularidad, se avisa en destacado
+    if (r.data.aviso) mostrarAviso(r.data.aviso, 'warning');
+    if (resultadoAlTerminar) await resultadoAlTerminar();
+  });
+
+  // ----- Mesa de finales de un período -----
+  async function abrirMesaFinal(periodoId) {
+    mesaPeriodoId = periodoId;
+    mesaGrupos = [];
+    mesaPeriodo = null;
+    const p = (typeof periodosActuales !== 'undefined' ? periodosActuales : []).find((x) => x.id === periodoId);
+
+    document.getElementById('tituloMesaFinal').textContent = `Mesa de examen: ${p ? p.nombre : 'Período ' + periodoId}`;
+    document.getElementById('subtituloMesaFinal').textContent = p && p.fechaExamen ? `Fecha de examen: ${fechaCalendarioLocal(p.fechaExamen)}` : 'Fecha de examen sin definir';
+    document.getElementById('resumenMesaFinal').innerHTML = '';
+    document.getElementById('filtroMateriaMesa').innerHTML = '<option value="">Todas</option>';
+    document.getElementById('contenedorMesaFinal').innerHTML = textoCargando('Cargando mesa...');
+    abrirModal('modalMesaFinal');
+    await cargarMesa();
+  }
+
+  async function cargarMesa() {
+    const periodoId = mesaPeriodoId;
+    const r = await apiFetch(`/api/inscripciones-final/periodo/${periodoId}`);
+    if (periodoId !== mesaPeriodoId) return;
+    if (!r.ok) {
+      document.getElementById('contenedorMesaFinal').innerHTML = textoError(r.error);
+      return;
+    }
+    mesaGrupos = r.data.data || [];
+    mesaPeriodo = r.data.periodo;
+
+    // El filtro por materia se arma con todas las materias que tienen inscriptos (y conserva la elegida)
+    const select = document.getElementById('filtroMateriaMesa');
+    const elegida = select.value;
+    select.innerHTML = '<option value="">Todas</option>' + mesaGrupos.map((g) => `<option value="${g.materia_id}">${esc(g.materia)}</option>`).join('');
+    if (mesaGrupos.some((g) => String(g.materia_id) === elegida)) select.value = elegida;
+    pintarMesa();
+  }
+
+  function pintarMesa() {
+    const contenedor = document.getElementById('contenedorMesaFinal');
+    const filtro = document.getElementById('filtroMateriaMesa').value;
+    const grupos = mesaGrupos.filter((g) => !filtro || String(g.materia_id) === filtro);
+
+    const todos = mesaGrupos.flatMap((g) => g.inscriptos);
+    const cuenta = (estado) => todos.filter((i) => i.estado === estado).length;
+    document.getElementById('resumenMesaFinal').innerHTML = todos.length === 0 ? '' :
+      `<b>${todos.length}</b> inscripto${todos.length === 1 ? '' : 's'} · ${cuenta('Inscripto')} sin resultado · ${cuenta('Aprobado')} aprobado${cuenta('Aprobado') === 1 ? '' : 's'} · ${cuenta('Desaprobado')} desaprobado${cuenta('Desaprobado') === 1 ? '' : 's'} · ${cuenta('Ausente')} ausente${cuenta('Ausente') === 1 ? '' : 's'}`;
+
+    if (mesaGrupos.length === 0) {
+      contenedor.innerHTML = textoVacio('bi-people', 'Todavía no hay alumnos inscriptos a esta mesa.');
+      return;
+    }
+    if (grupos.length === 0) {
+      contenedor.innerHTML = textoVacio('bi-funnel', 'No hay inscriptos para la materia elegida.');
+      return;
+    }
+
+    const variosPlanes = new Set(mesaGrupos.map((g) => g.plan_id)).size > 1;
+    let html = '';
+    grupos.forEach((g) => {
+      const plan = variosPlanes && g.plan_id != null ? planPorId(g.plan_id) : null;
+      html += `<div class="card border-0 shadow-sm mb-3"><div class="card-header bg-white d-flex justify-content-between align-items-center">`
+        + `<div><span class="fw-bold">${esc(g.materia)}</span> <small class="text-muted">(${etiquetaAnio(g.anio)})</small>${plan ? ` <span class="badge bg-light text-dark border ms-1">${esc(plan.nombre)}</span>` : ''}</div>`
+        + `<span class="badge bg-secondary">${g.inscriptos.length} inscripto${g.inscriptos.length === 1 ? '' : 's'}</span></div>`
+        + '<div class="table-responsive"><table class="table table-sm align-middle mb-0"><thead class="table-light"><tr>'
+        + '<th class="ps-3">Alumno</th><th>DNI</th><th>Legajo</th><th>Resultado</th><th>Nota y acta</th><th class="text-end pe-3">Acción</th></tr></thead><tbody>';
+
+      g.inscriptos.forEach((i) => {
+        const acta = textoActa(i.libro, i.folio);
+        const pendiente = i.estado === 'Inscripto';
+        html += `<tr><td class="ps-3 fw-medium">${esc(i.alumno)}</td><td><small>${esc(i.dni || '—')}</small></td><td><small>${esc(i.legajo || '—')}</small></td>`
+          + `<td>${badgeEstado(pendiente ? 'Inscripto' : i.estado)}</td>`
+          + `<td><span class="fw-bold">${i.nota ?? '—'}</span>${acta ? `<small class="d-block text-muted">${acta}</small>` : ''}</td>`
+          + `<td class="text-end pe-3"><button type="button" class="btn btn-sm ${pendiente ? 'btn-danger' : 'btn-outline-primary'}" data-bs-toggle="tooltip" title="${pendiente ? 'Cargar el resultado del final de este alumno' : 'Corregir el resultado ya cargado'}" onclick="abrirResultadoDesdeMesa(${g.materia_id}, ${i.id})"><i class="bi bi-clipboard-check me-1"></i>${pendiente ? 'Cargar resultado' : 'Corregir'}</button></td></tr>`;
+      });
+      html += '</tbody></table></div></div>';
+    });
+    contenedor.innerHTML = html;
+    activarAyudas(contenedor);
+  }
+
+  document.getElementById('filtroMateriaMesa')?.addEventListener('change', pintarMesa);
+
+  function abrirResultadoDesdeMesa(materiaId, inscripcionId) {
+    const grupo = mesaGrupos.find((g) => g.materia_id === materiaId);
+    const i = grupo && grupo.inscriptos.find((x) => x.id === inscripcionId);
+    if (!i) return;
+    abrirModalResultado({
+      id: i.id,
+      descripcion: `${i.alumno} · ${grupo.materia} · ${mesaPeriodo ? mesaPeriodo.nombre : ''}`,
+      estado: i.estado, nota: i.nota, libro: i.libro, folio: i.folio,
+      fechaExamen: i.fechaExamen || (mesaPeriodo && mesaPeriodo.fechaExamen),
+      alTerminar: async () => {
+        await cargarMesa();
+        // La lista de alumnos de la cohorte puede haber cambiado de color (llamados consumidos)
+        if (cohorteSeleccionadaId) await dibujarTablaAlumnos(cohorteSeleccionadaId);
+        // Si la ficha de un alumno quedó abierta debajo, también se refresca
+        if (fichaAlumnoId && document.getElementById('modalFichaAlumno')?.classList.contains('show')) await refrescarFicha();
+      }
+    });
+  }

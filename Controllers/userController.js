@@ -1,10 +1,7 @@
 import User from '../models/User.js';
 import jwt from 'jsonwebtoken';
-
-// Renderiza el formulario de registro
-export const getRegisterForm = (req, res) => {
-    res.render('userRegister');
-};
+import { contraseniaNueva, normalizarEmail, emailValido, emailEnUso } from '../services/usuarioService.js';
+import { rutaInicio, renderSinAcceso } from '../middlewares/authHybrid.js';
 
 // Logeo del usuario
 
@@ -56,14 +53,10 @@ export const userLogin = async (req, res) => {
             sameSite: 'lax' // antes: 'strict'
         });
         
-        // Redirigir según el tipo de perfil
-        if (usuario.tipoPerfil === 'Alumno') {
-            return res.redirect('/dashboard');
-        } else if (usuario.rol === 'Administrativo' || usuario.rol === 'Direccion' || usuario.rol === 'Secretario' || usuario.rol === 'Profesor') {
-            return res.redirect('/api/administrativos');
-        } else {
-            res.redirect('/dashboard');
-        }
+        // Cada perfil entra por su pantalla; si su rol no tiene ninguna (Profesor, Bibliotecario) se le explica
+        const destino = rutaInicio(usuario);
+        if (!destino) return renderSinAcceso(res, usuario);
+        return res.redirect(destino);
 
     } catch (error) {
         res.status(500).send("Error interno del servidor");
@@ -75,11 +68,12 @@ export const userLogin = async (req, res) => {
 export const getEditForm = async (req, res) => {
     try {
         const { id } = req.params;
-        // Buscamos en MongoDB por nuestro campo 'id' numérico
-        const usuario = await User.findOne({ id: parseInt(id) }); 
-        
+        // Buscamos en MongoDB por nuestro campo 'id' numérico. Solo se traen los datos que muestra el formulario:
+        // la contraseña (su hash) nunca debe llegar a la pantalla.
+        const usuario = await User.findOne({ id: parseInt(id) }).select('id name email').lean();
+
         if (!usuario) return res.status(404).send("Usuario no encontrado");
-        
+
         res.render('userEdit', { user: usuario });
     } catch (error) {
         res.status(500).send("Error interno del servidor");
@@ -145,12 +139,18 @@ export const createUser = async (req, res) => {
 export const updateUser = async (req, res) => {
     try {
         const { id } = req.params;
-        const { name, email, password } = req.body;
-        
-        // Armamos un objeto solo con los datos que nos llegan
+        const name = typeof req.body.name === 'string' ? req.body.name.trim() : '';
+        const email = normalizarEmail(req.body.email);
+        const password = contraseniaNueva(req.body.password);
+
+        // Armamos un objeto solo con los datos que nos llegan. Una contraseña vacía conserva la actual.
         const datosAActualizar = {};
         if (name) datosAActualizar.name = name;
-        if (email) datosAActualizar.email = email;
+        if (email) {
+            if (!emailValido(email)) return res.status(400).json({ error: "El email no tiene un formato válido" });
+            if (await emailEnUso(email, parseInt(id))) return res.status(409).json({ error: "Ese email ya lo usa otra cuenta" });
+            datosAActualizar.email = email;
+        }
         if (password) datosAActualizar.password = password;
 
         const usuarioActualizado = await User.findOneAndUpdate(

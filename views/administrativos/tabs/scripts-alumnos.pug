@@ -1,0 +1,247 @@
+script.
+  // ==========================================================================
+  // ALUMNOS DE LA COHORTE: lista con semáforo, alta y edición con ingreso/pase 
+  // ==========================================================================
+  let semaforoPorAlumno = new Map();   // alumno_id -> fila del semáforo de la cohorte
+  let resumenSemaforoCohorte = null;   // { verde, amarillo, rojo, gris } de TODA la cohorte
+  let filtroSemaforoAlumnos = '';      // '' = todos
+
+  const ORDEN_FILTROS_SEMAFORO = ['rojo', 'amarillo', 'verde', 'gris'];
+
+  async function dibujarTablaAlumnos(cohorteId) {
+    const contenedor = document.getElementById('contenedorAlumnos');
+    contenedor.innerHTML = '<div class="p-5 text-center"><div class="spinner-border text-primary" role="status"></div></div>';
+
+    // La lista y el semáforo se piden juntos; si el semáforo falla (p. ej. cohorte sin plan) la lista se muestra igual
+    const [rAlumnos, rSemaforo] = await Promise.all([
+      apiFetch(`/cohorte/${cohorteId}/users`),
+      apiFetch(`/api/estado-academico/cohorte/${cohorteId}/semaforo`)
+    ]);
+    if (Number(cohorteSeleccionadaId) !== Number(cohorteId)) return; // el usuario eligió otra cohorte mientras cargaba
+
+    if (!rAlumnos.ok) {
+      contenedor.innerHTML = `<div class="p-5 text-center text-danger"><i class="bi bi-exclamation-triangle fs-3 d-block mb-2"></i>${esc(rAlumnos.error)}</div>`;
+      return;
+    }
+
+    alumnosActuales = rAlumnos.data.users || [];
+    semaforoPorAlumno = new Map();
+    resumenSemaforoCohorte = null;
+
+    if (rSemaforo.ok) {
+      const filas = rSemaforo.data.data || [];
+      filas.forEach((f) => semaforoPorAlumno.set(f.alumno_id, f));
+      resumenSemaforoCohorte = rSemaforo.data.resumen || null;
+      // Primero los que necesitan atención (el servidor ya los ordena así)
+      const posicion = new Map(filas.map((f, i) => [f.alumno_id, i]));
+      alumnosActuales.sort((a, b) => (posicion.get(a.id) ?? 9999) - (posicion.get(b.id) ?? 9999));
+    }
+
+    pintarBarraSemaforo(rSemaforo.ok ? '' : rSemaforo.error);
+    pintarTablaAlumnos();
+  }
+
+  function pintarBarraSemaforo(errorSemaforo) {
+    const cuadro = document.getElementById('contenedorSemaforoCohorte');
+    const barra = document.getElementById('barraSemaforoCohorte');
+    cuadro.classList.remove('d-none');
+
+    if (!resumenSemaforoCohorte) {
+      barra.innerHTML = `<span class="small text-muted">No se pudo calcular el semáforo: ${esc(errorSemaforo || 'sin datos')}</span>`;
+      return;
+    }
+
+    const total = ORDEN_FILTROS_SEMAFORO.reduce((suma, color) => suma + (resumenSemaforoCohorte[color] || 0), 0);
+    const AYUDA_CHIP = {
+      '': 'Mostrar a todos los alumnos de la cohorte',
+      rojo: 'Mostrar solo a quienes perdieron la regularidad de alguna materia',
+      amarillo: 'Mostrar solo a quienes tienen una promoción condicional (deben el final de una correlativa)',
+      verde: 'Mostrar solo a los alumnos que están al día',
+      gris: 'Mostrar solo a quienes todavía no cursaron ninguna materia'
+    };
+    const chip = (color, texto, cantidad, clase) =>
+      `<button type="button" class="btn btn-sm ${filtroSemaforoAlumnos === color ? clase : 'btn-outline-' + clase.replace('btn-', '')}" data-color="${color}" aria-pressed="${filtroSemaforoAlumnos === color}" data-bs-toggle="tooltip" title="${esc(AYUDA_CHIP[color])}">${texto} <span class="badge bg-light text-dark">${cantidad}</span></button>`;
+
+    barra.innerHTML = chip('', 'Todos', total, 'btn-dark')
+      + chip('rojo', 'Regularidad vencida', resumenSemaforoCohorte.rojo || 0, 'btn-danger')
+      + chip('amarillo', 'Condicionales', resumenSemaforoCohorte.amarillo || 0, 'btn-warning')
+      + chip('verde', 'Al día', resumenSemaforoCohorte.verde || 0, 'btn-success')
+      + chip('gris', 'Sin cursar', resumenSemaforoCohorte.gris || 0, 'btn-secondary');
+    activarAyudas(barra);
+  }
+
+  document.getElementById('barraSemaforoCohorte')?.addEventListener('click', (e) => {
+    const boton = e.target.closest('button[data-color]');
+    if (!boton) return;
+    filtroSemaforoAlumnos = boton.dataset.color;
+    pintarBarraSemaforo('');
+    pintarTablaAlumnos();
+  });
+
+  // Marcas del ingreso: "Ingresa a 2do" / "Pase"
+  function marcasDeIngreso(alumno) {
+    let html = '';
+    if (alumno.tipoIngreso && alumno.tipoIngreso !== 'Inicial') {
+      html += ` <span class="badge bg-light text-dark border" data-bs-toggle="tooltip" title="Situación de ingreso a la carrera">${alumno.tipoIngreso === 'Ingreso a 2do' ? 'Ingresa a 2do' : 'Ingresa a 3ro'}</span>`;
+    }
+    if (alumno.pase && alumno.pase.esPase) {
+      html += ` <span class="badge bg-info text-dark" data-bs-toggle="tooltip" title="Pase desde ${esc(alumno.pase.institutoOrigen || 'otro instituto')}">Pase</span>`;
+    }
+    return html;
+  }
+
+  function celdaSemaforo(alumno) {
+    const fila = semaforoPorAlumno.get(alumno.id);
+    if (!fila) return '<span class="text-muted">—</span>';
+    const alertas = fila.alertas || [];
+    let detalle = `Aprobadas: ${fila.materiasAprobadas}/${fila.totalMaterias} (${fila.porcentaje_carrera})`;
+    if (alertas.length) {
+      detalle = alertas.slice(0, 4).map((a) => `<b>${esc(a.nombre)}</b>: ${esc(a.mensaje)}`).join('<br>')
+        + (alertas.length > 4 ? `<br>y ${alertas.length - 4} más...` : '');
+    }
+    return badgeSemaforo(fila.semaforo, detalle, true);
+  }
+
+  function pintarTablaAlumnos() {
+    const contenedor = document.getElementById('contenedorAlumnos');
+    const cohorteId = cohorteSeleccionadaId;
+
+    if (alumnosActuales.length === 0) {
+      contenedor.innerHTML = '<div class="p-5 text-center text-muted"><i class="bi bi-person-x fs-1 mb-3 d-block"></i><h5>Esta cohorte no tiene alumnos</h5></div>';
+      return;
+    }
+
+    const lista = alumnosActuales.filter((a) => !filtroSemaforoAlumnos || (semaforoPorAlumno.get(a.id) || {}).semaforo === filtroSemaforoAlumnos);
+    if (lista.length === 0) {
+      contenedor.innerHTML = '<div class="p-5 text-center text-muted"><i class="bi bi-funnel fs-1 mb-3 d-block"></i><h6>Ningún alumno tiene ese semáforo.</h6></div>';
+      return;
+    }
+
+    let html = '<div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead class="table-light"><tr>'
+      + '<th class="ps-4">DNI</th><th>Legajo</th><th>Nombre</th><th>Email</th><th>Estado</th><th>Semáforo</th><th class="text-center">Acciones</th></tr></thead><tbody>';
+
+    lista.forEach((a) => {
+      const estado = a.activo ? '<span class="badge bg-success">Activo</span>' : '<span class="badge bg-danger">Inactivo</span>';
+      html += `<tr>
+        <td class="ps-4 fw-bold">${esc(a.dni || '-')}</td>
+        <td class="fw-medium text-muted">${esc(a.legajo)}</td>
+        <td>${esc(a.name)}${marcasDeIngreso(a)}</td>
+        <td>${esc(a.email)}</td>
+        <td>${estado}</td>
+        <td>${celdaSemaforo(a)}</td>
+        <td class="text-center text-nowrap">
+          <button type="button" class="btn btn-sm btn-outline-info me-1" data-bs-toggle="tooltip" title="Ficha académica: estado por materia, actas y finales" onclick="abrirFichaAlumno(${a.id})"><i class="bi bi-card-list"></i></button>
+          <button type="button" class="btn btn-sm btn-outline-success me-1" data-bs-toggle="tooltip" title="Inscribir a materias (cursada)" onclick="abrirModalInscripcion(${a.id}, ${cohorteId})"><i class="bi bi-plus-circle"></i></button>
+          <button type="button" class="btn btn-sm btn-outline-primary me-1" data-bs-toggle="tooltip" title="Editar datos, ingreso y pase" onclick="abrirModalEditarAlumno(${a.id})"><i class="bi bi-pencil-square"></i></button>
+          <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="tooltip" title="Eliminar al alumno" onclick="eliminarAlumnoPorCompleto(${a.id}, ${cohorteId})"><i class="bi bi-trash"></i></button>
+        </td>
+      </tr>`;
+    });
+    contenedor.innerHTML = html + '</tbody></table></div>';
+    activarAyudas(contenedor);
+  }
+
+  // ----- Ingreso y pase: el bloque del pase solo se ve (y se exige) si se tilda "Viene por pase" -----
+  function conectarBloquePase(prefijo) {
+    const casilla = document.getElementById(prefijo + 'EsPase');
+    const bloque = document.getElementById('grupoPase_' + prefijo);
+    const instituto = document.getElementById(prefijo + 'Instituto');
+    if (!casilla || !bloque) return () => {};
+    const actualizar = () => {
+      bloque.classList.toggle('d-none', !casilla.checked);
+      instituto.required = casilla.checked;
+    };
+    casilla.addEventListener('change', actualizar);
+    actualizar();
+    return actualizar;
+  }
+  const actualizarPaseCrear = conectarBloquePase('crearAlumno');
+  const actualizarPaseEditar = conectarBloquePase('editAlumno');
+
+  // Datos del formulario de alumno listos para enviar (booleanos reales y sin campos vacíos del pase si no corresponde)
+  function datosAlumnoDelFormulario(formulario) {
+    const data = Object.fromEntries(new FormData(formulario));
+    data.activo = data.activo === 'true';
+    data.esPase = formulario.elements.esPase.checked;
+    if (!data.esPase) {
+      delete data.institutoOrigen;
+      delete data.fechaPase;
+      delete data.observacionesPase;
+    }
+    // Con pase, la fecha y las observaciones vacías se mandan vacías: así se pueden borrar (si faltaran, el servidor conservaría las anteriores)
+    return data;
+  }
+
+  document.getElementById('modalCrearAlumno')?.addEventListener('show.bs.modal', () => {
+    document.getElementById('formCrearAlumno').reset();
+    actualizarPaseCrear();
+  });
+
+  document.getElementById('formCrearAlumno')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const data = datosAlumnoDelFormulario(e.target);
+    const r = await apiFetch('/createAlumno', {
+      method: 'POST',
+      body: data,
+      errorHtml: 'No se pudo crear el alumno. Revisá que el DNI y el legajo no estén repetidos y que estén todos los datos.'
+    });
+    if (!r.ok) return mostrarAviso(r.error, 'danger');
+
+    cerrarModal('modalCrearAlumno');
+    mostrarAviso('Alumno creado e inscripto en la cohorte.');
+    if (data.tipoIngreso !== 'Inicial' || data.esPase) {
+      mostrarAviso('Como ingresa a 2do o 3er año, o viene por pase, cargale su historial anterior desde la Ficha (botón "Cargar registro").', 'info');
+    }
+    await cargarCohortes(cohorteSeleccionadaId); // actualiza también la cohorte con su lista de alumnos
+  });
+
+  function abrirModalEditarAlumno(alumnoId) {
+    const a = alumnosActuales.find((x) => x.id === alumnoId);
+    if (!a) return;
+    document.getElementById('editAlumnoId').value = a.id;
+    document.getElementById('editAlumnoDni').value = a.dni || '';
+    document.getElementById('editAlumnoLegajo').value = a.legajo || '';
+    document.getElementById('editAlumnoName').value = a.name || '';
+    document.getElementById('editAlumnoEmail').value = a.email || '';
+    document.getElementById('editAlumnoPassword').value = '';
+    document.getElementById('editAlumnoActivo').value = a.activo ? 'true' : 'false';
+    document.getElementById('editAlumnoFecha').value = soloFecha(a.fecha_inscripcion);
+
+    document.getElementById('editAlumnoTipoIngreso').value = a.tipoIngreso || 'Inicial';
+    const pase = a.pase || {};
+    document.getElementById('editAlumnoEsPase').checked = Boolean(pase.esPase);
+    document.getElementById('editAlumnoInstituto').value = pase.institutoOrigen || '';
+    document.getElementById('editAlumnoFechaPase').value = soloFecha(pase.fechaPase);
+    document.getElementById('editAlumnoObsPase').value = pase.observaciones || '';
+    actualizarPaseEditar();
+
+    document.getElementById('formEditarAlumnoAdm').dataset.id = a.id;
+    abrirModal('modalEditarAlumnoAdm');
+  }
+
+  document.getElementById('formEditarAlumnoAdm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const data = datosAlumnoDelFormulario(e.target);
+    if (!data.password) delete data.password;
+    delete data.id;
+
+    const r = await apiFetch(`/api/administrativos/updateAlumnoAdm/${e.target.dataset.id}`, {
+      method: 'PUT',
+      body: data,
+      errorHtml: 'No se pudo actualizar el alumno. Revisá que el DNI y el legajo no estén repetidos.'
+    });
+    if (!r.ok) return mostrarAviso(r.error, 'danger');
+
+    cerrarModal('modalEditarAlumnoAdm');
+    mostrarAviso('Datos del alumno actualizados.');
+    await dibujarTablaAlumnos(cohorteSeleccionadaId);
+  });
+
+  async function eliminarAlumnoPorCompleto(alumnoId, cohorteId) {
+    const a = alumnosActuales.find((x) => x.id === alumnoId);
+    if (!confirm(`¿Eliminar por completo a ${a ? a.name : 'este alumno'}? Se pierde su ficha y no se puede deshacer.`)) return;
+    const r = await apiFetch(`/deleteAlumno/${alumnoId}`, { method: 'DELETE', errorHtml: 'No se pudo eliminar al alumno.' });
+    if (!r.ok) return mostrarAviso(r.error, 'danger');
+    mostrarAviso('Alumno eliminado.');
+    await cargarCohortes(cohorteId);
+  }

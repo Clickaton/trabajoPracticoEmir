@@ -51,20 +51,8 @@ export const requireRole = (role) => {
                 return next();
             }
 
-            if (userRole === 'Alumno') {
-                return res.redirect('/dashboard');
-            }
-
-            if (userRole === 'Administrativo' 
-                || userRole === 'Direccion' 
-                || user.tipoPerfil === 'Personal'
-                || userRole === 'Secretario'
-                || userRole === 'Profesor') {
-                return res.redirect('/api/administrativos');
-            }
-            
-            // Si es otro tipo de usuario sin permisos
-            return res.redirect('/login');
+            // Sin permiso para esta pantalla: se lo manda a la suya o, si no tiene ninguna, se le explica (ver responderSinPermiso)
+            return responderSinPermiso(req, res, user);
         });
     };
 };
@@ -93,15 +81,66 @@ export const verifyToken = (req, res, next) => {
 };
 
 /**
- * Middleware para verificar rol de Administrativo (APIs)
- * SIN USO ACTUALMENTE, pero puede ser útil para futuras rutas de API que requieran rol específico
+ * Roles que pueden modificar datos académicos (cargar notas, períodos, historial, etc.).
+ * Un Profesor puede consultar (ver isAdminRole) pero no modificar.
  */
-export const isAdmin = (req, res, next) => {
-    if (req.user && (req.user.rol === 'Administrativo' || req.user.rol === 'Direccion')) {
-        next();
-    } else {
-        res.status(403).json({ error: "Acceso denegado. Se requiere rol de Administrador." });
-    }
+export const ROLES_ADMINISTRATIVOS = Object.freeze(['Administrativo', 'Direccion', 'Secretario']);
+
+/**
+ * Pantalla de inicio de cada persona, o null si su rol no tiene ninguna pantalla en el sistema.
+ * Es la ÚNICA fuente de verdad: la usan el login, el login con Google y requireRole. Así los tres mandan a cada
+ * persona al mismo lugar y ninguno puede mandarla a una pantalla que después la rechace (eso era el bucle de redirecciones).
+ *   Alumno                                  -> /dashboard
+ *   Administrativo, Direccion, Secretario   -> /api/administrativos (panel)
+ *   Profesor, Bibliotecario u otro rol      -> null: consultan datos por API, pero no tienen una pantalla propia
+ */
+export const rutaInicio = (user = {}) => {
+    const rol = String(user?.rol ?? user?.role ?? '').trim();
+    if (user?.tipoPerfil === 'Alumno' || rol === 'Alumno') return '/dashboard';
+    if (ROLES_ADMINISTRATIVOS.includes(rol)) return '/api/administrativos';
+    return null;
+};
+
+/** Página (403) que explica por qué no hay pantalla para este rol. Se muestra en lugar de redirigir en círculos. */
+export const renderSinAcceso = (res, user = {}) => {
+    const rol = String(user?.rol ?? user?.role ?? '').trim();
+    return res.status(403).render('error', {
+        statusCode: 403,
+        title: 'Sin pantallas habilitadas',
+        message: `Tu usuario${rol ? ` (rol: ${rol})` : ''} no tiene pantallas habilitadas en este sistema. Si necesitás acceso, pedíselo a Secretaría o a Dirección.`
+    });
+};
+
+/**
+ * Qué hacer con alguien que no puede ver la página que pidió:
+ *  - si tiene una pantalla propia y no es esta, se lo manda ahí;
+ *  - si no tiene pantalla, o ya está parado en ella, se le explica con un 403 (redirigir acá sería un bucle).
+ */
+const responderSinPermiso = (req, res, user) => {
+    const inicio = rutaInicio(user);
+    const rutaPedida = String(req.originalUrl || req.url || '').split('?')[0].replace(/\/+$/, '') || '/';
+    if (inicio && rutaPedida !== inicio) return res.redirect(inicio);
+    return renderSinAcceso(res, user);
+};
+
+/**
+ * Middleware para APIs que modifican datos: debe ir DESPUÉS de verifyToken.
+ * A diferencia de requireRole (que redirige a una pantalla HTML), responde JSON 403,
+ * que es lo que espera un fetch() del navegador.
+ */
+export const requireAdminApi = (req, res, next) => {
+    const rol = String(req.user?.rol ?? req.user?.role ?? '').trim();
+    if (ROLES_ADMINISTRATIVOS.includes(rol)) return next();
+    return res.status(403).json({ error: "Acceso denegado. Se requiere un rol administrativo." });
+};
+
+/**
+ * Middleware para APIs de CONSULTA del personal del instituto (incluye Profesor, que consulta pero no modifica).
+ * Debe ir DESPUÉS de verifyToken. Responde JSON 403 a un alumno u otro rol.
+ */
+export const requireStaffApi = (req, res, next) => {
+    if (isAdminRole(req.user)) return next();
+    return res.status(403).json({ error: "Acceso denegado. Esta información es solo para el personal del instituto." });
 };
 
 /**
@@ -171,8 +210,8 @@ export const requireOwnershipOrAdmin = (paramName, options = {}) => {
       return next();
     }
 
-    res.status(403);
-    res.error = 'No autorizado: este recurso no pertenece al usuario autenticado';
-    return next(res.error);
+    // Antes se hacía next(string): Express respondía con una página HTML y el fetch() del navegador fallaba
+    // con "Unexpected token '<', <!DOCTYPE..." (el mismo síntoma del bug de la inscripción).
+    return res.status(403).json({ error: 'No autorizado: este recurso no pertenece al usuario autenticado' });
   };
 };

@@ -1,12 +1,21 @@
 .tab-pane.fade#academico-pane(role="tabpanel" aria-labelledby="academico-tab")
+  .d-flex.flex-wrap.justify-content-between.align-items-center.gap-2.mb-3
+    .d-flex.flex-wrap.align-items-center.gap-2
+      h4.mb-0.text-secondary Plan de Estudios
+        +ayuda('Elegí el plan para ver y editar sus materias y correlatividades. Cada materia pertenece a un único plan y no se puede pasar a otro.')
+      select.form-select.form-select-sm.w-auto#selectorPlanMaterias(aria-label="Plan de estudios")
+        option(selected disabled) Cargando planes...
+    .d-flex.gap-2
+      button.btn.btn-outline-secondary.shadow-sm(type="button" onclick="abrirModalPlanes()" data-ayuda="Ver, crear y editar los planes de estudio y sus reglas de regularidad")
+        i.bi.bi-journal-text.me-1
+        | Planes y Reglas
+      button.btn.btn-primary.shadow-sm#btnNuevaMateria(type="button" onclick="abrirModalNuevaMateria()" disabled data-ayuda="Agregar una materia al plan elegido")
+        i.bi.bi-journal-plus.me-1
+        | Nueva Materia
+  #resumenPlan.alert.alert-light.border.small.py-2.mb-3.d-none
   .row
-    // COLUMNA IZQUIERDA: MATERIAS
+    // COLUMNA IZQUIERDA: MATERIAS (agrupadas por año)
     .col-lg-7.mb-4
-      .d-flex.justify-content-between.align-items-center.mb-3
-        h4.mb-0.text-secondary Plan de Estudios
-        button.btn.btn-primary.shadow-sm(data-bs-toggle="modal" data-bs-target="#modalCrearMateria")
-          i.bi.bi-journal-plus.me-1
-          | Nueva Materia
       .card.shadow-sm.border-0
         .card-body.p-0#contenedorMaterias
           .p-5.text-center
@@ -15,16 +24,17 @@
     // COLUMNA DERECHA: CORRELATIVIDADES
     .col-lg-5.mb-4
       h4.mb-3.text-secondary Reglas de Cursada
+        +ayuda('Correlatividades: para CURSAR una materia se pide tener la correlativa Regular o Aprobada, según cada regla. Para RENDIR EL FINAL, todas las correlativas deben tener el final aprobado.')
       .card.shadow-sm.border-0
         .card-header.bg-dark.text-white
           label.form-label.mb-1.small Seleccionar Materia para ver requisitos:
-          select.form-select.form-select-sm#selectorMateriaReglas
+          select.form-select.form-select-sm#selectorMateriaReglas(data-ayuda="Elegí una materia para ver qué correlativas se le piden")
             option(selected disabled) Cargando materias...
         .card-body.p-0#contenedorReglas
           .p-5.text-center.text-muted
             i.bi.bi-diagram-3.fs-1.mb-3.d-block
             h6 Elegí una materia del menú superior
         .card-footer.bg-light.text-end
-          button.btn.btn-sm.btn-info.text-white#btnAbrirModalRegla(data-bs-toggle="modal" data-bs-target="#modalCrearRegla" disabled)
+          button.btn.btn-sm.btn-info.text-white#btnAbrirModalRegla(data-bs-toggle="modal" data-bs-target="#modalCrearRegla" disabled data-ayuda="Agregar una correlativa a la materia elegida")
             i.bi.bi-plus-circle.me-1
             | Agregar Requisito

@@ -1,0 +1,31 @@
+//- Campos de "Situación de ingreso" y "Pase de otro instituto" (puntos 8 y 10). Se usa en el alta y en la edición del alumno.
+//- Los ids llevan el prefijo recibido (crearAlumno / editAlumno). El JS de scripts-alumnos.pug muestra u oculta el bloque del pase.
+mixin camposIngreso(prefijo)
+  h6.mt-2.mb-2.text-secondary Situación de ingreso
+  .row
+    .col-md-6.mb-3
+      label.form-label(for=prefijo + 'TipoIngreso') Tipo de ingreso
+        +ayuda('Con qué situación entra a la carrera. Es un dato informativo: no cambia las reglas de cursada. Si ingresa a 2do o 3er año, o viene por pase, cargale su historial anterior desde la Ficha: ahí las actas viejas se cargan sin que las correlatividades las frenen.')
+      select.form-select(id=prefijo + 'TipoIngreso' name="tipoIngreso")
+        option(value="Inicial" selected) Inicial (empieza en 1er año)
+        option(value="Ingreso a 2do") Ingresa a 2do año
+        option(value="Ingreso a 3ro") Ingresa a 3er año
+    .col-md-6.mb-3.d-flex.align-items-end
+      .form-check.form-switch.mb-2
+        input.form-check-input(type="checkbox" id=prefijo + 'EsPase' name="esPase" role="switch")
+        label.form-check-label(for=prefijo + 'EsPase') Viene por pase de otro instituto
+          +ayuda('Marcalo si el alumno se pasó desde otro instituto. Se guarda de dónde viene y cuándo, solo como dato de su ficha.')
+  .border.rounded.p-3.mb-3.bg-light.d-none(id='grupoPase_' + prefijo)
+    .row
+      .col-md-6.mb-3
+        label.form-label(for=prefijo + 'Instituto') Instituto de origen
+          +ayuda('Obligatorio si viene por pase. Ej: ISFT N° 190.')
+        input.form-control(type="text" id=prefijo + 'Instituto' name="institutoOrigen" maxlength="150" placeholder="Ej: ISFT N° 190")
+      .col-md-6.mb-3
+        label.form-label(for=prefijo + 'FechaPase') Fecha del pase (opcional)
+          +ayuda('Día en que se hizo el pase. No puede ser una fecha futura.')
+        input.form-control(type="date" id=prefijo + 'FechaPase' name="fechaPase")
+    .mb-0
+      label.form-label(for=prefijo + 'ObsPase') Observaciones (opcional)
+        +ayuda('Datos adicionales del pase: equivalencias otorgadas, documentación que falta, etc.')
+      textarea.form-control(id=prefijo + 'ObsPase' name="observacionesPase" rows="2" maxlength="500" placeholder="Ej: Equivalencias otorgadas, documentación pendiente...")

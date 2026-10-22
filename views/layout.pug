@@ -35,17 +35,21 @@ html(lang="es")
             //- Acá está la magia: si le mandamos 'usuario' muestra el nombre, sino dice 'Invitado'
             span.fw-bold.text-uppercase= usuario ? usuario.name : 'INVITADO'
           ul.dropdown-menu.dropdown-menu-end
-            li: a.dropdown-item(href="#" onclick="event.preventDefault(); abrirPerfilModal();") Mi Perfil
+            li: a.dropdown-item(href="#" onclick="event.preventDefault(); abrirPerfilModal();" title="Ver y editar tus datos personales") Mi Perfil
             li: hr.dropdown-divider
-            li: a.dropdown-item.text-danger(href="/logout") Cerrar Sesión
+            li: a.dropdown-item.text-danger(href="/logout" title="Salir del sistema") Cerrar Sesión
     
     // Contenedor principal de vistas
     block contenido
 
     // Scripts de Bootstrap
     script(src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js")
+    //- A la pantalla solo llegan los datos que necesita (nunca los tokens de Google que puede traer el JWT).
+    //- El "<" se escapa para que un nombre como "</script>" no pueda cerrar el bloque de script.
+    - const usuarioPublico = usuario ? { id: usuario.id, name: usuario.name, email: usuario.email, rol: usuario.rol, role: usuario.role, tipoPerfil: usuario.tipoPerfil, area: usuario.area, legajo: usuario.legajo, activo: usuario.activo, fecha_inscripcion: usuario.fecha_inscripcion } : null
+    - const usuarioJson = JSON.stringify(usuarioPublico).replace(/</g, '\\u003c')
     script.
-      const currentUser = !{JSON.stringify(usuario || null)};
+      const currentUser = !{usuarioJson};
 
       function abrirPerfilModal() {
         if (!currentUser) {
@@ -63,15 +67,14 @@ html(lang="es")
             return;
           }
 
-          document.getElementById('editAlumnoId')?.setAttribute('value', currentUser.id || '');
-          document.getElementById('editAlumnoLegajo')?.setAttribute('value', currentUser.legajo || '');
-          document.getElementById('editAlumnoName')?.setAttribute('value', currentUser.name || '');
-          document.getElementById('editAlumnoEmail')?.setAttribute('value', currentUser.email || '');
-          if (document.getElementById('editAlumnoPassword')) document.getElementById('editAlumnoPassword').value = '';
-          document.getElementById('editAlumnoActivo')?.setAttribute('value', currentUser.activo === false ? 'false' : 'true');
-          if (currentUser.fecha_inscripcion) {
-            document.getElementById('editAlumnoFecha')?.setAttribute('value', currentUser.fecha_inscripcion.split('T')[0]);
-          }
+          const poner = (idCampo, valor) => {
+            const campo = document.getElementById(idCampo);
+            if (campo) campo.value = valor;
+          };
+          poner('editAlumnoName', currentUser.name || '');
+          poner('editAlumnoEmail', currentUser.email || '');
+          poner('editAlumnoPassword', '');
+          poner('editAlumnoFecha', currentUser.fecha_inscripcion ? String(currentUser.fecha_inscripcion).split('T')[0] : '');
           const formAlumno = document.getElementById('formEditarAlumno');
           if (formAlumno) formAlumno.dataset.id = currentUser.id || '';
 
@@ -101,32 +104,42 @@ html(lang="es")
         alert('No está disponible un modal de perfil para tu rol.');
       }
 
+      // Avisos de error del perfil: usa los avisos flotantes de la pantalla si están cargados (panel y dashboard) y, si no, un alert
+      function avisarErrorPerfil(mensaje) {
+        if (typeof mostrarAviso === 'function') mostrarAviso(mensaje, 'danger');
+        else alert(mensaje);
+      }
+
       document.addEventListener('DOMContentLoaded', () => {
         const alumnoForm = document.getElementById('formEditarAlumno');
         const alumnoModal = document.getElementById('modalEditarAlumno');
         if (alumnoForm && alumnoModal) {
           alumnoForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const data = Object.fromEntries(new FormData(alumnoForm));
-            if (!data.password) delete data.password;
-            data.activo = data.activo === 'true';
-            const alumnoId = alumnoForm.dataset.id || data.id;
+            // El alumno solo puede cambiar nombre, email y contraseña. DNI, legajo, estado y fecha de inscripción los carga
+            // el personal administrativo (el servidor los ignoraría), así que ni se envían. Una contraseña vacía no se envía:
+            // el sistema conserva la actual.
+            const formulario = new FormData(alumnoForm);
+            const datos = { name: String(formulario.get('name') || '').trim(), email: String(formulario.get('email') || '').trim() };
+            const password = String(formulario.get('password') || '');
+            if (password.trim() !== '') datos.password = password;
+            const alumnoId = alumnoForm.dataset.id || currentUser?.id;
 
             try {
               const response = await fetch(`/updateAlumno/${alumnoId}`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
+                headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+                body: JSON.stringify(datos)
               });
               if (response.ok) {
                 bootstrap.Modal.getInstance(alumnoModal).hide();
                 window.location.reload();
               } else {
-                const err = await response.json();
-                next(new Error(err.message || 'Error al actualizar el alumno.'));
+                const err = await response.json().catch(() => ({}));
+                avisarErrorPerfil(err.error || err.message || 'No se pudo actualizar tu perfil. Intentá de nuevo.');
               }
             } catch (error) {
-              next(error);
+              avisarErrorPerfil('No hay conexión con el servidor. Revisá tu internet e intentá de nuevo.');
             }
           });
         }

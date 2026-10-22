@@ -26,7 +26,7 @@
         // 30% - Lista de mensajes
         .correo-lista.border-end
           .p-2.border-bottom
-            input.form-control.form-control-sm(type="text" placeholder="Buscar...")
+            input.form-control.form-control-sm(type="text" placeholder="Buscar..." data-ayuda="Buscar entre los mensajes de la lista")
           #listaMensajes.lista-mensajes
             .mensaje-item.p-3.border-bottom.no-leido(
               data-filtro="recibidos"
@@ -142,8 +142,10 @@
 
           form#formRedactar.d-flex.flex-column.flex-grow-1(onsubmit="return enviarMensajeFicticio(event)")
             h6.text-muted.mb-3 Redactar mensaje
+              +ayuda('Esta pestaña es una vista previa visual: todavía no está conectada al envío real de correos, así que los mensajes que se ven son de ejemplo.')
             .mb-3
               label.form-label.small.text-muted Para
+                +ayuda('Dirección de correo de quien recibe el mensaje. Podés elegir una de la lista de contactos.')
               input#inputPara.form-control(type="text" list="listaContactos" placeholder="nombre@isft225.edu.ar")
               datalist#listaContactos
                 option(value="ana.gomez@isft225.edu.ar")
@@ -154,16 +156,18 @@
 
             .mb-3
               label.form-label.small.text-muted Asunto
+                +ayuda('Título corto que resume de qué trata el mensaje.')
               input#inputAsunto.form-control(type="text" placeholder="Asunto del mensaje")
 
             .mb-3.flex-grow-1.d-flex.flex-column
               label.form-label.small.text-muted Mensaje
+                +ayuda('Texto del mensaje.')
               textarea#inputCuerpo.form-control.flex-grow-1(placeholder="Escribí tu mensaje...")
 
             .d-flex.justify-content-end.gap-2
-              button.btn.btn-outline-secondary(type="button" onclick="document.getElementById('formRedactar').reset()")
+              button.btn.btn-outline-secondary(type="button" onclick="document.getElementById('formRedactar').reset()" data-ayuda="Borrar lo escrito y empezar de nuevo")
                 | Descartar
-              button.btn.btn-primary(type="submit")
+              button.btn.btn-primary(type="submit" data-ayuda="Enviar el mensaje (por ahora es solo una vista previa)")
                 i.bi.bi-send.me-1
                 | Enviar
 

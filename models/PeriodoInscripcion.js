@@ -29,6 +29,17 @@ const periodoInscripcionSchema = new mongoose.Schema({
     activo: { 
         type: Boolean, 
         default: false 
+    },
+    // 'Cursada' = inscripción a materias. 'Final' = inscripción a mesas de examen final.
+    tipo: {
+        type: String,
+        enum: ['Cursada', 'Final'],
+        default: 'Cursada'
+    },
+    // Fecha de la mesa de examen (solo períodos de tipo 'Final'; informativa)
+    fechaExamen: {
+        type: Date,
+        default: null
     }
 }, {
     timestamps: true

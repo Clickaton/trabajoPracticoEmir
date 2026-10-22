@@ -1,10 +1,14 @@
 import Alumno from '../models/Alumno.js';
 import Cohorte from '../models/Cohorte.js'; // IMPORTANTE: Agregamos el modelo Cohorte para poder limpiarlo
-import Materia from '../models/Materia.js';
 import { actualizarAlumnoEnPlanilla } from '../services/googleSheetsService.js';
-import HistorialAcademico from '../models/HistorialAcademico.js';
 import PeriodoInscripcion from '../models/PeriodoInscripcion.js';
 import { parseLocalDate, parseLocalDateTime } from '../utils/dateUtils.js';
+import { validarDatosIngreso, traeDatosDeIngreso } from '../utils/ingresoAlumno.js';
+import { ROLES_ADMINISTRATIVOS } from '../middlewares/authHybrid.js';
+import { cargarContextoAcademico } from '../services/contextoAcademicoService.js';
+import { evaluarInscripcionCursada } from '../services/reglasAcademicasService.js';
+import { tipoDePeriodo } from '../utils/periodoUtils.js';
+import { contraseniaNueva, normalizarEmail, emailValido, emailEnUso, CAMPOS_SOLO_PERSONAL } from '../services/usuarioService.js';
 
 
 // Helper: quita la contraseña antes de devolver el JSON
@@ -59,7 +63,8 @@ export const getDashboard = async (req, res, next) => {
         const ahora = new Date();
         const periodosActivos = await PeriodoInscripcion.find({ activo: true }).lean();
 
-        const periodoActivo = periodosActivos.find(periodo => {
+        // Solo los períodos de CURSADA habilitan la lista de materias (los de Final son otra pestaña)
+        const periodoActivo = periodosActivos.filter(periodo => tipoDePeriodo(periodo) === 'Cursada').find(periodo => {
             const inicio = parseLocalDateTime(periodo.fechaInicio, periodo.horaInicio);
             const fin = parseLocalDateTime(periodo.fechaFin, periodo.horaFin);
 
@@ -68,24 +73,35 @@ export const getDashboard = async (req, res, next) => {
             return ahora >= inicio && ahora <= fin;
         });
 
-        let todasLasMaterias = [];
+        let materiasDisponibles = [];
 
         if (periodoActivo) {
-            todasLasMaterias = await Materia.find().sort({ anio: 1 }).lean();
+            // Solo las materias del plan de su cohorte (ordenadas por año y nombre) que hoy puede cursar:
+            // se ocultan las aprobadas o promocionadas, las que ya está cursando y las Regulares vigentes
+            // (esas se rinden en la inscripción a finales). Si perdió la regularidad, la materia vuelve a aparecer
+            // para recursarla (con la marca `recursada`, y el intento que sería).
+            const { materias, ctx } = await cargarContextoAcademico(alumno, { ahora });
+            materiasDisponibles = materias
+                .map(materia => ({ materia, evaluacion: evaluarInscripcionCursada(materia.id, ctx) }))
+                .filter(({ evaluacion }) => evaluacion.bloqueo === null)
+                .map(({ materia, evaluacion }) => ({
+                    id: materia.id,
+                    nombre: materia.nombre,
+                    anio: materia.anio,
+                    recursada: evaluacion.recursada,
+                    proximoIntento: evaluacion.proximoIntento
+                }));
         }
-        
-        // Buscamos el historial del alumno
-        const historial = await HistorialAcademico.find({ alumno_id: alumno.id }).lean();
-        
-        // FILTRO CORREGIDO: Solo ocultamos la materia si ya está explícitamente "Aprobada"
-        const materiasDisponibles = todasLasMaterias.filter(mat => {
-            const estaAprobada = historial.some(h => h.materia_id === mat.id && h.estado === 'Aprobada');
-            
-            // Si está aprobada, la filtramos (no se muestra). Si no, la mostramos.
-            return !estaAprobada; 
-        });
 
-        res.render('alumnos/dashboard', { alumno: omitPassword(alumno), materias: materiasDisponibles });
+        // Para mostrar el nombre de la cohorte (y no solo su número) en la pantalla del alumno
+        const cohorte = alumno.cohorte_id ? await Cohorte.findOne({ id: alumno.cohorte_id }).lean() : null;
+
+        res.render('alumnos/dashboard', {
+            alumno: omitPassword(alumno),
+            cohorte,
+            materias: materiasDisponibles,
+            periodoCursada: periodoActivo ? { nombre: periodoActivo.nombre, fechaFin: periodoActivo.fechaFin, horaFin: periodoActivo.horaFin } : null
+        });
     } catch (error) {
         console.error(error);
         next(error);
@@ -94,37 +110,41 @@ export const getDashboard = async (req, res, next) => {
 
 export const createAlumno = async (req, res, next) => {
     try {
-        // NUEVO: Agregamos 'dni' a la desestructuración de los datos que recibimos del formulario
-        const { dni, name, email, password, legajo, activo, fecha_inscripcion, cohorte_id } = req.body;
+        const { dni, password, activo, fecha_inscripcion, cohorte_id } = req.body;
+        const name = typeof req.body.name === 'string' ? req.body.name.trim() : '';
+        const email = normalizarEmail(req.body.email);
+        const legajo = typeof req.body.legajo === 'string' ? req.body.legajo.trim() : req.body.legajo;
 
-        // NUEVO: Sumamos '!dni' a la validación para asegurarnos de que no lo envíen vacío
-        if (!dni || !name || !email || !password || !legajo || activo === undefined || !fecha_inscripcion) {
-            const error = new Error('Faltan datos obligatorios');
-            error.status = 400;
-            return next(error);
+        if (!dni || !name || !email || !contraseniaNueva(password) || !legajo || activo === undefined || !fecha_inscripcion) {
+            return res.status(400).json({ error: 'Faltan datos obligatorios' });
         }
+        if (!emailValido(email)) return res.status(400).json({ error: 'El email no tiene un formato válido' });
+        if (await emailEnUso(email)) return res.status(409).json({ error: 'Ese email ya lo usa otra cuenta' });
+
+        // Datos de ingreso (informativos): con qué situación ingresó y si viene por pase de otro instituto
+        const { datos: ingreso, error: errorIngreso } = validarDatosIngreso(req.body);
+        if (errorIngreso) return res.status(400).json({ error: errorIngreso });
 
         // 1. Verificamos que la cohorte exista ANTES de crear nada
         let cohorteDestino = null;
         if (cohorte_id) {
             cohorteDestino = await Cohorte.findOne({ id: parseInt(cohorte_id) });
             if (!cohorteDestino) {
-                const error = new Error('La cohorte seleccionada no existe en la base de datos');
-                error.status = 400;
-                return next(error);
+                return res.status(400).json({ error: 'La cohorte seleccionada no existe en la base de datos' });
             }
         }
 
         // 2. Creamos al alumno
         const nuevoAlumno = await Alumno.create({
-            dni, // NUEVO: Guardamos el DNI en la base de datos
+            dni,
             name,
             email,
             password,
             legajo,
             activo,
             fecha_inscripcion: parseLocalDate(fecha_inscripcion),
-            cohorte_id: cohorteDestino ? cohorteDestino.id : null // Asignamos el ID de cohorte
+            cohorte_id: cohorteDestino ? cohorteDestino.id : null, // Asignamos el ID de cohorte
+            ...ingreso // tipoIngreso y pase (si no vienen, rigen los valores por defecto: Inicial y sin pase)
         });
 
         // 3. Si venía con cohorte, lo metemos en el array de esa cohorte automáticamente
@@ -136,72 +156,92 @@ export const createAlumno = async (req, res, next) => {
         res.status(201).json({ message: 'Alumno creado exitosamente', data: omitPassword(nuevoAlumno) });
     } catch (error) {
         if (error.code === 11000) {
-            const error = new Error('El DNI o el Legajo ya existen en la base de datos');
-            error.status = 400;
-            return next(error);
+            return res.status(409).json({ error: 'El DNI o el Legajo ya existen en la base de datos' });
         }
         next(error);
     }
 };
 
+// Edición de un alumno. Lo usan dos tipos de personas, con permisos distintos:
+//  - el propio alumno (desde "Mi Perfil"): solo nombre, email y contraseña. DNI, legajo, estado activo y fecha de
+//    inscripción son datos institucionales: si llegan en el pedido se ignoran (y se avisa en `camposIgnorados`).
+//  - el personal administrativo: todos los campos, además del tipo de ingreso y el pase.
+// En ambos casos, una contraseña vacía conserva la actual.
 export const updateAlumno = async (req, res, next) => {
     try {
         const { id } = req.params;
-        // NUEVO: Extraemos el dni del body en caso de que lo estén editando
-        const { dni, name, email, password, legajo, activo, fecha_inscripcion } = req.body;
+        const { dni, password, legajo, activo, fecha_inscripcion } = req.body;
+        const esPersonal = ROLES_ADMINISTRATIVOS.includes(String(req.user?.rol ?? req.user?.role ?? '').trim());
 
         const datosAActualizar = {};
-        if (dni) datosAActualizar.dni = dni; // NUEVO: Agregamos el DNI al objeto de actualización si fue enviado
+
+        // --- Datos de la cuenta (los puede cambiar el propio alumno) ---
+        const name = typeof req.body.name === 'string' ? req.body.name.trim() : '';
         if (name) datosAActualizar.name = name;
-        if (email) datosAActualizar.email = email;
-        if (password) datosAActualizar.password = password; 
-        if (legajo) datosAActualizar.legajo = legajo;
-        if (activo !== undefined) datosAActualizar.activo = activo;
-        if (fecha_inscripcion) datosAActualizar.fecha_inscripcion = parseLocalDate(fecha_inscripcion);
+
+        const email = normalizarEmail(req.body.email);
+        if (email) {
+            if (!emailValido(email)) return res.status(400).json({ error: 'El email no tiene un formato válido' });
+            if (await emailEnUso(email, id)) return res.status(409).json({ error: 'Ese email ya lo usa otra cuenta' });
+            datosAActualizar.email = email;
+        }
+
+        const passwordNueva = contraseniaNueva(password);
+        if (passwordNueva) datosAActualizar.password = passwordNueva;
+
+        // --- Datos institucionales (solo el personal administrativo) ---
+        const camposIgnorados = [];
+        if (esPersonal) {
+            if (dni) datosAActualizar.dni = dni;
+            if (legajo) datosAActualizar.legajo = legajo;
+            if (activo !== undefined) datosAActualizar.activo = activo;
+            if (fecha_inscripcion) datosAActualizar.fecha_inscripcion = parseLocalDate(fecha_inscripcion);
+        } else {
+            camposIgnorados.push(...CAMPOS_SOLO_PERSONAL.filter((campo) => req.body[campo] !== undefined));
+        }
+
+        // Tipo de ingreso y pase: los carga el personal administrativo (un alumno no puede cambiar cómo ingresó)
+        if (traeDatosDeIngreso(req.body)) {
+            if (!esPersonal) {
+                return res.status(403).json({ error: 'Solo el personal administrativo puede modificar el tipo de ingreso o el pase' });
+            }
+
+            const actual = await Alumno.findOne({ id: parseInt(id) }).lean();
+            if (!actual) return res.status(404).json({ error: 'Alumno no encontrado' });
+
+            const { datos: ingreso, error: errorIngreso } = validarDatosIngreso(req.body, { actual });
+            if (errorIngreso) return res.status(400).json({ error: errorIngreso });
+            Object.assign(datosAActualizar, ingreso);
+        }
 
         const alumnoActualizado = await Alumno.findOneAndUpdate(
-            { id: parseInt(id) }, 
-            datosAActualizar, 
-            { new: true } 
+            { id: parseInt(id) },
+            datosAActualizar,
+            { new: true }
         );
 
         if (!alumnoActualizado) {
-            const error = new Error('Alumno no encontrado');
-            error.status = 400;
-            return next(error);
+            return res.status(404).json({ error: 'Alumno no encontrado' });
         }
 
-        //NUEVO: Empujar cambios a Google Sheets con mensajes de diagnóstico para la consola
-        console.log("Intentando sincronizar con Sheets...");
-        console.log("Cohorte ID:", alumnoActualizado.cohorte_id);
-        console.log("Tokens de Google presentes?:", req.user?.googleTokens ? "Sí" : "NO");
-
-        if (alumnoActualizado.cohorte_id) {
-            if (req.user && req.user.googleTokens) {
+        // Empujar los cambios a la planilla de Google Sheets de la cohorte (solo si quien edita tiene Google vinculado)
+        if (alumnoActualizado.cohorte_id && req.user?.googleTokens) {
+            try {
                 const cohorte = await Cohorte.findOne({ id: alumnoActualizado.cohorte_id });
-                
-                if (cohorte && cohorte.spreadsheetId) {
-                    try {
-                        await actualizarAlumnoEnPlanilla(cohorte.spreadsheetId, req.user.googleTokens, alumnoActualizado);
-                        console.log("¡Éxito! Sheets actualizado.");
-                    } catch (errorSheets) {
-                        console.error("Aviso: No se pudo actualizar Google Sheets:", errorSheets.message);
-                    }
-                } else {
-                    console.log("La cohorte no tiene un Excel vinculado todavía.");
+                if (cohorte?.spreadsheetId) {
+                    await actualizarAlumnoEnPlanilla(cohorte.spreadsheetId, req.user.googleTokens, alumnoActualizado);
                 }
-            } else {
-                console.log("ERROR: Faltan los tokens de Google en esta ruta para poder escribir en Sheets.");
+            } catch (errorSheets) {
+                console.error('Aviso: no se pudo actualizar Google Sheets:', errorSheets.message);
             }
         }
 
-        res.json({ message: "Alumno actualizado", data: omitPassword(alumnoActualizado) });
+        const respuesta = { message: 'Alumno actualizado', data: omitPassword(alumnoActualizado) };
+        if (camposIgnorados.length > 0) respuesta.camposIgnorados = camposIgnorados;
+        res.json(respuesta);
     } catch (error) {
-        // NUEVO: Sumamos la captura del error 11000 por si en la edición intentan poner un DNI que ya usa otro
         if (error.code === 11000) {
-            const error = new Error('El DNI o el Legajo ya existen en la base de datos');
-            error.status = 400;
-            return next(error);
+            return res.status(409).json({ error: 'El DNI o el Legajo ya existen en la base de datos' });
         }
         next(error);
     }
