@@ -71,7 +71,6 @@ const crearDefaultAdminUser = async () => {
         console.error('Error asegurando el usuario administrador por defecto:', error);
     }
 };
-
 // Conexión a MongoDB Atlas
 mongoose.connect(process.env.MONGO_URI)
   .then(async () => {
@@ -91,6 +90,8 @@ app.set('views', path.join(__dirname, 'views'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+
+app.use(express.static(path.join(__dirname, 'public')));
 
 // La entrada principal del sistema lleva al formulario de autenticación.
 // (Antes esta ruta se registraba dentro del middleware: se volvía a agregar en cada pedido.)
