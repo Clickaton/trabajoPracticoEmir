@@ -1,5 +1,4 @@
 import { parseLocalDateTime } from '../utils/dateUtils.js';
-import dotenv from "dotenv";
 import fs from "fs/promises";
 import { fileURLToPath } from "url";
 import { GoogleGenerativeAI } from "@google/generative-ai";
@@ -10,8 +9,6 @@ import { cargarContextoAcademico } from "./contextoAcademicoService.js";
 import { estadoAcademicoDelAlumno } from "./reglasAcademicasService.js";
 import { tipoDePeriodo, periodoVigente as estaVigente } from "../utils/periodoUtils.js";
 import { crearRespaldo } from "./respaldoIA.js";
-
-dotenv.config();
 
 const baseUrl = (process.env.KOBOLDCPP_BASE_URL || "http://127.0.0.1:5001/v1").replace(/\/$/, "");
 const apiKey = process.env.KOBOLDCPP_API_KEY || "local-koboldcpp";

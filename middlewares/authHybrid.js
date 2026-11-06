@@ -1,6 +1,14 @@
 import jwt from 'jsonwebtoken';
 
 /**
+ * El ROL de una persona: un único campo, `rol`. El personal lo trae de la base (Administrativo, Direccion, Secretario,
+ * Profesor, Bibliotecario). Los alumnos NO tienen campo `rol` en la base: su perfil es `tipoPerfil: 'Alumno'` y se usa
+ * ese valor. Los guardias y los dos logins (contraseña y Google) llaman a esta función, así que "qué rol tiene esta
+ * persona" se responde en un solo lugar.
+ */
+export const rolDeSesion = (usuario = {}) => usuario?.rol || usuario?.tipoPerfil || undefined;
+
+/**
  * Middleware JWT: Valida JWT desde Authorization header o cookie
  * Requerido para acceso autenticado
  */
@@ -26,7 +34,7 @@ export const requireLogin = (req, res, next) => {
  * Middleware JWT con validación de rol
  * Valida que el usuario tenga el rol (o uno de los roles) requerido
  */
-export const requireRole = (role) => {
+export const requireRole = (rolesPermitidos) => {
     return (req, res, next) => {
         const token = extractToken(req);
         
@@ -40,13 +48,13 @@ export const requireRole = (role) => {
             }
             
             const user = decoded;
-            const userRole = (user.rol || user.role || '').toString();
+            const rolDeLaPersona = String(rolDeSesion(user) ?? '');
 
-            // 1. Normalizamos: si "role" es un string, lo convertimos a array. Si ya es array, lo dejamos igual.
-            const allowedRoles = Array.isArray(role) ? role : [role];
+            // 1. Normalizamos: si nos pasaron un solo rol (texto) lo convertimos en lista. Si ya es una lista, la dejamos igual.
+            const permitidos = Array.isArray(rolesPermitidos) ? rolesPermitidos : [rolesPermitidos];
 
-            // 2. Verificamos si el rol del usuario está incluido en los permitidos
-            if (allowedRoles.includes(userRole)) {
+            // 2. Verificamos si el rol de la persona está entre los permitidos
+            if (permitidos.includes(rolDeLaPersona)) {
                 req.user = user;
                 return next();
             }
@@ -95,7 +103,7 @@ export const ROLES_ADMINISTRATIVOS = Object.freeze(['Administrativo', 'Direccion
  *   Profesor, Bibliotecario u otro rol      -> null: consultan datos por API, pero no tienen una pantalla propia
  */
 export const rutaInicio = (user = {}) => {
-    const rol = String(user?.rol ?? user?.role ?? '').trim();
+    const rol = String(rolDeSesion(user) ?? '').trim();
     if (user?.tipoPerfil === 'Alumno' || rol === 'Alumno') return '/dashboard';
     if (ROLES_ADMINISTRATIVOS.includes(rol)) return '/api/administrativos';
     return null;
@@ -103,7 +111,7 @@ export const rutaInicio = (user = {}) => {
 
 /** Página (403) que explica por qué no hay pantalla para este rol. Se muestra en lugar de redirigir en círculos. */
 export const renderSinAcceso = (res, user = {}) => {
-    const rol = String(user?.rol ?? user?.role ?? '').trim();
+    const rol = String(rolDeSesion(user) ?? '').trim();
     return res.status(403).render('error', {
         statusCode: 403,
         title: 'Sin pantallas habilitadas',
@@ -129,7 +137,7 @@ const responderSinPermiso = (req, res, user) => {
  * que es lo que espera un fetch() del navegador.
  */
 export const requireAdminApi = (req, res, next) => {
-    const rol = String(req.user?.rol ?? req.user?.role ?? '').trim();
+    const rol = String(rolDeSesion(req.user) ?? '').trim();
     if (ROLES_ADMINISTRATIVOS.includes(rol)) return next();
     return res.status(403).json({ error: "Acceso denegado. Se requiere un rol administrativo." });
 };
@@ -165,11 +173,11 @@ function extractToken(req) {
     * Función para verificar si el usuario tiene rol de Administrador
  */
 export const isAdminRole = (user = {}) => {
-  const role = String(user?.rol ?? user?.role ?? user?.tipoPerfil ?? '')
+  const rol = String(rolDeSesion(user) ?? '')
     .trim()
     .toLowerCase();
 
-  return ['administrativo', 'direccion', 'secretario', 'profesor'].includes(role);
+  return ['administrativo', 'direccion', 'secretario', 'profesor'].includes(rol);
 };
 
 

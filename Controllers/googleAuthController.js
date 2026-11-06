@@ -1,7 +1,7 @@
 import { google } from 'googleapis';
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
-import { rutaInicio, renderSinAcceso } from '../middlewares/authHybrid.js';
+import { rutaInicio, renderSinAcceso, rolDeSesion } from '../middlewares/authHybrid.js';
 
 // Configuración del cliente oficial de Google
 export const oauth2Client = new google.auth.OAuth2(
@@ -58,12 +58,12 @@ export const googleAuthCallback = async (req, res) => {
         }
 
         // Si pasó las validaciones, armamos el JWT con los datos del usuario de la colección unificada
+        // rolDeSesion: el alumno no tiene campo `rol` en la base (solo tipoPerfil), así que se completa con ese valor
         const payload = {
             id: usuario.id,
             name: usuario.name,
             email: usuario.email,
-            rol: usuario.rol || usuario.role,
-            role: usuario.rol || usuario.role,
+            rol: rolDeSesion(usuario),
             tipoPerfil: usuario.tipoPerfil,
             area: usuario.area,
             googleTokens: tokens 
@@ -79,8 +79,8 @@ export const googleAuthCallback = async (req, res) => {
         });
 
         // Misma regla que el login con contraseña (rutaInicio): cada perfil a su pantalla, y explicación si no tiene
-        const destino = rutaInicio(usuario);
-        if (!destino) return renderSinAcceso(res, usuario);
+        const destino = rutaInicio(payload);
+        if (!destino) return renderSinAcceso(res, payload);
         return res.redirect(destino);
 
     } catch (error) {

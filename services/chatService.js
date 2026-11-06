@@ -53,7 +53,7 @@ export const configurarChat = (io, { consultarIA }) => {
             if (socket.data.respondiendo) return responder(socket, AVISOS.respondiendo);
 
             const pantalla = typeof datos?.contexto === 'string' ? datos.contexto.slice(0, 80) : 'sistema general';
-            const rol = usuario?.rol || usuario?.role || usuario?.tipoPerfil || '';
+            const rol = usuario?.rol || usuario?.tipoPerfil || '';
             const historial = chatsActivos[socket.id];
 
             socket.data.respondiendo = true;

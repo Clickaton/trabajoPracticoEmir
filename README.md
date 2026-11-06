@@ -14,7 +14,7 @@ Tiene dos pantallas principales: el **panel administrativo** (cinco pestañas: A
 | **Contraseña** | `admin123` |
 | **Rol** | Administrativo: acceso completo al panel |
 
-Este usuario se crea solo la primera vez que arranca el servidor, si todavía no existe (función `crearDefaultAdminUser` en `index.js`). Con él se puede probar todo el sistema: crear planes de estudio, materias, correlatividades y cohortes, dar de alta alumnos, abrir períodos de inscripción y cargar resultados de finales con libro y folio.
+Este usuario se crea solo la primera vez que arranca el servidor, si todavía no existe (función `asegurarAdministradorPorDefecto` en `services/adminPorDefectoService.js`). Con él se puede probar todo el sistema: crear planes de estudio, materias, correlatividades y cohortes, dar de alta alumnos, abrir períodos de inscripción y cargar resultados de finales con libro y folio.
 
 Para ver la pantalla del alumno, creá un alumno desde la pestaña **Cohortes y Alumnos** del panel e ingresá con el email y la contraseña que le hayas puesto.
 
@@ -76,7 +76,6 @@ Después de cambiar el código o el `.env`, reiniciá el servidor (`Ctrl+C` y `n
 | `node scripts/migrate-v2.js` | Simulación: informa qué cambiaría la migración a planes de estudio, finales y reglas de regularidad, sin escribir nada |
 | `node scripts/migrate-v2.js --apply` | Aplica la migración (es idempotente) y antes guarda un respaldo en `backups/` |
 | `node scripts/migrate-passwords.js` | Encripta con bcrypt las contraseñas que hubieran quedado en texto plano |
-| `node scripts/normalizeRoles.js` | Normaliza el campo de rol de los usuarios existentes |
 
 ---
 
@@ -120,17 +119,26 @@ Los permisos se controlan en `middlewares/authHybrid.js`.
 ## Estructura del proyecto
 
 ```
-├── index.js                  Servidor: sesión, rutas, chat y manejo de errores
+├── index.js                  Punto de entrada: valida el entorno, conecta la base, crea al admin y arranca el servidor
+├── server.js                 Servidor HTTP + chat en tiempo real (Socket.io) sobre la aplicación
+├── app.js                    Aplicación Express: motor de vistas, middlewares, rutas y errores (sin red ni base de datos)
+├── config/
+│   ├── entorno.js            Carga del .env, puerto, carpetas y validación de variables obligatorias
+│   └── baseDeDatos.js        Conexión a MongoDB
 ├── Controllers/              Lógica de cada pantalla y recurso
 ├── models/                   Esquemas de Mongoose (User, Alumno, Administrativo, PlanEstudio, Materia, Cohorte, ...)
-├── routes/                   Rutas de Express
+├── routes/
+│   ├── index.js              Tabla de rutas: qué router atiende cada prefijo (el orden importa)
+│   └── *.routes.js           Un router por recurso (user, alumno, cohorte, materia, sheets, planes, constancias, ...)
 ├── middlewares/
+│   ├── identificarUsuario.js Lee la cookie de sesión y deja el usuario disponible en cada pedido
 │   ├── authHybrid.js         Sesión y permisos por rol
 │   └── errorHandler.js       404 y errores (JSON o página, según quién pide)
 ├── services/
 │   ├── reglasAcademicasService.js     Reglas de cursada, regularidad, finales y semáforo
 │   ├── contextoAcademicoService.js    Datos académicos de un alumno para aplicar las reglas
 │   ├── usuarioService.js              Email único y contraseñas
+│   ├── adminPorDefectoService.js      Crea el administrador inicial si todavía no existe
 │   ├── chatService.js                 Chat en tiempo real con el asistente
 │   ├── geminiService.js               Consulta al modelo de lenguaje
 │   ├── respaldoIA.js                  Prueba KoboldCpp y, si falla, Gemini (con pausa para el que falló y causa de cada fallo)

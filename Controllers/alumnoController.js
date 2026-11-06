@@ -4,7 +4,7 @@ import { actualizarAlumnoEnPlanilla } from '../services/googleSheetsService.js';
 import PeriodoInscripcion from '../models/PeriodoInscripcion.js';
 import { parseLocalDate, parseLocalDateTime } from '../utils/dateUtils.js';
 import { validarDatosIngreso, traeDatosDeIngreso } from '../utils/ingresoAlumno.js';
-import { ROLES_ADMINISTRATIVOS } from '../middlewares/authHybrid.js';
+import { ROLES_ADMINISTRATIVOS, rolDeSesion } from '../middlewares/authHybrid.js';
 import { cargarContextoAcademico } from '../services/contextoAcademicoService.js';
 import { evaluarInscripcionCursada } from '../services/reglasAcademicasService.js';
 import { tipoDePeriodo } from '../utils/periodoUtils.js';
@@ -171,7 +171,7 @@ export const updateAlumno = async (req, res, next) => {
     try {
         const { id } = req.params;
         const { dni, password, legajo, activo, fecha_inscripcion } = req.body;
-        const esPersonal = ROLES_ADMINISTRATIVOS.includes(String(req.user?.rol ?? req.user?.role ?? '').trim());
+        const esPersonal = ROLES_ADMINISTRATIVOS.includes(String(rolDeSesion(req.user) ?? '').trim());
 
         const datosAActualizar = {};
 

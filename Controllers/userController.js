@@ -1,7 +1,7 @@
 import User from '../models/User.js';
 import jwt from 'jsonwebtoken';
 import { contraseniaNueva, normalizarEmail, emailValido, emailEnUso } from '../services/usuarioService.js';
-import { rutaInicio, renderSinAcceso } from '../middlewares/authHybrid.js';
+import { rutaInicio, renderSinAcceso, rolDeSesion } from '../middlewares/authHybrid.js';
 
 // Logeo del usuario
 
@@ -20,21 +20,12 @@ export const userLogin = async (req, res) => {
         }
 
 
-
-        if (usuario.rol === undefined)  {
-            usuario.rol = usuario.tipoPerfil;    
-        }
-        if (usuario.role === undefined) {
-            usuario.role = usuario.rol || usuario.role || usuario.tipoPerfil || 'Desconocido';
-        }
-
-        // Crear payload con datos del usuario
+        // Crear payload con datos del usuario. El rol sale de rolDeSesion: el alumno no tiene campo `rol` (solo tipoPerfil)
         const payload = {
             id: usuario.id,
             name: usuario.name,
             email: usuario.email,
-            rol: usuario.rol,
-            role: usuario.role,
+            rol: rolDeSesion(usuario),
             tipoPerfil: usuario.tipoPerfil,
             area: usuario.area,
             legajo: usuario.legajo,
@@ -54,8 +45,8 @@ export const userLogin = async (req, res) => {
         });
         
         // Cada perfil entra por su pantalla; si su rol no tiene ninguna (Profesor, Bibliotecario) se le explica
-        const destino = rutaInicio(usuario);
-        if (!destino) return renderSinAcceso(res, usuario);
+        const destino = rutaInicio(payload);
+        if (!destino) return renderSinAcceso(res, payload);
         return res.redirect(destino);
 
     } catch (error) {
