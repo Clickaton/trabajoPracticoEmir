@@ -17,10 +17,12 @@ export const conDefectos = (plan) => (plan ? {
 
 // El plan de un alumno es el de su cohorte. Sin cohorte (o con una cohorte sin plan) devuelve null.
 export const obtenerPlanDeAlumno = async (alumno) => {
-    if (!alumno?.cohorte_id) return null;
+    // Los ids son numéricos y el 0 es un id válido, así que se comprueba contra null/undefined y NO con `!id`
+    // (un `!cohorte_id` daría verdadero para la cohorte 0 y el sistema creería, por error, que el alumno no tiene cohorte).
+    if (alumno?.cohorte_id == null) return null;
 
     const cohorte = await Cohorte.findOne({ id: alumno.cohorte_id }).lean();
-    if (!cohorte?.plan_id) return null;
+    if (cohorte?.plan_id == null) return null;
 
     return PlanEstudio.findOne({ id: cohorte.plan_id }).lean();
 };

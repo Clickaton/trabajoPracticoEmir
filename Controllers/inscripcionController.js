@@ -123,7 +123,8 @@ export const createInscripcion = async (req, res) => {
         // 2. Verificar que el alumno exista y tenga un plan de estudios (el de su cohorte)
         const alumno = await Alumno.findOne({ id: parseInt(alumno_id) }).lean();
         if (!alumno) return res.status(404).json({ error: "Alumno no encontrado" });
-        if (!alumno.cohorte_id) return res.status(400).json({ error: "El alumno no tiene una cohorte asignada" });
+        // El id 0 es una cohorte válida: se compara contra null, no con `!cohorte_id` (que daría "sin cohorte" para la 0)
+        if (alumno.cohorte_id == null) return res.status(400).json({ error: "El alumno no tiene una cohorte asignada" });
 
         // Traemos plan, historial, correlatividades y finales UNA sola vez para no colapsar la BBDD
         const { plan, materias, ctx } = await cargarContextoAcademico(alumno, { ahora });

@@ -177,7 +177,8 @@ export const createInscripcionFinal = async (req, res) => {
         // 2. Alumno y plan
         const alumno = await Alumno.findOne({ id: parseInt(alumno_id) }).lean();
         if (!alumno) return res.status(404).json({ error: "Alumno no encontrado" });
-        if (!alumno.cohorte_id) return res.status(400).json({ error: "El alumno no tiene una cohorte asignada" });
+        // El id 0 es una cohorte válida: se compara contra null, no con `!cohorte_id` (que daría "sin cohorte" para la 0)
+        if (alumno.cohorte_id == null) return res.status(400).json({ error: "El alumno no tiene una cohorte asignada" });
 
         const { plan, materias, ctx, intentosFinal } = await cargarContextoAcademico(alumno, { ahora });
         if (!plan) return res.status(400).json({ error: "La cohorte del alumno no tiene un plan de estudios asignado" });

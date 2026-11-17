@@ -106,7 +106,7 @@ export const getHistorial = async (req, res) => {
         const cohortePorId = new Map(cohortes.map(c => [c.id, c]));
 
         const historialAgrupado = alumnos.map(alumno => {
-            const cohorte = alumno.cohorte_id ? cohortePorId.get(alumno.cohorte_id) : null;
+            const cohorte = alumno.cohorte_id != null ? cohortePorId.get(alumno.cohorte_id) : null;
 
             const registros = ordenarFilas(
                 lista
@@ -145,7 +145,7 @@ export const getHistorialByAlumno = async (req, res) => {
         }
 
         const alumno = await Alumno.findOne({ id: alumnoId }).lean();
-        const cohorte = alumno?.cohorte_id ? await Cohorte.findOne({ id: alumno.cohorte_id }).lean() : null;
+        const cohorte = alumno?.cohorte_id != null ? await Cohorte.findOne({ id: alumno.cohorte_id }).lean() : null;
         const materias = await Materia.find({ id: { $in: [...new Set(registros.map(r => r.materia_id))] } }).lean();
         const materiaPorId = new Map(materias.map(m => [m.id, m]));
         const contexto = alumno ? (await cargarContextoAcademico(alumno)).ctx : null;

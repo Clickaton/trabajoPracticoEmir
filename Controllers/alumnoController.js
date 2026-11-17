@@ -94,7 +94,7 @@ export const getDashboard = async (req, res, next) => {
         }
 
         // Para mostrar el nombre de la cohorte (y no solo su número) en la pantalla del alumno
-        const cohorte = alumno.cohorte_id ? await Cohorte.findOne({ id: alumno.cohorte_id }).lean() : null;
+        const cohorte = alumno.cohorte_id != null ? await Cohorte.findOne({ id: alumno.cohorte_id }).lean() : null;
 
         res.render('alumnos/dashboard', {
             alumno: omitPassword(alumno),
@@ -225,7 +225,7 @@ export const updateAlumno = async (req, res, next) => {
         }
 
         // Empujar los cambios a la planilla de Google Sheets de la cohorte (solo si quien edita tiene Google vinculado)
-        if (alumnoActualizado.cohorte_id && req.user?.googleTokens) {
+        if (alumnoActualizado.cohorte_id != null && req.user?.googleTokens) {
             try {
                 const cohorte = await Cohorte.findOne({ id: alumnoActualizado.cohorte_id });
                 if (cohorte?.spreadsheetId) {

@@ -155,7 +155,7 @@ export const addUserToCohorte = async (req, res) => {
         }
 
         // Pasar a un alumno con historial a una cohorte de OTRO plan mezclaría materias de dos planes
-        if (alumno.cohorte_id && alumno.cohorte_id !== cohorte.id) {
+        if (alumno.cohorte_id != null && alumno.cohorte_id !== cohorte.id) {
             const anterior = await Cohorte.findOne({ id: alumno.cohorte_id }).lean();
             const planAnterior = anterior?.plan_id ?? null;
             if (planAnterior !== null && planAnterior !== (cohorte.plan_id ?? null)
