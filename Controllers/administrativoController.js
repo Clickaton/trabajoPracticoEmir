@@ -59,9 +59,10 @@ const createAdministrativo = async (req, res, next) => {
 
         res.redirect('/api/administrativos');
     } catch (error) {
-        console.log("Error al crear:", error);
         if (error.code === 11000) {
-            console.log("El ID de administrativo ya existe");
+            console.error("El ID de administrativo ya existe");
+        } else {
+            console.error("Error al crear el administrativo:", error);
         }
         next(error);
     }

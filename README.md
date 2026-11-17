@@ -166,8 +166,6 @@ Los permisos se controlan en `middlewares/authHybrid.js`.
 | POST | `/login` | Iniciar sesión con email y contraseña |
 | GET | `/auth/google`, `/auth/google/callback` | Iniciar sesión con Google |
 | GET | `/dashboard` | Dashboard del alumno |
-| GET | `/getUsers`, `/getUserById/:id` | Listar usuarios / ver uno |
-| POST | `/createUser`, `/updateUser/:id`, `/deleteUser/:id` | Alta, edición y baja de usuarios (solo personal administrativo) |
 
 ### Alumnos y cohortes
 
